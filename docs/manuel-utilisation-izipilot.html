@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>IziPilot — Manuel d'utilisation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --teal: #008081;
+    --teal-dk: #005f60;
+    --teal-lt: #e6f7f7;
+    --dark: #1c3a4a;
+    --dark-md: #2e3e4b;
+    --red: #e23c4a;
+    --gold: #f4a900;
+    --green: #1d9e75;
+    --gray: #5f6e7a;
+    --gray-lt: #f2f6f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--dark);
+    font-size: 11pt;
+    line-height: 1.6;
+    background: white;
+  }
+
+  @page {
+    size: A4;
+    margin: 20mm 18mm 25mm 18mm;
+    @bottom-center { content: counter(page); font-size: 9pt; color: #999; }
+  }
+
+  .page-break { page-break-before: always; }
+
+  /* Cover page */
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    page-break-after: always;
+  }
+  .cover-logo {
+    width: 80px; height: 80px;
+    background: var(--teal);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-family: 'DM Serif Display'; font-size: 32px;
+    margin-bottom: 24px;
+  }
+  .cover h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36pt;
+    color: var(--teal);
+    margin-bottom: 8px;
+  }
+  .cover .tagline {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 14pt;
+    color: var(--gray);
+    margin-bottom: 40px;
+  }
+  .cover .doc-title {
+    font-size: 18pt;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 8px;
+  }
+  .cover .doc-meta {
+    font-size: 10pt;
+    color: var(--gray);
+    line-height: 1.8;
+  }
+  .cover .doc-footer {
+    position: absolute;
+    bottom: 40px;
+    font-size: 9pt;
+    color: #999;
+  }
+
+  /* Table of contents */
+  .toc { page-break-after: always; }
+  .toc h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20pt;
+    color: var(--teal);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--teal);
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dotted #ddd;
+    font-size: 11pt;
+  }
+  .toc-item.level-1 { font-weight: 600; padding-top: 12px; }
+  .toc-item.level-2 { padding-left: 20px; color: var(--dark-md); }
+
+  /* Section headers */
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18pt;
+    color: var(--teal);
+    margin: 30px 0 12px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--teal-lt);
+  }
+  h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: var(--dark);
+    margin: 20px 0 8px 0;
+  }
+  h4 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--teal-dk);
+    margin: 14px 0 6px 0;
+  }
+
+  p { margin-bottom: 8px; }
+
+  /* Info boxes */
+  .info-box {
+    background: var(--teal-lt);
+    border-left: 4px solid var(--teal);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 10pt;
+  }
+  .warn-box {
+    background: #fffbe6;
+    border-left: 4px solid var(--gold);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 10pt;
+  }
+  .danger-box {
+    background: #fceaea;
+    border-left: 4px solid var(--red);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 10pt;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 10pt;
+  }
+  th {
+    background: var(--dark);
+    color: white;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 500;
+  }
+  td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  tr:nth-child(even) { background: var(--gray-lt); }
+
+  /* Status badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9pt;
+    font-weight: 600;
+  }
+  .badge-green { background: #e1f5ee; color: var(--green); }
+  .badge-gold { background: #fffbe6; color: #7a5500; }
+  .badge-red { background: #fceaea; color: var(--red); }
+  .badge-gray { background: var(--gray-lt); color: var(--gray); }
+  .badge-teal { background: var(--teal-lt); color: var(--teal); }
+
+  /* Steps */
+  .steps { counter-reset: step; margin: 12px 0; }
+  .step {
+    position: relative;
+    padding: 8px 0 8px 40px;
+    margin-bottom: 4px;
+  }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0; top: 8px;
+    width: 26px; height: 26px;
+    background: var(--teal);
+    color: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10pt; font-weight: 600;
+  }
+
+  /* Code/mono */
+  code {
+    font-family: 'DM Mono', monospace;
+    background: var(--gray-lt);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9.5pt;
+  }
+
+  /* Lists */
+  ul, ol { margin: 8px 0 8px 20px; }
+  li { margin-bottom: 4px; }
+
+  .role-icon {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 8pt;
+    line-height: 18px;
+    color: white;
+    font-weight: 700;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .screenshot-placeholder {
+    background: var(--gray-lt);
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    color: var(--gray);
+    font-size: 10pt;
+    margin: 12px 0;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 12px 0;
+  }
+  .col-box {
+    background: var(--gray-lt);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .col-box h4 { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- COVER PAGE -->
+<!-- ============================================================ -->
+<div class="cover">
+  <div class="cover-logo">iP</div>
+  <h1>IziPilot</h1>
+  <div class="tagline">L'execution au rythme de vos ambitions</div>
+  <div class="doc-title">Manuel d'utilisation</div>
+  <div class="doc-meta">
+    Version 1.0 — Avril 2026<br>
+    IziChange S.A. — Cotonou, Benin<br>
+    <br>
+    <strong>URL :</strong> https://izipilote.com
+  </div>
+  <div class="doc-footer">IziChange S.A. — Confidentiel ��� Usage interne</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ============================================================ -->
+<div class="toc">
+  <h2>Table des matieres</h2>
+
+  <div class="toc-item level-1"><span>1. Presentation d'IziPilot</span></div>
+  <div class="toc-item level-2"><span>1.1 Qu'est-ce qu'IziPilot ?</span></div>
+  <div class="toc-item level-2"><span>1.2 Les roles utilisateurs</span></div>
+  <div class="toc-item level-2"><span>1.3 Le vocabulaire OKR</span></div>
+
+  <div class="toc-item level-1"><span>2. Prise en main</span></div>
+  <div class="toc-item level-2"><span>2.1 Connexion</span></div>
+  <div class="toc-item level-2"><span>2.2 L'interface principale</span></div>
+  <div class="toc-item level-2"><span>2.3 La barre laterale</span></div>
+
+  <div class="toc-item level-1"><span>3. Tableau de bord</span></div>
+  <div class="toc-item level-2"><span>3.1 Les indicateurs cles (KPI)</span></div>
+  <div class="toc-item level-2"><span>3.2 Scores OKR par produit</span></div>
+  <div class="toc-item level-2"><span>3.3 Alertes actives</span></div>
+
+  <div class="toc-item level-1"><span>4. Revue hebdomadaire (PO)</span></div>
+  <div class="toc-item level-2"><span>4.1 Le cycle du lundi</span></div>
+  <div class="toc-item level-2"><span>4.2 Saisir sa revue</span></div>
+  <div class="toc-item level-2"><span>4.3 Creer des actions</span></div>
+  <div class="toc-item level-2"><span>4.4 Sauvegarde automatique</span></div>
+
+  <div class="toc-item level-1"><span>5. Synthese Management</span></div>
+  <div class="toc-item level-2"><span>5.1 Objectifs strategiques</span></div>
+  <div class="toc-item level-2"><span>5.2 Vue par produit / departement</span></div>
+
+  <div class="toc-item level-1"><span>6. Historique et courbes</span></div>
+
+  <div class="toc-item level-1"><span>7. Alertes et decisions</span></div>
+  <div class="toc-item level-2"><span>7.1 Types d'alertes</span></div>
+  <div class="toc-item level-2"><span>7.2 Resoudre une alerte</span></div>
+  <div class="toc-item level-2"><span>7.3 Escalade 48h</span></div>
+
+  <div class="toc-item level-1"><span>8. Suivi des actions</span></div>
+
+  <div class="toc-item level-1"><span>9. Administration (CEO)</span></div>
+  <div class="toc-item level-2"><span>9.1 Gestion des utilisateurs</span></div>
+  <div class="toc-item level-2"><span>9.2 Gestion des produits</span></div>
+  <div class="toc-item level-2"><span>9.3 Gestion des departements</span></div>
+  <div class="toc-item level-2"><span>9.4 Gestion des OKRs</span></div>
+  <div class="toc-item level-2"><span>9.5 Parametres de l'organisation</span></div>
+
+  <div class="toc-item level-1"><span>10. FAQ et support</span></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 1 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>1. Presentation d'IziPilot</h2>
+
+<h3>1.1 Qu'est-ce qu'IziPilot ?</h3>
+<p>
+  IziPilot est la plateforme de pilotage OKR (Objectives & Key Results) d'IziChange S.A.
+  Elle remplace les fichiers Excel de revue hebdomadaire par une application web moderne,
+  accessible depuis ordinateur et telephone.
+</p>
+<p>
+  <strong>Objectif principal :</strong> chaque lundi matin avant 9h00, chaque Product Owner (PO)
+  saisit la progression de ses indicateurs cles. Le Management et le CEO disposent alors
+  d'une vue consolidee en temps reel de l'avancement de l'entreprise.
+</p>
+
+<div class="info-box">
+  <strong>Acces :</strong> https://izipilote.com — compatible Chrome, Firefox, Safari, Edge
+  et navigateurs mobiles.
+</div>
+
+<h3>1.2 Les roles utilisateurs</h3>
+<table>
+  <tr>
+    <th>Role</th>
+    <th>Permissions</th>
+    <th>Acces</th>
+  </tr>
+  <tr>
+    <td><span class="role-icon" style="background:#e23c4a">C</span> <strong>CEO</strong></td>
+    <td>Acces total : lecture, ecriture, administration, tous les OKRs</td>
+    <td>Toutes les pages + Administration</td>
+  </tr>
+  <tr>
+    <td><span class="role-icon" style="background:#f4a900">M</span> <strong>MANAGEMENT</strong></td>
+    <td>Synthese, alertes, decisions, lecture de tous les OKRs</td>
+    <td>Dashboard, Synthese, Alertes, Historique, Actions</td>
+  </tr>
+  <tr>
+    <td><span class="role-icon" style="background:#008081">P</span> <strong>PO</strong></td>
+    <td>Saisie hebdomadaire de son perimetre + lecture globale</td>
+    <td>Dashboard, Ma revue, Historique, Actions</td>
+  </tr>
+  <tr>
+    <td><span class="role-icon" style="background:#5f6e7a">V</span> <strong>VIEWER</strong></td>
+    <td>Lecture seule de toutes les donnees</td>
+    <td>Dashboard, Historique (lecture seule)</td>
+  </tr>
+</table>
+
+<h3>1.3 Le vocabulaire OKR</h3>
+<table>
+  <tr>
+    <th>Terme</th>
+    <th>Definition</th>
+  </tr>
+  <tr>
+    <td><strong>Objectif (O)</strong></td>
+    <td>Un but qualitatif ambitieux a atteindre sur un trimestre. Ex: "Augmenter la penetration mobile en Afrique de l'Ouest"</td>
+  </tr>
+  <tr>
+    <td><strong>Key Result (KR)</strong></td>
+    <td>Un indicateur mesurable qui prouve l'atteinte de l'objectif. Ex: "Atteindre 10 000 utilisateurs actifs"</td>
+  </tr>
+  <tr>
+    <td><strong>Score</strong></td>
+    <td>Pourcentage d'avancement du KR : valeur actuelle / cible. Arrondi a l'entier.</td>
+  </tr>
+  <tr>
+    <td><strong>Revue hebdo</strong></td>
+    <td>Saisie du PO chaque lundi matin : progression, statut, bloqueurs, actions</td>
+  </tr>
+  <tr>
+    <td><strong>Action</strong></td>
+    <td>Tache concrete rattachee a un KR, avec responsable, priorite et echeance</td>
+  </tr>
+</table>
+
+<h4>Code couleur des statuts OKR</h4>
+<table>
+  <tr>
+    <th>Statut</th>
+    <th>Condition</th>
+    <th>Signification</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">En bonne voie</span></td>
+    <td>Score &ge; 70%</td>
+    <td>Le KR progresse normalement vers la cible</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-gold">Attention</span></td>
+    <td>Score entre 40% et 69%</td>
+    <td>Progression insuffisante, vigilance requise</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-red">Bloque</span></td>
+    <td>Score &lt; 40% ou declare bloque</td>
+    <td>Obstacle majeur, escalade obligatoire sous 48h</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-gray">Non demarre</span></td>
+    <td>Pas encore lance</td>
+    <td>Le travail n'a pas encore commence</td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 2 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>2. Prise en main</h2>
+
+<h3>2.1 Connexion</h3>
+<p>Rendez-vous sur <code>https://izipilote.com</code>. La page de connexion s'affiche.</p>
+
+<div class="steps">
+  <div class="step">Entrez votre <strong>adresse email</strong> professionnelle (@izichange.com)</div>
+  <div class="step">Entrez votre <strong>mot de passe</strong></div>
+  <div class="step">Cliquez sur <strong>"Se connecter"</strong></div>
+</div>
+
+<div class="warn-box">
+  <strong>Premiere connexion ?</strong> Votre compte a ete cree par l'administrateur.
+  Contactez le CEO ou l'equipe IT si vous n'avez pas vos identifiants.
+</div>
+
+<div class="info-box">
+  <strong>Securite :</strong> Votre session expire automatiquement apres 4 heures d'inactivite.
+  Vous serez redirige vers la page de connexion.
+</div>
+
+<h3>2.2 L'interface principale</h3>
+<p>L'interface se compose de trois zones :</p>
+<ul>
+  <li><strong>Barre laterale gauche</strong> : navigation, produits, departements, administration</li>
+  <li><strong>En-tete</strong> : nom de la page, informations contextuelles</li>
+  <li><strong>Zone principale</strong> : contenu de la page selectionnee</li>
+</ul>
+
+<h3>2.3 La barre laterale</h3>
+<p>La barre laterale est votre point d'entree vers toutes les fonctionnalites :</p>
+
+<h4>Navigation principale</h4>
+<table>
+  <tr><th>Menu</th><th>Description</th><th>Roles</th></tr>
+  <tr><td><strong>Dashboard</strong></td><td>Vue d'ensemble des KPI et scores</td><td>Tous</td></tr>
+  <tr><td><strong>Ma revue hebdo</strong></td><td>Formulaire de saisie du lundi</td><td>PO, Management, CEO</td></tr>
+  <tr><td><strong>Synthese</strong></td><td>Vue consolidee tous produits/depts</td><td>Management, CEO</td></tr>
+  <tr><td><strong>Historique</strong></td><td>Courbes de progression sur 13 semaines</td><td>Tous</td></tr>
+  <tr><td><strong>Alertes</strong></td><td>Alertes actives et decisions</td><td>Tous (resolution: Management, CEO)</td></tr>
+  <tr><td><strong>Actions</strong></td><td>Suivi des actions rattachees aux KRs</td><td>Tous</td></tr>
+</table>
+
+<h4>Produits et departements</h4>
+<p>
+  Les sections <strong>Produits</strong> et <strong>Departements</strong> sont depliables.
+  Chaque entite affiche son code (ex: P1, D3), son nom et son score global avec un indicateur
+  de couleur.
+</p>
+
+<h4>Administration (CEO uniquement)</h4>
+<p>
+  Le menu Administration n'est visible que pour le CEO. Il donne acces a la gestion
+  des utilisateurs, produits, departements, OKRs et parametres de l'organisation.
+</p>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 3 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>3. Tableau de bord</h2>
+<p>Le tableau de bord est la page d'accueil apres connexion. Il offre une vue synthetique de l'etat de l'entreprise.</p>
+
+<h3>3.1 Les indicateurs cles (KPI)</h3>
+<p>Cinq cartes KPI s'affichent en haut de la page :</p>
+
+<table>
+  <tr><th>KPI</th><th>Description</th></tr>
+  <tr>
+    <td><strong>Score global</strong></td>
+    <td>Moyenne ponderee de tous les scores OKR de l'organisation, affichee en gros chiffre avec code couleur</td>
+  </tr>
+  <tr>
+    <td><strong>En bonne voie</strong></td>
+    <td>Nombre de KRs avec un score &ge; 70% <span class="badge badge-green">ON_TRACK</span></td>
+  </tr>
+  <tr>
+    <td><strong>Attention</strong></td>
+    <td>Nombre de KRs entre 40% et 69% <span class="badge badge-gold">AT_RISK</span></td>
+  </tr>
+  <tr>
+    <td><strong>Bloques</strong></td>
+    <td>Nombre de KRs &lt; 40% ou declares bloques <span class="badge badge-red">BLOCKED</span></td>
+  </tr>
+  <tr>
+    <td><strong>Actions</strong></td>
+    <td>Compteurs par statut : A faire, En cours, Bloquees, Terminees</td>
+  </tr>
+</table>
+
+<h3>3.2 Scores OKR par produit</h3>
+<p>
+  La section principale affiche la liste des produits avec pour chacun :
+</p>
+<ul>
+  <li>Le code produit (badge colore, ex: <span class="badge badge-teal">P2</span>)</li>
+  <li>Le nom du produit</li>
+  <li>Le score global en pourcentage</li>
+  <li>En depliant : la liste des Key Results avec barres de progression individuelles</li>
+</ul>
+
+<h3>3.3 Alertes actives</h3>
+<p>
+  Le panneau de droite affiche les alertes non resolues. Chaque alerte montre sa severite
+  (icone couleur), le KR concerne et un message descriptif. Cliquez sur une alerte pour
+  acceder a la page Alertes.
+</p>
+
+<div class="info-box">
+  <strong>Indicateur de soumission :</strong> L'en-tete du dashboard indique combien de POs
+  ont soumis leur revue cette semaine (ex: "12/15 POs"). Le bouton "Soumettre ma revue"
+  vous redirige vers la page de saisie.
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 4 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>4. Revue hebdomadaire (PO)</h2>
+
+<h3>4.1 Le cycle du lundi</h3>
+<div class="danger-box">
+  <strong>Deadline : chaque lundi a 9h00 (heure de Cotonou).</strong><br>
+  Chaque PO doit soumettre sa revue avant cette echeance. Passe ce delai,
+  le systeme genere automatiquement une alerte "Saisie manquante".
+</div>
+
+<p>
+  Le lundi matin, si vous etes PO et que vous accedez au Dashboard avant 9h00,
+  vous serez automatiquement redirige vers la page <strong>"Ma revue hebdo"</strong>.
+</p>
+
+<h3>4.2 Saisir sa revue</h3>
+<p>La page de revue affiche tous les Key Results dont vous etes responsable, regroupes par objectif.</p>
+
+<p><strong>Pour chaque KR, remplissez :</strong></p>
+
+<table>
+  <tr><th>Champ</th><th>Description</th><th>Obligatoire</th></tr>
+  <tr>
+    <td><strong>Progression</strong></td>
+    <td>Curseur de 0 a 100% representant l'avancement reel</td>
+    <td>Oui</td>
+  </tr>
+  <tr>
+    <td><strong>Valeur actuelle</strong></td>
+    <td>Pour les KRs numeriques : la valeur concrete (ex: 4500 utilisateurs)</td>
+    <td>Selon type KR</td>
+  </tr>
+  <tr>
+    <td><strong>Statut</strong></td>
+    <td>
+      <span class="badge badge-green">En bonne voie</span>
+      <span class="badge badge-gold">Attention</span>
+      <span class="badge badge-red">Bloque</span>
+      <span class="badge badge-gray">Non demarre</span>
+    </td>
+    <td>Oui</td>
+  </tr>
+  <tr>
+    <td><strong>Bloqueur</strong></td>
+    <td>Description du probleme bloquant (si statut = Bloque)</td>
+    <td>Si bloque</td>
+  </tr>
+  <tr>
+    <td><strong>Action requise</strong></td>
+    <td>Aide ou decision necessaire du Management</td>
+    <td>Non</td>
+  </tr>
+  <tr>
+    <td><strong>Commentaire</strong></td>
+    <td>Toute information complementaire utile</td>
+    <td>Non</td>
+  </tr>
+</table>
+
+<div class="warn-box">
+  <strong>Marquage "Bloque" :</strong> Lorsque vous definissez un KR comme bloque,
+  une alerte est automatiquement creee et envoyee au Management.
+  Le champ "Bloqueur" devient obligatoire pour expliquer la situation.
+</div>
+
+<div class="steps">
+  <div class="step">Accedez a <strong>"Ma revue hebdo"</strong> via la barre laterale</div>
+  <div class="step">Pour chaque KR, ajustez la <strong>progression</strong> et le <strong>statut</strong></div>
+  <div class="step">Remplissez le <strong>bloqueur</strong> si le KR est bloque</div>
+  <div class="step">Ajoutez un <strong>commentaire</strong> si necessaire</div>
+  <div class="step">Cliquez sur <strong>"Soumettre ma revue"</strong> en bas de page</div>
+</div>
+
+<h3>4.3 Creer des actions</h3>
+<p>
+  Sous chaque KR, une section <strong>"Actions"</strong> liste les actions existantes
+  et permet d'en creer de nouvelles.
+</p>
+
+<p><strong>Pour creer une action :</strong></p>
+<ul>
+  <li><strong>Titre</strong> : description courte de l'action (obligatoire)</li>
+  <li><strong>Description</strong> : details complementaires</li>
+  <li><strong>Responsable</strong> : personne assignee (membres du departement en priorite)</li>
+  <li><strong>Priorite</strong> : Basse, Moyenne, Haute ou Urgente</li>
+  <li><strong>Echeance</strong> : date limite de realisation</li>
+</ul>
+
+<h3>4.4 Sauvegarde automatique</h3>
+<p>
+  Le formulaire de revue sauvegarde automatiquement vos saisies dans le navigateur
+  (localStorage). Si vous perdez la connexion ou fermez la page par erreur,
+  vos donnees seront restaurees a la prochaine visite.
+</p>
+<div class="info-box">
+  <strong>Note :</strong> La sauvegarde locale est un brouillon. Vos donnees ne sont
+  envoyees au serveur qu'apres avoir clique sur "Soumettre". La sauvegarde
+  locale est effacee apres soumission reussie.
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 5 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>5. Synthese Management</h2>
+<p><em>Accessible uniquement aux roles CEO et Management.</em></p>
+
+<h3>5.1 Objectifs strategiques</h3>
+<p>
+  La section superieure affiche les <strong>objectifs strategiques de l'entreprise</strong> (niveau Company).
+  Pour chaque objectif :
+</p>
+<ul>
+  <li>Titre et score global en pourcentage</li>
+  <li>Badge de statut colore</li>
+  <li>Liste des objectifs produit/departement alignes avec leurs scores</li>
+</ul>
+
+<h3>5.2 Vue par produit et departement</h3>
+<p>
+  Deux tableaux synthetiques presentent les performances :
+</p>
+
+<h4>Tableau Produits</h4>
+<table>
+  <tr><th>Colonne</th><th>Description</th></tr>
+  <tr><td>Entite</td><td>Code et nom du produit</td></tr>
+  <tr><td>Obj 1, 2, 3</td><td>Score de chaque objectif du produit</td></tr>
+  <tr><td>Score global</td><td>Moyenne des scores des 3 objectifs</td></tr>
+  <tr><td>Statut</td><td>Badge colore du statut global</td></tr>
+  <tr><td>Actions</td><td>Nombre d'actions terminees / total</td></tr>
+</table>
+
+<h4>Tableau Departements</h4>
+<p>Meme structure que le tableau Produits, appliquee aux 8 departements.</p>
+
+<div class="info-box">
+  <strong>Lecture rapide :</strong> Un coup d'oeil sur les couleurs suffit pour identifier
+  les entites en difficulte (rouge) et celles qui progressent bien (vert).
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 6 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>6. Historique et courbes</h2>
+<p>
+  La page <strong>Historique & courbes</strong> permet de visualiser la progression
+  des scores sur une fenetre glissante de <strong>13 semaines</strong>.
+</p>
+
+<h4>Utilisation</h4>
+<div class="steps">
+  <div class="step">Selectionnez un type d'entite : <strong>Produit</strong> ou <strong>Departement</strong></div>
+  <div class="step">Choisissez l'entite specifique dans la liste</div>
+  <div class="step">Optionnel : selectionnez un KR specifique pour voir son evolution detaillee</div>
+</div>
+
+<p>Le graphique affiche :</p>
+<ul>
+  <li>L'axe horizontal : les semaines (S01, S02, ... S13)</li>
+  <li>L'axe vertical : le score en pourcentage (0% a 100%)</li>
+  <li>Une courbe de tendance pour visualiser l'evolution</li>
+  <li>Les seuils de reference a 40% (rouge) et 70% (vert)</li>
+</ul>
+
+<div class="info-box">
+  <strong>Regle Google OKR :</strong> Un score de 70% est considere comme une reussite.
+  100% signifie que les cibles etaient trop faciles. Un score &lt; 40% pendant
+  3 semaines consecutives declenche une recommandation de recalibrage.
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 7 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>7. Alertes et decisions</h2>
+
+<h3>7.1 Types d'alertes</h3>
+<p>Le systeme genere automatiquement des alertes selon ces regles :</p>
+
+<table>
+  <tr><th>Type</th><th>Declencheur</th><th>Severite</th></tr>
+  <tr>
+    <td><strong>KR Bloque</strong></td>
+    <td>Un KR est declare bloque par le PO ou son score passe sous 40%</td>
+    <td>
+      <span class="badge badge-red">CRITIQUE</span> si score &lt; 40%<br>
+      <span class="badge badge-gold">HAUTE</span> si declare manuellement
+    </td>
+  </tr>
+  <tr>
+    <td><strong>KR en baisse</strong></td>
+    <td>Le score diminue pendant 2 semaines consecutives</td>
+    <td><span class="badge badge-gold">MOYENNE</span></td>
+  </tr>
+  <tr>
+    <td><strong>Score &lt; 40%</strong></td>
+    <td>Le score reste sous 40% pendant 3 semaines consecutives</td>
+    <td><span class="badge badge-red">CRITIQUE</span></td>
+  </tr>
+  <tr>
+    <td><strong>Saisie manquante</strong></td>
+    <td>Un PO n'a pas soumis sa revue pour la semaine en cours</td>
+    <td><span class="badge badge-gold">MOYENNE</span></td>
+  </tr>
+  <tr>
+    <td><strong>Escalade 48h</strong></td>
+    <td>Un KR bloque n'a pas ete resolu apres 48 heures</td>
+    <td><span class="badge badge-red">CRITIQUE</span></td>
+  </tr>
+</table>
+
+<h3>7.2 Resoudre une alerte</h3>
+<p><em>Accessible uniquement aux roles CEO et Management.</em></p>
+
+<div class="steps">
+  <div class="step">Accedez a la page <strong>Alertes & decisions</strong></div>
+  <div class="step">Filtrez par statut (Actives / Toutes / Resolues) ou par type</div>
+  <div class="step">Cliquez sur <strong>"Decider"</strong> a droite de l'alerte</div>
+  <div class="step">Redigez la <strong>resolution</strong> ou decision prise dans le champ texte</div>
+  <div class="step">Cliquez sur <strong>"Confirmer"</strong></div>
+</div>
+
+<p>Une fois resolue, l'alerte apparait avec un badge vert "Resolu" et la resolution est visible par tous.</p>
+
+<h3>7.3 Escalade 48h</h3>
+<div class="danger-box">
+  <strong>Regle metier :</strong> Tout KR bloque non traite dans les 48 heures
+  declenche une alerte d'escalade critique. Un cron quotidien a 10h00 (heure Cotonou)
+  verifie les alertes KR_BLOCKED non resolues et cree l'escalade automatiquement.
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 8 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>8. Suivi des actions</h2>
+<p>
+  La page <strong>Actions</strong> centralise toutes les taches liees aux Key Results.
+</p>
+
+<h4>Filtres disponibles</h4>
+<ul>
+  <li><strong>Par statut :</strong> A faire, En cours, Bloquee, Terminee, Annulee</li>
+  <li><strong>Par priorite :</strong> Urgente, Haute, Moyenne, Basse</li>
+  <li><strong>Par responsable :</strong> liste de tous les utilisateurs</li>
+</ul>
+
+<h4>Informations affichees par action</h4>
+<table>
+  <tr><th>Champ</th><th>Description</th></tr>
+  <tr><td><strong>Titre</strong></td><td>Description courte de l'action</td></tr>
+  <tr><td><strong>Key Result</strong></td><td>KR auquel l'action est rattachee</td></tr>
+  <tr><td><strong>Entite</strong></td><td>Produit ou departement concerne</td></tr>
+  <tr><td><strong>Statut</strong></td><td>
+    <span class="badge badge-gray">A faire</span>
+    <span class="badge badge-teal">En cours</span>
+    <span class="badge badge-red">Bloquee</span>
+    <span class="badge badge-green">Terminee</span>
+  </td></tr>
+  <tr><td><strong>Priorite</strong></td><td>
+    <span class="badge badge-red">Urgente</span>
+    <span class="badge badge-gold">Haute</span>
+    <span class="badge badge-teal">Moyenne</span>
+    <span class="badge badge-gray">Basse</span>
+  </td></tr>
+  <tr><td><strong>Responsable</strong></td><td>Personne assignee</td></tr>
+  <tr><td><strong>Echeance</strong></td><td>Date limite, avec indicateur de retard si depassee</td></tr>
+</table>
+
+<div class="info-box">
+  <strong>Escalade automatique :</strong> Lorsqu'un KR passe en statut "Bloque",
+  les actions liees avec priorite Basse ou Moyenne sont automatiquement remontees
+  en priorite Haute.
+</div>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 9 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>9. Administration (CEO)</h2>
+<p><em>Cette section est accessible uniquement au CEO.</em></p>
+
+<h3>9.1 Gestion des utilisateurs</h3>
+<p>Page : <strong>Administration &gt; Utilisateurs</strong></p>
+
+<h4>Creer un utilisateur</h4>
+<div class="steps">
+  <div class="step">Cliquez sur <strong>"Nouvel utilisateur"</strong></div>
+  <div class="step">Remplissez : email, nom complet, role (CEO/Management/PO/Viewer)</div>
+  <div class="step">Validez. Un mot de passe temporaire est genere.</div>
+</div>
+
+<h4>Actions disponibles</h4>
+<ul>
+  <li><strong>Modifier</strong> : changer le nom, email ou role</li>
+  <li><strong>Reinitialiser le mot de passe</strong> : genere un nouveau mot de passe temporaire</li>
+  <li><strong>Desactiver</strong> : bloque l'acces sans supprimer le compte</li>
+</ul>
+
+<h3>9.2 Gestion des produits</h3>
+<p>Page : <strong>Administration &gt; Produits</strong></p>
+
+<p>Les produits s'affichent en grille de cartes. Chaque carte montre :</p>
+<ul>
+  <li>Code et nom du produit</li>
+  <li>Badge de statut (Actif, En developpement, Planifie, En pause)</li>
+  <li>Proprietaire (PO assigne)</li>
+  <li>Nombre d'objectifs rattaches</li>
+</ul>
+
+<h4>Creer / modifier un produit</h4>
+<ul>
+  <li><strong>Code</strong> : identifiant court (ex: P8)</li>
+  <li><strong>Nom</strong> : nom complet du produit</li>
+  <li><strong>Couleur</strong> : couleur d'identification dans l'interface</li>
+  <li><strong>Statut</strong> : Actif, En developpement, Planifie, En pause</li>
+  <li><strong>Proprietaire</strong> : PO responsable</li>
+</ul>
+
+<h3>9.3 Gestion des departements</h3>
+<p>Page : <strong>Administration &gt; Departements</strong></p>
+<p>
+  Meme structure que les produits, avec en plus la gestion des <strong>membres</strong>.
+  Chaque membre peut avoir le role <strong>LEAD</strong> (responsable) ou <strong>MEMBER</strong>.
+</p>
+
+<h3>9.4 Gestion des OKRs</h3>
+<p>Page : <strong>Administration &gt; OKRs</strong></p>
+
+<h4>Creer un objectif</h4>
+<div class="steps">
+  <div class="step">Cliquez sur <strong>"Creer un objectif"</strong></div>
+  <div class="step">Remplissez : titre, motivation ("Why"), entite (Produit ou Departement), trimestre</div>
+  <div class="step">Validez</div>
+</div>
+
+<h4>Ajouter un Key Result</h4>
+<div class="steps">
+  <div class="step">Sous l'objectif, cliquez sur <strong>"Ajouter un KR"</strong></div>
+  <div class="step">Choisissez le type :
+    <ul>
+      <li><strong>Numerique</strong> : valeur cible + unite (ex: 10 000 utilisateurs)</li>
+      <li><strong>Pourcentage</strong> : cible en % (ex: 95% de satisfaction)</li>
+      <li><strong>Date</strong> : date cible (avancement saisi manuellement par le PO)</li>
+      <li><strong>Binaire</strong> : oui/non (ex: "Obtenir la licence")</li>
+    </ul>
+  </div>
+  <div class="step">Assignez un <strong>proprietaire</strong> (PO responsable)</div>
+  <div class="step">Validez</div>
+</div>
+
+<h4>Filtres</h4>
+<ul>
+  <li><strong>Par trimestre</strong> : Q1, Q2, Q3, Q4 ou tous</li>
+  <li><strong>Par type d'entite</strong> : Produit, Departement, Entreprise ou tous</li>
+</ul>
+
+<h3>9.5 Parametres de l'organisation</h3>
+<p>Page : <strong>Administration &gt; Organisation</strong></p>
+<p>Affiche les statistiques globales et permet de modifier :</p>
+<ul>
+  <li>Le nom de l'organisation</li>
+  <li>Le slug (identifiant URL)</li>
+  <li>La couleur principale de la marque</li>
+</ul>
+
+<!-- ============================================================ -->
+<!-- CHAPTER 10 -->
+<!-- ============================================================ -->
+<div class="page-break"></div>
+<h2>10. FAQ et support</h2>
+
+<h3>Questions frequentes</h3>
+
+<h4>Je ne peux pas me connecter</h4>
+<p>
+  Verifiez que vous utilisez la bonne adresse email (@izichange.com).
+  Si le probleme persiste, demandez au CEO de reinitialiser votre mot de passe
+  via Administration &gt; Utilisateurs.
+</p>
+
+<h4>Je ne vois pas la page "Ma revue hebdo"</h4>
+<p>
+  Cette page n'est accessible qu'aux POs, Management et CEO.
+  Les Viewers n'ont qu'un acces en lecture seule.
+</p>
+
+<h4>J'ai oublie de soumettre ma revue lundi</h4>
+<p>
+  Vous pouvez toujours la saisir apres la deadline. Cependant, le systeme
+  aura genere une alerte "Saisie manquante" visible par le Management.
+  L'alerte sera automatiquement resolue apres votre soumission.
+</p>
+
+<h4>Comment signaler un bloqueur ?</h4>
+<p>
+  Dans votre revue hebdomadaire, changez le statut du KR concerne en
+  <span class="badge badge-red">Bloque</span> et decrivez le probleme dans
+  le champ "Bloqueur". Une alerte sera automatiquement creee.
+</p>
+
+<h4>Je ne vois pas le menu Administration</h4>
+<p>
+  Ce menu est reserve au CEO. Si vous avez besoin de modifications
+  sur les utilisateurs, produits ou OKRs, contactez le CEO.
+</p>
+
+<h4>Puis-je utiliser IziPilot sur mobile ?</h4>
+<p>
+  Oui, l'interface est optimisee pour les smartphones. La barre laterale
+  se replie automatiquement et le formulaire de revue est en colonne unique
+  pour faciliter la saisie tactile.
+</p>
+
+<h3>Automatisations du systeme</h3>
+<table>
+  <tr><th>Automatisation</th><th>Frequence</th><th>Description</th></tr>
+  <tr>
+    <td>Rappel PO</td>
+    <td>Chaque lundi a 8h30</td>
+    <td>Email de rappel aux POs n'ayant pas encore soumis leur revue</td>
+  </tr>
+  <tr>
+    <td>Verification alertes</td>
+    <td>Chaque jour a 10h00</td>
+    <td>Detection des KRs bloques non traites, saisies manquantes, escalade 48h</td>
+  </tr>
+  <tr>
+    <td>Digest hebdomadaire</td>
+    <td>Chaque lundi a 10h00</td>
+    <td>Resume envoye au Management avec tous les statuts et decisions a prendre</td>
+  </tr>
+</table>
+
+<h3>Contact support</h3>
+<div class="info-box">
+  Pour toute question technique ou demande d'assistance :<br>
+  <strong>Email :</strong> support@izichange.com<br>
+  <strong>Equipe IT :</strong> Departement D2 — IT
+</div>
+
+<br><br>
+<div style="text-align: center; color: var(--gray); font-size: 9pt; padding-top: 20px; border-top: 1px solid #ddd;">
+  <p><strong>IziPilot</strong> — L'execution au rythme de vos ambitions</p>
+  <p>IziChange S.A. — Cotonou, Benin — 2026</p>
+  <p>Document confidentiel — Usage interne</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1 @@
+- [Prefer parallel execution](feedback_parallel.md) — Run independent tasks/agents concurrently, don't serialize

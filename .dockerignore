@@ -1,7 +1,16 @@
 node_modules
 .next
 .git
-.env*
+.env
+.env.production
+.env.docker
+.env.local
 *.md
 docs
+scripts
+nginx
+cron
 .DS_Store
+playwright-report
+coverage
+.claude

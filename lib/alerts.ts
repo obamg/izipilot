@@ -57,15 +57,17 @@ export async function checkKrAlerts(
   const entityName =
     kr.objective.product?.name ?? kr.objective.department?.name ?? "Unknown";
 
-  // KR_BLOCKED: score < 40%
-  if (scorePercent < 40 && kr.status === "BLOCKED") {
+  // KR_BLOCKED: score < 40% OR manually set to BLOCKED by PO
+  if (kr.status === "BLOCKED") {
     await createAlertIfNew({
       orgId,
       krId,
       triggeredBy,
       type: "KR_BLOCKED",
-      severity: "HIGH",
-      message: `KR "${kr.title}" (${entityName}) est bloqué à ${scorePercent}%`,
+      severity: scorePercent < 40 ? "CRITICAL" : "HIGH",
+      message: scorePercent < 40
+        ? `KR "${kr.title}" (${entityName}) est bloqué à ${scorePercent}%`
+        : `KR "${kr.title}" (${entityName}) a été marqué bloqué (score: ${scorePercent}%)`,
     });
 
     // Auto-escalate action priorities when KR is blocked

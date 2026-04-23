@@ -1,0 +1,7 @@
+# IziPilot Cron Jobs (UTC — Bénin = UTC+1, donc -1h)
+# Rappel lundi 8h30 WAT = 7h30 UTC
+30 7 * * 1 . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/monday-reminder > /dev/null 2>&1
+# Check alertes quotidien 10h WAT = 9h UTC
+0 9 * * * . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/check-alerts > /dev/null 2>&1
+# Digest hebdo lundi 10h WAT = 9h UTC
+0 9 * * 1 . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/weekly-digest > /dev/null 2>&1
