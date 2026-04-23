@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IziPilot — Design UI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--teal:#008081;--teal-dk:#005f60;--teal-lt:#e6f7f7;--teal-md:#b3e0e0;--dark:#1c3a4a;--dark-md:#2e3e4b;--red:#e23c4a;--red-lt:#fceaea;--gold:#f4a900;--gold-lt:#fffbe6;--green:#1d9e75;--green-lt:#e1f5ee;--gray:#5f6e7a;--gray-lt:#f2f6f7;--white:#ffffff}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--gray-lt);color:var(--dark);font-size:13px}
+
+/* NAV */
+.nav{background:var(--dark);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:100}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-icon{width:30px;height:30px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.nav-icon svg{width:17px;height:17px}
+.nav-brand{font-size:16px;color:#fff;font-weight:300}
+.nav-brand b{font-family:'DM Serif Display',serif;font-weight:400}
+.nav-tabs{display:flex;gap:2px}
+.ntab{padding:6px 13px;font-size:12px;color:rgba(255,255,255,.4);border-radius:6px;cursor:pointer}
+.ntab.on,.ntab:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-r{display:flex;align-items:center;gap:9px}
+.nav-week{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.06);padding:4px 10px;border-radius:12px}
+.nav-bell{width:30px;height:30px;background:rgba(226,60,74,.2);border:1px solid rgba(226,60,74,.35);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+.nav-bell svg{width:15px;height:15px}
+.ndot{position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:var(--red);border-radius:50%;border:1.5px solid var(--dark)}
+.ava{width:30px;height:30px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;cursor:pointer}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:210px 1fr;height:calc(100vh - 52px)}
+
+/* SIDEBAR */
+.sb{background:var(--dark);border-right:1px solid rgba(255,255,255,.06);padding:16px 0;overflow-y:auto}
+.sb-sec{padding:0 12px;margin-bottom:20px}
+.sb-lbl{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);padding:0 8px;margin-bottom:5px}
+.si{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:11px;color:rgba(255,255,255,.45);margin-bottom:1px;transition:all .12s}
+.si svg{width:14px;height:14px;flex-shrink:0}
+.si:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.75)}
+.si.on{background:rgba(0,128,129,.18);color:#7dd8d8}
+.sb-bdg{margin-left:auto;background:rgba(226,60,74,.28);color:#ff8090;font-size:9px;font-weight:600;padding:1px 5px;border-radius:6px}
+.sb-div{height:1px;background:rgba(255,255,255,.06);margin:8px 12px 14px}
+.pp{display:flex;align-items:center;gap:7px;padding:5px 9px;border-radius:7px;cursor:pointer;font-size:11px;color:rgba(255,255,255,.4);margin-bottom:1px;transition:all .12s}
+.pp:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.7)}
+.pdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pscore{margin-left:auto;font-family:'DM Mono',monospace;font-size:10px}
+
+/* MAIN */
+.main{padding:20px;overflow-y:auto}
+.phdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.ptitle{font-family:'DM Serif Display',serif;font-size:20px;color:var(--dark)}
+.psub{font-size:11px;color:var(--gray);margin-top:2px}
+.pa{display:flex;gap:8px}
+.btn{padding:7px 14px;border-radius:7px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;border:none}
+.btn-t{background:var(--teal);color:#fff}
+.btn-o{background:transparent;border:1px solid var(--teal-md);color:var(--teal)}
+
+/* Session bar */
+.sbar{display:flex;gap:0;height:20px;border-radius:6px;overflow:hidden;margin-bottom:14px}
+.ss{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;letter-spacing:.04em;text-transform:uppercase}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--white);border-radius:10px;border:1px solid #deeaea;padding:14px 16px}
+.kl{font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray);margin-bottom:5px}
+.kv{font-family:'DM Serif Display',serif;font-size:26px;color:var(--dark);line-height:1}
+.kv.t{color:var(--teal)}.kv.r{color:var(--red)}.kv.g2{color:var(--gold)}
+.kd{font-size:10px;color:var(--gray);margin-top:3px}
+.up{color:var(--green)}.dn{color:var(--red)}
+
+/* Grid */
+.g3{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+
+/* Card */
+.card{background:var(--white);border-radius:10px;border:1px solid #deeaea;padding:16px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ct{font-size:12px;font-weight:600;color:var(--dark)}
+.cs{font-size:10px;color:var(--gray);margin-top:1px}
+
+/* Status badge */
+.st{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:500}
+.std{width:5px;height:5px;border-radius:50%}
+.sg{background:var(--green-lt);color:#085041}.sg .std{background:var(--green)}
+.so{background:var(--gold-lt);color:#7a5500}.so .std{background:var(--gold)}
+.sr{background:var(--red-lt);color:#8b1a1a}.sr .std{background:var(--red)}
+.sgr{background:var(--gray-lt);color:var(--gray)}.sgr .std{background:#b3c4cc}
+
+/* OKR blocks */
+.ob{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--gray-lt)}
+.ob:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.oh{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.oc{font-family:'DM Mono',monospace;font-size:9px;font-weight:600;background:var(--teal-lt);color:var(--teal);padding:2px 6px;border-radius:3px}
+.oc.r{background:var(--red-lt);color:var(--red)}
+.ot{font-size:11px;font-weight:500;color:var(--dark);flex:1}
+.os{font-family:'DM Mono',monospace;font-size:12px;font-weight:600}
+.kr{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--gray-lt)}
+.kr:last-child{border-bottom:none}
+.kn{font-size:10px;color:var(--dark-md);flex:1}
+.kb{width:70px;height:4px;background:var(--gray-lt);border-radius:2px;overflow:hidden;flex-shrink:0}
+.kbf{height:4px;border-radius:2px}
+.kp{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;min-width:28px;text-align:right;flex-shrink:0}
+
+/* Alerts */
+.ai{display:flex;align-items:flex-start;gap:9px;padding:9px;border-radius:8px;margin-bottom:5px}
+.ai:last-child{margin-bottom:0}
+.ai.r{background:var(--red-lt)}.ai.o{background:var(--gold-lt)}
+.aico{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px}
+.aico.r{background:var(--red)}.aico.o{background:var(--gold)}
+.ab{flex:1}
+.at2{font-size:11px;font-weight:600;color:var(--dark)}
+.as2{font-size:10px;color:var(--gray);margin-top:1px}
+.acta{font-size:10px;font-weight:600;color:var(--teal);border:1px solid var(--teal-md);background:transparent;padding:3px 9px;border-radius:5px;cursor:pointer;font-family:'DM Sans',sans-serif;align-self:center;flex-shrink:0}
+
+/* Mini chart */
+.mc{display:flex;align-items:flex-end;gap:4px;height:44px}
+.mb{flex:1;border-radius:2px 2px 0 0}
+
+/* Form */
+.fl{font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray);margin-bottom:4px}
+.fsr{display:flex;align-items:center;gap:8px}
+.fsr input[type=range]{flex:1;accent-color:var(--teal)}
+.fv{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--teal);min-width:34px;text-align:right}
+.fsel{width:100%;padding:7px 9px;border:1px solid var(--teal-md);border-radius:7px;font-size:11px;color:var(--dark);background:#fff;font-family:'DM Sans',sans-serif}
+.fta{width:100%;padding:7px 9px;border:1px solid var(--teal-md);border-radius:7px;font-size:11px;color:var(--dark);font-family:'DM Sans',sans-serif;resize:none;height:52px;line-height:1.5}
+.fta.warn{background:var(--red-lt);border-color:#f0b0b0}
+.ff{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+
+/* Donut */
+.dr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dn2{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+.din .dn-name{font-size:11px;font-weight:500;color:var(--dark)}
+.din .dn-sub{font-size:10px;color:var(--gray)}
+
+.mb2{margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-icon">
+      <svg viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="10" stroke="white" stroke-width="2"/>
+        <path d="M14 8L14 14L18 17" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="white"/>
+      </svg>
+    </div>
+    <span class="nav-brand">Izi<b>Pilot</b></span>
+  </div>
+  <div class="nav-tabs">
+    <div class="ntab on">Dashboard</div>
+    <div class="ntab">Ma revue</div>
+    <div class="ntab">Synthèse</div>
+    <div class="ntab">Historique</div>
+    <div class="ntab">Alertes</div>
+  </div>
+  <div class="nav-r">
+    <div class="nav-week">S08 · 2026</div>
+    <div class="nav-bell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ff8090" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <div class="ndot"></div>
+    </div>
+    <div class="ava">PO</div>
+  </div>
+</nav>
+
+<div class="app">
+  <aside class="sb">
+    <div class="sb-sec">
+      <div class="sb-lbl">Navigation</div>
+      <div class="si on">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="si">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Ma revue hebdo
+        <span class="sb-bdg">Due</span>
+      </div>
+      <div class="si">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        Synthèse Management
+      </div>
+      <div class="si">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Historique & courbes
+      </div>
+      <div class="si">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        Alertes & décisions
+        <span class="sb-bdg">3</span>
+      </div>
+    </div>
+
+    <div class="sb-div"></div>
+
+    <div class="sb-sec">
+      <div class="sb-lbl">Produits</div>
+      <div class="pp"><div class="pdot" style="background:#185FA5"></div>P1 Trading<div class="pscore" style="color:#1d9e75">72%</div></div>
+      <div class="pp"><div class="pdot" style="background:#008081"></div>P2 Wallet<div class="pscore" style="color:#1d9e75">68%</div></div>
+      <div class="pp"><div class="pdot" style="background:#D85A30"></div>P3 Africapart<div class="pscore" style="color:#e23c4a">16%</div></div>
+      <div class="pp"><div class="pdot" style="background:#534AB7"></div>P4 API<div class="pscore" style="color:#f4a900">45%</div></div>
+      <div class="pp"><div class="pdot" style="background:#BA7517"></div>P5 PAY<div class="pscore" style="color:#1d9e75">58%</div></div>
+      <div class="pp"><div class="pdot" style="background:#C0392B"></div>P6 Carte<div class="pscore" style="color:#1d9e75">74%</div></div>
+      <div class="pp"><div class="pdot" style="background:#1D9E75"></div>P7 IziLab<div class="pscore" style="color:#f4a900">52%</div></div>
+    </div>
+
+    <div class="sb-div"></div>
+
+    <div class="sb-sec">
+      <div class="sb-lbl">Départements</div>
+      <div class="pp"><div class="pdot" style="background:#D85A30"></div>D1 Com & Mkt<div class="pscore" style="color:#1d9e75">61%</div></div>
+      <div class="pp"><div class="pdot" style="background:#1C3A4A"></div>D2 IT<div class="pscore" style="color:#1d9e75">78%</div></div>
+      <div class="pp"><div class="pdot" style="background:#1D9E75"></div>D3 Finance<div class="pscore" style="color:#f4a900">55%</div></div>
+      <div class="pp"><div class="pdot" style="background:#BA7517"></div>D4 Juridique<div class="pscore" style="color:#f4a900">40%</div></div>
+      <div class="pp"><div class="pdot" style="background:#378ADD"></div>D5 Support<div class="pscore" style="color:#1d9e75">66%</div></div>
+      <div class="pp"><div class="pdot" style="background:#639922"></div>D6 Stratégie<div class="pscore" style="color:#f4a900">48%</div></div>
+      <div class="pp"><div class="pdot" style="background:#444441"></div>D7 Management<div class="pscore" style="color:#1d9e75">70%</div></div>
+      <div class="pp"><div class="pdot" style="background:#C0392B"></div>D8 RH<div class="pscore" style="color:#f4a900">54%</div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="phdr">
+      <div>
+        <div class="ptitle">Dashboard — Semaine 8</div>
+        <div class="psub">Lundi 16 fév 2026 · Deadline saisie 09h00 · 9 / 12 revues soumises</div>
+      </div>
+      <div class="pa">
+        <button class="btn btn-o">Exporter</button>
+        <button class="btn btn-t">Soumettre ma revue →</button>
+      </div>
+    </div>
+
+    <div class="sbar">
+      <div class="ss" style="background:#1d9e75;flex:3">S1–S4 Fondations ✓</div>
+      <div class="ss" style="background:#008081;flex:2">S5–S7 Engine ✓</div>
+      <div class="ss" style="background:#f4a900;flex:1.5">S8 Dashboard ←</div>
+      <div class="ss" style="background:rgba(255,255,255,.12);flex:2;color:rgba(255,255,255,.35)">S9–S12 Suite</div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kl">Score global</div><div class="kv t">58%</div><div class="kd"><span class="up">↑ +6pts</span> vs S7</div></div>
+      <div class="kpi"><div class="kl">KRs bloqués 🔴</div><div class="kv r">3</div><div class="kd"><span class="dn">↑ +1</span> vs S7</div></div>
+      <div class="kpi"><div class="kl">Revues soumises</div><div class="kv">9/12</div><div class="kd">Deadline 09h00</div></div>
+      <div class="kpi"><div class="kl">Décisions en attente</div><div class="kv g2">2</div><div class="kd">Escalade 48h</div></div>
+    </div>
+
+    <div class="g3">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="ct">Scores OKR — Produits</div><div class="cs">S08 · 2026</div></div>
+          <span class="st so"><span class="std"></span>Attention</span>
+        </div>
+        <div class="ob">
+          <div class="oh"><span class="oc">P1</span><span class="ot">Plateforme Trading Crypto</span><span class="os" style="color:#1d9e75">72%</span></div>
+          <div class="kr"><div class="kn">Migration AWS → go-live</div><div class="kb"><div class="kbf" style="background:#1d9e75;width:90%"></div></div><div class="kp" style="color:#1d9e75">90%</div></div>
+          <div class="kr"><div class="kn">500 traders actifs</div><div class="kb"><div class="kbf" style="background:#f4a900;width:48%"></div></div><div class="kp" style="color:#f4a900">48%</div></div>
+        </div>
+        <div class="ob">
+          <div class="oh"><span class="oc r">P3</span><span class="ot">Africapart</span><span class="os" style="color:#e23c4a">16%</span></div>
+          <div class="kr"><div class="kn">50 réservations Q2</div><div class="kb"><div class="kbf" style="background:#e23c4a;width:16%"></div></div><div class="kp" style="color:#e23c4a">16%</div></div>
+          <div class="kr"><div class="kn">200 clients uniques Q3</div><div class="kb"><div class="kbf" style="background:#e23c4a;width:4%"></div></div><div class="kp" style="color:#e23c4a">4%</div></div>
+          <div class="kr"><div class="kn">Taux occupation &gt; 40%</div><div class="kb"><div class="kbf" style="background:#e23c4a;width:10%"></div></div><div class="kp" style="color:#e23c4a">10%</div></div>
+        </div>
+        <div class="ob">
+          <div class="oh"><span class="oc" style="background:#e6f7f7;color:#006667">P2</span><span class="ot">Wallet Crypto</span><span class="os" style="color:#1d9e75">68%</span></div>
+          <div class="kr"><div class="kn">Programme earn → $500K</div><div class="kb"><div class="kbf" style="background:#1d9e75;width:74%"></div></div><div class="kp" style="color:#1d9e75">74%</div></div>
+          <div class="kr"><div class="kn">5 000 wallets actifs</div><div class="kb"><div class="kbf" style="background:#1d9e75;width:62%"></div></div><div class="kp" style="color:#1d9e75">62%</div></div>
+        </div>
+        <div class="ob">
+          <div class="oh"><span class="oc" style="background:#FBEAF0;color:#72243E">P6</span><span class="ot">Carte Virtuelle</span><span class="os" style="color:#1d9e75">74%</span></div>
+          <div class="kr"><div class="kn">15 000 cartes actives</div><div class="kb"><div class="kbf" style="background:#1d9e75;width:74%"></div></div><div class="kp" style="color:#1d9e75">74%</div></div>
+          <div class="kr"><div class="kn">Accord master distributeur</div><div class="kb"><div class="kbf" style="background:#f4a900;width:55%"></div></div><div class="kp" style="color:#f4a900">55%</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card mb2">
+          <div class="card-hdr"><div><div class="ct">Alertes actives</div><div class="cs">3 requièrent une action</div></div></div>
+          <div class="ai r">
+            <div class="aico r">🔴</div>
+            <div class="ab"><div class="at2">P3 — KR1 Bloqué</div><div class="as2">0 campagne active · Escalade 18h</div></div>
+            <button class="acta">Décider</button>
+          </div>
+          <div class="ai r">
+            <div class="aico r">🔴</div>
+            <div class="ab"><div class="at2">P1 — Migration retard</div><div class="as2">Go-live menacé · CTO resp.</div></div>
+            <button class="acta">Voir</button>
+          </div>
+          <div class="ai o">
+            <div class="aico o">🟡</div>
+            <div class="ab"><div class="at2">D4 — Revue manquante</div><div class="as2">Juridique · Rappel envoyé 8h30</div></div>
+            <button class="acta">Relancer</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div><div class="ct">Progression globale</div><div class="cs">8 dernières semaines</div></div></div>
+          <div class="mc">
+            <div class="mb" style="background:rgba(0,128,129,.2);height:30%"></div>
+            <div class="mb" style="background:rgba(0,128,129,.3);height:38%"></div>
+            <div class="mb" style="background:rgba(0,128,129,.4);height:43%"></div>
+            <div class="mb" style="background:rgba(0,128,129,.5);height:47%"></div>
+            <div class="mb" style="background:rgba(0,128,129,.6);height:51%"></div>
+            <div class="mb" style="background:rgba(0,128,129,.72);height:55%"></div>
+            <div class="mb" style="background:rgba(0,128,129,.85);height:57%"></div>
+            <div class="mb" style="background:#008081;height:65%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:5px">
+            <span style="font-size:9px;color:var(--gray)">S01</span>
+            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--teal);font-weight:600">58% ↑ S08</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulaire saisie -->
+    <div class="card">
+      <div class="card-hdr">
+        <div><div class="ct">Ma revue — P3 Africapart · S08</div><div class="cs">Deadline 09h00 · KR1 en rouge · Escalade requise</div></div>
+        <span class="st sr"><span class="std"></span>Bloqué</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div>
+          <div class="dr"><div class="dn2" style="background:#e23c4a">16%</div><div class="din"><div class="dn-name">KR1 — Réservations</div><div class="dn-sub">8 réelles / 50 cible</div></div></div>
+          <div class="mb2"><div class="fl">Avancement</div><div class="fsr"><input type="range" min="0" max="100" value="16" oninput="this.nextElementSibling.textContent=this.value+'%'"><span class="fv">16%</span></div></div>
+          <div><div class="fl">Statut</div><select class="fsel"><option>🟢 En bonne voie</option><option>🟡 Attention</option><option selected>🔴 Bloqué</option><option>⚪ Non démarré</option></select></div>
+        </div>
+        <div>
+          <div class="dr"><div class="dn2" style="background:#e23c4a">4%</div><div class="din"><div class="dn-name">KR2 — Clients uniques</div><div class="dn-sub">8 réels / 200 cible</div></div></div>
+          <div class="mb2"><div class="fl">Blocage identifié</div><textarea class="fta">Aucune campagne marketing active. Budget validé non dépensé.</textarea></div>
+          <div><div class="fl">Besoin Management</div><textarea class="fta warn">Validation pour lancer social ads dès lundi. Budget $4K.</textarea></div>
+        </div>
+        <div>
+          <div class="dr"><div class="dn2" style="background:#f4a900">10%</div><div class="din"><div class="dn-name">KR3 — Taux occupation</div><div class="dn-sub">4% réel / &gt;40% cible</div></div></div>
+          <div class="mb2"><div class="fl">Delta vs S7</div><span class="st sr"><span class="std"></span>+6 pts ↑ · Score O1 : 10%</span></div>
+          <div><div class="fl">Priorité absolue</div><textarea class="fta">Lancer campagne social ads après validation Management.</textarea></div>
+        </div>
+      </div>
+      <div class="ff">
+        <button class="btn btn-o">Enregistrer brouillon</button>
+        <button class="btn btn-t">Soumettre la revue →</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

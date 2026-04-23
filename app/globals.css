@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* IziPilot Design System — couleurs */
+  --teal: #008081;
+  --teal-dk: #005f60;
+  --teal-lt: #e6f7f7;
+  --teal-md: #b3e0e0;
+  --dark: #1c3a4a;
+  --dark-md: #2e3e4b;
+  --red: #e23c4a;
+  --red-lt: #fceaea;
+  --gold: #f4a900;
+  --gold-lt: #fffbe6;
+  --green: #1d9e75;
+  --green-lt: #e1f5ee;
+  --gray: #5f6e7a;
+  --gray-lt: #f2f6f7;
+
+  --background: var(--gray-lt);
+  --foreground: var(--dark-md);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* IziPilot palette */
+  --color-teal: var(--teal);
+  --color-teal-dk: var(--teal-dk);
+  --color-teal-lt: var(--teal-lt);
+  --color-teal-md: var(--teal-md);
+  --color-dark: var(--dark);
+  --color-dark-md: var(--dark-md);
+  --color-izi-red: var(--red);
+  --color-izi-red-lt: var(--red-lt);
+  --color-gold: var(--gold);
+  --color-gold-lt: var(--gold-lt);
+  --color-izi-green: var(--green);
+  --color-izi-green-lt: var(--green-lt);
+  --color-izi-gray: var(--gray);
+  --color-izi-gray-lt: var(--gray-lt);
+
+  /* Fonts */
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "DM Serif Display", ui-serif, Georgia, serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  /* Type scale */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.25rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
