@@ -59,7 +59,7 @@ function LoginForm() {
             type="email"
             required
             className="mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
-            placeholder="vous@izichange.com"
+            placeholder="vous@izipilote.com"
           />
         </div>
 

@@ -21,35 +21,31 @@ async function main() {
 
   // ── Users ─────────────────────────────────────────────────────
   const users = await Promise.all([
-    prisma.user.create({ data: { orgId: org.id, email: "ceo@izichange.com", name: "Directeur Général", role: "CEO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "management1@izichange.com", name: "Directeur Opérations", role: "MANAGEMENT", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "management2@izichange.com", name: "Directeur Technique", role: "MANAGEMENT", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "direction@izichange.com", name: "Directeur Général", role: "CEO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "comitedirection@izichange.com", name: "Directeur Opérations", role: "MANAGEMENT", passwordHash: defaultPassword } }),
     // POs Produits (P1–P7)
-    prisma.user.create({ data: { orgId: org.id, email: "po.trading@izichange.com", name: "PO Trading", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.wallet@izichange.com", name: "PO Wallet", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.africapart@izichange.com", name: "PO Africapart", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.collecte@izichange.com", name: "PO Collecte", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.pay@izichange.com", name: "PO IziPay", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.carte@izichange.com", name: "PO Carte", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.izilab@izichange.com", name: "PO IziLab", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "geres@izichange.com", name: "PO Trading", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "abdoulouadoud.bouraima@izichange.com", name: "PO Wallet", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "romel@izichange.com", name: "PO Africapart", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "marius@izichange.com", name: "PO Collecte", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "pierremichel.agbla@izichange.com", name: "PO IziPay", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "serge.adounsi@izichange.com", name: "PO Carte", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "christian.ode@izichange.com", name: "PO IziLab", role: "PO", passwordHash: defaultPassword } }),
     // POs Départements (D1–D8)
-    prisma.user.create({ data: { orgId: org.id, email: "po.marketing@izichange.com", name: "Resp. Marketing", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.it@izichange.com", name: "Resp. IT", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.finance@izichange.com", name: "Resp. Finance", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.legal@izichange.com", name: "Resp. Juridique", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.support@izichange.com", name: "Resp. Support", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.strategie@izichange.com", name: "Resp. Stratégie", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.management@izichange.com", name: "Resp. Management", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "po.rh@izichange.com", name: "Resp. RH", role: "PO", passwordHash: defaultPassword } }),
-    // Viewers
-    prisma.user.create({ data: { orgId: org.id, email: "viewer1@izichange.com", name: "Observateur 1", role: "VIEWER", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "viewer2@izichange.com", name: "Observateur 2", role: "VIEWER", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "johanes.quenum@izichange.com", name: "Resp. Marketing", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "aziz.sovimi@izichange.com", name: "Resp. IT", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "jerry.agossou@izichange.com", name: "Resp. Finance", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "jean-paul.doliveira@izichange.com", name: "Resp. Juridique", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "ulrich.atchade@izichange.com", name: "Resp. Support", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "joas.vigan@izichange.com", name: "Resp. Stratégie", role: "PO", passwordHash: defaultPassword } }),
+    // Resp. Management (D7) — uses same person as Directeur Opérations (comitedirection), handled via mgmt1 reference
+    prisma.user.create({ data: { orgId: org.id, email: "menes.whannou@izichange.com", name: "Resp. RH", role: "PO", passwordHash: defaultPassword } }),
   ]);
 
   const [
-    ceo, mgmt1, mgmt2,
+    ceo, mgmt1,
     poTrading, poWallet, poAfricapart, poCollecte, poPay, poCarte, poIzilab,
-    poMarketing, poIT, poFinance, poLegal, poSupport, poStrategie, poMgmt, poRH,
+    poMarketing, poIT, poFinance, poLegal, poSupport, poStrategie, poRH,
   ] = users;
 
   // ── Products (P1–P7) ─────────────────────────────────────────
@@ -82,7 +78,7 @@ async function main() {
     { code: "D4", name: "Juridique & Compliance", color: "#BA7517", owner: poLegal },
     { code: "D5", name: "Support Client", color: "#378ADD", owner: poSupport },
     { code: "D6", name: "Stratégie & Innovation", color: "#639922", owner: poStrategie },
-    { code: "D7", name: "Management", color: "#444441", owner: poMgmt },
+    { code: "D7", name: "Management", color: "#444441", owner: mgmt1 },
     { code: "D8", name: "Ressources Humaines", color: "#C0392B", owner: poRH },
   ];
 
@@ -923,7 +919,7 @@ async function main() {
     { deptIdx: 3, userId: poLegal.id, role: "LEAD" },
     { deptIdx: 4, userId: poSupport.id, role: "LEAD" },
     { deptIdx: 5, userId: poStrategie.id, role: "LEAD" },
-    { deptIdx: 6, userId: poMgmt.id, role: "LEAD" },
+    { deptIdx: 6, userId: mgmt1.id, role: "LEAD" },
     { deptIdx: 7, userId: poRH.id, role: "LEAD" },
     // Cross-functional members
     { deptIdx: 0, userId: poIT.id, role: "MEMBER" },          // IT supports Marketing
@@ -936,10 +932,10 @@ async function main() {
     { deptIdx: 3, userId: poFinance.id, role: "MEMBER" },     // Finance in Legal
     { deptIdx: 4, userId: poMarketing.id, role: "MEMBER" },   // Marketing in Support
     { deptIdx: 5, userId: ceo.id, role: "MEMBER" },           // CEO in Stratégie
-    { deptIdx: 5, userId: mgmt2.id, role: "MEMBER" },         // Dir Tech in Stratégie
+    { deptIdx: 5, userId: mgmt1.id, role: "MEMBER" },         // Dir Tech in Stratégie
     { deptIdx: 6, userId: ceo.id, role: "MEMBER" },           // CEO in Management
     { deptIdx: 6, userId: mgmt1.id, role: "MEMBER" },         // Dir Ops in Management
-    { deptIdx: 6, userId: mgmt2.id, role: "MEMBER" },         // Dir Tech in Management
+    { deptIdx: 6, userId: mgmt1.id, role: "MEMBER" },         // Dir Tech in Management
     { deptIdx: 7, userId: mgmt1.id, role: "MEMBER" },         // Dir Ops in RH
   ];
 

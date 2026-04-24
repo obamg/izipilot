@@ -55,7 +55,7 @@ export default function WeeklyDigest({
   blockedCount,
   blockedKrs,
   pendingDecisions,
-  appUrl = "https://pilot.izichange.com",
+  appUrl = "https://izipilote.com",
 }: WeeklyDigestProps) {
   const onTrackPct =
     totalKrs > 0 ? Math.round((onTrackCount / totalKrs) * 100) : 0;

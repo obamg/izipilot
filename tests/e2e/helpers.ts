@@ -30,11 +30,10 @@ export async function expectPath(page: Page, path: string) {
  * Test credentials from seed data.
  */
 export const TEST_USERS = {
-  ceo: { email: "ceo@izichange.com", name: "Directeur Général" },
+  ceo: { email: "direction@izichange.com", name: "Directeur Général" },
   management: {
-    email: "management1@izichange.com",
+    email: "comitedirection@izichange.com",
     name: "Directeur Opérations",
   },
-  po: { email: "po.trading@izichange.com", name: "PO Trading" },
-  viewer: { email: "viewer1@izichange.com", name: "Observateur 1" },
+  po: { email: "geres@izichange.com", name: "PO Trading" },
 } as const;

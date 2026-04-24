@@ -23,7 +23,7 @@ export default function WeeklyReminder({
   name,
   weekNumber,
   year,
-  appUrl = "https://pilot.izichange.com",
+  appUrl = "https://izipilote.com",
 }: WeeklyReminderProps) {
   const deadline = "09h00";
 

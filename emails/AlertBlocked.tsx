@@ -27,7 +27,7 @@ export default function AlertBlocked({
   scorePercent,
   entityName,
   alertMessage,
-  appUrl = "https://pilot.izichange.com",
+  appUrl = "https://izipilote.com",
 }: AlertBlockedProps) {
   return (
     <Html lang="fr">

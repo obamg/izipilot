@@ -42,7 +42,7 @@ export async function sendEmail(
   try {
     const resend = getResend();
     const result = await resend.emails.send({
-      from: options.from ?? "IziPilot <notifications@pilot.izichange.com>",
+      from: options.from ?? "IziPilot <notifications@izipilote.com>",
       to: options.to,
       subject: options.subject,
       react: options.react,

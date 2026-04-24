@@ -27,7 +27,7 @@ export default function Escalation48h({
   scorePercent,
   entityName,
   blockedSince,
-  appUrl = "https://pilot.izichange.com",
+  appUrl = "https://izipilote.com",
 }: Escalation48hProps) {
   return (
     <Html lang="fr">

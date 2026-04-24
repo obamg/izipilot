@@ -94,7 +94,7 @@ export function UserFormModal({ open, onClose, user }: UserFormModalProps) {
               type="email"
               required
               className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
-              placeholder="utilisateur@izichange.com"
+              placeholder="utilisateur@izipilote.com"
             />
           </div>
         )}

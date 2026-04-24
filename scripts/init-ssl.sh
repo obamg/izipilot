@@ -21,7 +21,7 @@ if [ -z "$DOMAIN" ]; then
   exit 1
 fi
 
-EMAIL="${SSL_EMAIL:-admin@izichange.com}"
+EMAIL="${SSL_EMAIL:-admin@izipilote.com}"
 
 echo "Domaine: $DOMAIN"
 echo "Email: $EMAIL"

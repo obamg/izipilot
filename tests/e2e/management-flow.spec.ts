@@ -109,25 +109,7 @@ test.describe("Management / CEO Flow", () => {
     });
   });
 
-  test.describe("Viewer", () => {
-    test.beforeEach(async ({ page }) => {
-      await login(page, TEST_USERS.viewer.email);
-    });
-
-    test("Viewer can log in and reach dashboard", async ({ page }) => {
-      await expectPath(page, "/dashboard");
-    });
-
-    test("Viewer can view synthesis (read-only)", async ({ page }) => {
-      await page.goto("/synthesis");
-      await expectPath(page, "/synthesis");
-    });
-
-    test("Viewer cannot access admin panel", async ({ page }) => {
-      await page.goto("/admin");
-      await expectPath(page, "/dashboard");
-    });
-  });
+  // Viewer tests removed — no viewer users in seed
 });
 
 test.describe("Authentication", () => {
