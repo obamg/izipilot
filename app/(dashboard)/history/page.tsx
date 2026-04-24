@@ -3,11 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { HistoryChart } from "./HistoryChart";
 
-export default async function HistoryPage() {
+export default async function HistoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ entity?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const orgId = session.user.orgId;
+  const { entity: entityCode } = await searchParams;
 
   // Fetch all products and departments for the selector
   const [products, departments] = await Promise.all([
@@ -90,7 +95,11 @@ export default async function HistoryPage() {
         </p>
       </div>
 
-      <HistoryChart entities={entities} keyResults={krData} />
+      <HistoryChart
+        entities={entities}
+        keyResults={krData}
+        defaultEntityCode={entityCode}
+      />
     </div>
   );
 }

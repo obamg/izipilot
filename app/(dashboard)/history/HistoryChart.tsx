@@ -38,11 +38,16 @@ interface KrChartData {
 interface HistoryChartProps {
   entities: Entity[];
   keyResults: KrChartData[];
+  defaultEntityCode?: string;
 }
 
-export function HistoryChart({ entities, keyResults }: HistoryChartProps) {
+export function HistoryChart({ entities, keyResults, defaultEntityCode }: HistoryChartProps) {
+  const defaultEntity = defaultEntityCode
+    ? entities.find((e) => e.code === defaultEntityCode)
+    : undefined;
+
   const [selectedEntityId, setSelectedEntityId] = useState<string>(
-    entities[0]?.id ?? ""
+    defaultEntity?.id ?? entities[0]?.id ?? ""
   );
 
   const selectedEntity = entities.find((e) => e.id === selectedEntityId);

@@ -105,10 +105,12 @@ function CollapsibleSection({
   label,
   items,
   defaultOpen = false,
+  onClose,
 }: {
   label: string;
   items: SidebarEntity[];
   defaultOpen?: boolean;
+  onClose?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultOpen);
 
@@ -141,9 +143,11 @@ function CollapsibleSection({
       >
         <div className="overflow-hidden">
           {items.map((item) => (
-            <div
+            <Link
               key={item.code}
-              className="flex items-center gap-[7px] py-[5px] px-[9px] rounded-[7px] cursor-pointer text-sm text-white/60 hover:bg-white/[0.05] hover:text-white/90 transition-all mb-px"
+              href={`/history?entity=${item.code}`}
+              onClick={onClose}
+              className="flex items-center gap-[7px] py-[5px] px-[9px] rounded-[7px] cursor-pointer text-sm text-white/60 hover:bg-white/[0.05] hover:text-white/90 transition-all mb-px no-underline"
             >
               <div
                 className="w-[7px] h-[7px] rounded-full shrink-0"
@@ -156,7 +160,7 @@ function CollapsibleSection({
               >
                 {Math.round(item.scorePercent)}%
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -233,12 +237,12 @@ export function Sidebar({
         <div className="h-px bg-white/[0.06] mx-3 mb-[14px]" />
 
         {/* Products */}
-        <CollapsibleSection label="Produits" items={products} />
+        <CollapsibleSection label="Produits" items={products} onClose={onClose} />
 
         <div className="h-px bg-white/[0.06] mx-3 mb-[14px]" />
 
         {/* Departments */}
-        <CollapsibleSection label="Départements" items={departments} />
+        <CollapsibleSection label="Départements" items={departments} onClose={onClose} />
 
         {/* Admin section — CEO only */}
         {userRole === "CEO" && (
