@@ -98,6 +98,7 @@ export default async function WeeklyPage() {
       existingProgress: existing ? Math.round(existing.progress * 100) : undefined,
       existingStatus: existing?.status,
       existingBlocker: existing?.blocker ?? undefined,
+      existingProposedSolution: existing?.proposedSolution ?? undefined,
       existingActionNeeded: existing?.actionNeeded ?? undefined,
       existingComment: existing?.comment ?? undefined,
       isSubmitted: !!existing,

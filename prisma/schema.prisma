@@ -384,9 +384,10 @@ model WeeklyEntry {
   progress    Float    // % avancement réel (0.0 à 1.0)
   status      KrStatus
   delta       Float    @default(0) // Delta vs semaine précédente
-  blocker     String?  // Blocage identifié
-  actionNeeded String? // Besoin / décision requise
-  comment     String?  // Commentaire libre
+  blocker          String?  // Blocage identifié
+  proposedSolution String?  // Approche de solution (statut AT_RISK)
+  actionNeeded     String?  // Besoin / décision requise
+  comment          String?  // Commentaire libre
 
   // Calculs auto
   scoreAtEntry Decimal @default(0) @db.Decimal(5, 4)

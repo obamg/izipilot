@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 
 interface SidebarEntity {
   code: string;
@@ -85,13 +84,6 @@ const NAV_ITEMS = [
   },
 ] as const;
 
-function getScoreColor(score: number): string {
-  if (score >= 70) return "var(--green)";
-  if (score >= 40) return "var(--gold)";
-  if (score > 0) return "var(--red)";
-  return "var(--gray)";
-}
-
 const ADMIN_ITEMS = [
   { href: "/admin", label: "Vue d'ensemble" },
   { href: "/admin/users", label: "Utilisateurs" },
@@ -101,72 +93,6 @@ const ADMIN_ITEMS = [
   { href: "/admin/organization", label: "Organisation" },
 ];
 
-function CollapsibleSection({
-  label,
-  items,
-  defaultOpen = false,
-  onClose,
-}: {
-  label: string;
-  items: SidebarEntity[];
-  defaultOpen?: boolean;
-  onClose?: () => void;
-}) {
-  const [isExpanded, setIsExpanded] = useState(defaultOpen);
-
-  return (
-    <div className="px-3 mb-5">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full px-2 mb-[5px] group cursor-pointer"
-      >
-        <span className="text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] group-hover:text-white/60 transition-colors">
-          {label}
-        </span>
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          className={`w-3 h-3 text-white/[0.30] group-hover:text-white/50 transition-transform duration-200 ${
-            isExpanded ? "rotate-0" : "-rotate-90"
-          }`}
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      <div
-        className={`grid transition-[grid-template-rows] duration-200 ${
-          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        }`}
-      >
-        <div className="overflow-hidden">
-          {items.map((item) => (
-            <Link
-              key={item.code}
-              href={`/history?entity=${item.code}`}
-              onClick={onClose}
-              className="flex items-center gap-[7px] py-[5px] px-[9px] rounded-[7px] cursor-pointer text-sm text-white/60 hover:bg-white/[0.05] hover:text-white/90 transition-all mb-px no-underline"
-            >
-              <div
-                className="w-[7px] h-[7px] rounded-full shrink-0"
-                style={{ backgroundColor: item.color }}
-              />
-              {item.code} {item.name.split(" ")[0]}
-              <span
-                className="ml-auto font-mono text-[13px]"
-                style={{ color: getScoreColor(item.scorePercent) }}
-              >
-                {Math.round(item.scorePercent)}%
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function Sidebar({
   products,
@@ -233,16 +159,6 @@ export function Sidebar({
             );
           })}
         </div>
-
-        <div className="h-px bg-white/[0.06] mx-3 mb-[14px]" />
-
-        {/* Products */}
-        <CollapsibleSection label="Produits" items={products} onClose={onClose} />
-
-        <div className="h-px bg-white/[0.06] mx-3 mb-[14px]" />
-
-        {/* Departments */}
-        <CollapsibleSection label="Départements" items={departments} onClose={onClose} />
 
         {/* Admin section — CEO only */}
         {userRole === "CEO" && (

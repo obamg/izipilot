@@ -36,6 +36,7 @@ interface KrData {
   existingProgress?: number;
   existingStatus?: KrStatus;
   existingBlocker?: string;
+  existingProposedSolution?: string;
   existingActionNeeded?: string;
   existingComment?: string;
   isSubmitted: boolean;
@@ -54,6 +55,7 @@ interface EntryState {
   progress: number;
   status: KrStatus;
   blocker: string;
+  proposedSolution: string;
   actionNeeded: string;
   comment: string;
 }
@@ -103,6 +105,7 @@ export function WeeklyEntryForm({
         progress: kr.existingProgress ?? kr.score,
         status: kr.existingStatus ?? kr.status,
         blocker: kr.existingBlocker ?? "",
+        proposedSolution: kr.existingProposedSolution ?? "",
         actionNeeded: kr.existingActionNeeded ?? "",
         comment: kr.existingComment ?? "",
       };
@@ -208,6 +211,7 @@ export function WeeklyEntryForm({
               progress: entries[kr.id].progress / 100,
               status: entries[kr.id].status,
               blocker: entries[kr.id].blocker || null,
+              proposedSolution: entries[kr.id].proposedSolution || null,
               actionNeeded: entries[kr.id].actionNeeded || null,
               comment: entries[kr.id].comment || null,
             }),
@@ -394,6 +398,23 @@ export function WeeklyEntryForm({
                             }
                             className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed"
                             placeholder="D\u00e9crivez le blocage..."
+                          />
+                        </div>
+                      )}
+
+                      {/* Proposed solution — AT_RISK */}
+                      {(entry.status === "AT_RISK" || entry.proposedSolution) && (
+                        <div>
+                          <label className="text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-1 block">
+                            Approche de solution
+                          </label>
+                          <textarea
+                            value={entry.proposedSolution}
+                            onChange={(e) =>
+                              updateEntry(kr.id, "proposedSolution", e.target.value)
+                            }
+                            className="w-full px-[9px] py-[7px] border border-[#e6d28a] bg-[var(--gold-lt)] rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed"
+                            placeholder="D&eacute;crivez votre approche pour r&eacute;soudre ce point..."
                           />
                         </div>
                       )}

@@ -15,6 +15,7 @@ const createEntrySchema = z.object({
   currentValue: z.number().optional(),
   status: z.enum(["ON_TRACK", "AT_RISK", "BLOCKED", "NOT_STARTED"]),
   blocker: z.string().nullable().optional(),
+  proposedSolution: z.string().nullable().optional(),
   actionNeeded: z.string().nullable().optional(),
   comment: z.string().nullable().optional(),
 });
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
       status: e.status,
       delta: e.delta,
       blocker: e.blocker,
+      proposedSolution: e.proposedSolution,
       actionNeeded: e.actionNeeded,
       comment: e.comment,
       scoreAtEntry: scoreToPercent(e.scoreAtEntry),
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { krId, weekNumber, year, progress, currentValue: submittedValue, status, blocker, actionNeeded, comment } = parsed.data;
+  const { krId, weekNumber, year, progress, currentValue: submittedValue, status, blocker, proposedSolution, actionNeeded, comment } = parsed.data;
 
   // Verify KR exists and belongs to user's org
   const kr = await prisma.keyResult.findFirst({
@@ -143,6 +145,7 @@ export async function POST(request: NextRequest) {
         status: status ?? derivedStatus,
         delta,
         blocker: blocker ?? null,
+        proposedSolution: proposedSolution ?? null,
         actionNeeded: actionNeeded ?? null,
         comment: comment ?? null,
         scoreAtEntry: newScore,
@@ -152,6 +155,7 @@ export async function POST(request: NextRequest) {
         status: status ?? derivedStatus,
         delta,
         blocker: blocker ?? null,
+        proposedSolution: proposedSolution ?? null,
         actionNeeded: actionNeeded ?? null,
         comment: comment ?? null,
         scoreAtEntry: newScore,

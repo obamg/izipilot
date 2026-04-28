@@ -5,21 +5,68 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { KrProgressBar } from "@/components/ui/KrProgressBar";
 import { AlertCard } from "@/components/ui/AlertCard";
 import { DashboardAlerts } from "./DashboardAlerts";
+import { DashboardWeekSelector } from "./DashboardWeekSelector";
 import { ActionKpiWidget } from "@/components/ui/ActionKpiWidget";
 import { getISOWeek } from "@/lib/date";
 import type { KrStatus } from "@prisma/client";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string; year?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const orgId = session.user.orgId;
-  const { weekNumber, year } = getISOWeek(new Date());
+  const userId = session.user.id;
+  const userRole = session.user.role;
+  const { weekNumber: currentWeek, year: currentYear } = getISOWeek(new Date());
+
+  const params = await searchParams;
+  const weekNumber = params.week ? parseInt(params.week, 10) : currentWeek;
+  const year = params.year ? parseInt(params.year, 10) : currentYear;
+
+  // For PO/MANAGEMENT, find their owned products/departments to filter the view
+  let ownedProductIds: string[] = [];
+  let ownedDepartmentIds: string[] = [];
+  const isRestrictedView = userRole === "PO" || userRole === "MANAGEMENT";
+
+  if (isRestrictedView) {
+    const [ownedProducts, ownedDepartments] = await Promise.all([
+      prisma.product.findMany({
+        where: { orgId, ownerId: userId },
+        select: { id: true },
+      }),
+      prisma.department.findMany({
+        where: { orgId, ownerId: userId },
+        select: { id: true },
+      }),
+    ]);
+    ownedProductIds = ownedProducts.map((p) => p.id);
+    ownedDepartmentIds = ownedDepartments.map((d) => d.id);
+  }
+
+  // Build KR filter: PO/MANAGEMENT see only their entities, CEO/VIEWER see all
+  const krWhereClause = isRestrictedView
+    ? {
+        orgId,
+        isActive: true,
+        objective: {
+          OR: [
+            { productId: { in: ownedProductIds } },
+            { departmentId: { in: ownedDepartmentIds } },
+          ],
+        },
+      }
+    : { orgId, isActive: true };
+
+  const isHistorical = weekNumber !== currentWeek || year !== currentYear;
 
   // Fetch all data in parallel
-  const [keyResults, alerts, weeklySession, submittedCount, actionGroups] = await Promise.all([
+  const [keyResults, alerts, weeklySession, submittedCount, actionGroups, weeklyEntries] = await Promise.all([
     prisma.keyResult.findMany({
-      where: { orgId, isActive: true },
+      where: krWhereClause,
       include: {
         objective: {
           include: {
@@ -50,7 +97,25 @@ export default async function DashboardPage() {
       where: { orgId },
       _count: true,
     }),
+    // Fetch weekly entries for historical view
+    isHistorical
+      ? prisma.weeklyEntry.findMany({
+          where: { orgId, weekNumber, year },
+          select: { krId: true, scoreAtEntry: true, status: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  // Build a map of krId -> historical score/status for past weeks
+  const historicalScores = new Map<string, { score: number; status: string }>();
+  if (isHistorical) {
+    for (const entry of weeklyEntries) {
+      historicalScores.set(entry.krId, {
+        score: Number(entry.scoreAtEntry),
+        status: entry.status,
+      });
+    }
+  }
 
   // Compute action KPIs
   const actionKpis = { todo: 0, inProgress: 0, blocked: 0, done: 0, cancelled: 0, total: 0 };
@@ -69,8 +134,23 @@ export default async function DashboardPage() {
     where: { orgId, role: "PO", isActive: true },
   });
 
+  // Helper to get score for a KR (historical or current)
+  function getKrScore(kr: (typeof keyResults)[number]): number {
+    if (isHistorical && historicalScores.has(kr.id)) {
+      return historicalScores.get(kr.id)!.score * 100;
+    }
+    return Number(kr.score) * 100;
+  }
+
+  function getKrStatus(kr: (typeof keyResults)[number]): string {
+    if (isHistorical && historicalScores.has(kr.id)) {
+      return historicalScores.get(kr.id)!.status;
+    }
+    return kr.status;
+  }
+
   // Compute KPIs
-  const allScores = keyResults.map((kr) => Number(kr.score) * 100);
+  const allScores = keyResults.map((kr) => getKrScore(kr));
   const overallScore =
     allScores.length > 0
       ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
@@ -83,7 +163,8 @@ export default async function DashboardPage() {
     NOT_STARTED: 0,
   };
   for (const kr of keyResults) {
-    statusCounts[kr.status]++;
+    const status = getKrStatus(kr) as keyof typeof statusCounts;
+    if (status in statusCounts) statusCounts[status]++;
   }
 
   // Group KRs by product/department for the OKR scores section
@@ -138,7 +219,7 @@ export default async function DashboardPage() {
   for (const group of entityGroups.values()) {
     const scores: number[] = [];
     for (const obj of group.objectives.values()) {
-      const objScores = obj.krs.map((kr) => Number(kr.score) * 100);
+      const objScores = obj.krs.map((kr) => getKrScore(kr));
       obj.avgScore =
         objScores.length > 0
           ? Math.round(objScores.reduce((a, b) => a + b, 0) / objScores.length)
@@ -169,9 +250,17 @@ export default async function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-6 gap-3">
         <div>
           <p className="text-sm text-izi-gray capitalize">{formattedDate}</p>
-          <h1 className="font-serif text-2xl text-dark mt-1">
-            Semaine {weekNumber}
-          </h1>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="font-serif text-2xl text-dark">
+              Semaine {weekNumber}
+            </h1>
+            <DashboardWeekSelector
+              weekNumber={weekNumber}
+              year={year}
+              currentWeek={currentWeek}
+              currentYear={currentYear}
+            />
+          </div>
           <p className="text-sm text-izi-gray mt-1">
             Deadline saisie 09h00 &middot;{" "}
             <span className="font-medium text-dark-md">{submittedCount.length}/{poCount}</span> revues soumises
@@ -301,7 +390,7 @@ export default async function DashboardPage() {
                 obj.krs.map((kr) => (
                   <KrProgressBar
                     key={kr.id}
-                    score={Math.round(Number(kr.score) * 100)}
+                    score={Math.round(getKrScore(kr))}
                     label={kr.title}
                     className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
                   />
