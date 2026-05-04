@@ -11,7 +11,7 @@ export default async function AlertsPage() {
   const orgId = session.user.orgId;
   const userRole = session.user.role;
 
-  const isOwnerScoped = userRole === "PO" || userRole === "MANAGEMENT";
+  const isOwnerScoped = userRole === "PO";
 
   const alerts = await prisma.alert.findMany({
     where: {
@@ -34,6 +34,20 @@ export default async function AlertsPage() {
               department: { select: { code: true, name: true } },
             },
           },
+          weeklyEntries: {
+            where: { status: "BLOCKED" },
+            orderBy: [{ year: "desc" }, { weekNumber: "desc" }],
+            take: 1,
+            select: {
+              blocker: true,
+              proposedSolution: true,
+              actionNeeded: true,
+              comment: true,
+              weekNumber: true,
+              year: true,
+              submittedAt: true,
+            },
+          },
         },
       },
       triggerer: { select: { name: true } },
@@ -45,6 +59,7 @@ export default async function AlertsPage() {
   const alertData = alerts.map((a) => {
     const entity =
       a.keyResult.objective.product || a.keyResult.objective.department;
+    const latestBlockedEntry = a.keyResult.weeklyEntries[0];
     return {
       id: a.id,
       type: a.type,
@@ -61,6 +76,16 @@ export default async function AlertsPage() {
       entityName: entity?.name ?? "",
       triggeredByName: a.triggerer.name,
       resolvedByName: a.resolver?.name ?? null,
+      poNotes: latestBlockedEntry
+        ? {
+            blocker: latestBlockedEntry.blocker,
+            proposedSolution: latestBlockedEntry.proposedSolution,
+            actionNeeded: latestBlockedEntry.actionNeeded,
+            comment: latestBlockedEntry.comment,
+            weekNumber: latestBlockedEntry.weekNumber,
+            year: latestBlockedEntry.year,
+          }
+        : null,
     };
   });
 
