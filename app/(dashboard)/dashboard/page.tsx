@@ -354,7 +354,7 @@ export default async function DashboardPage({
 
           {sortedProducts.length > 0 && (
             <div className="mb-5">
-              <h3 className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-3">
+              <h3 className="text-[13px] font-semibold tracking-wide uppercase text-izi-gray mb-3">
                 Produits
               </h3>
               {sortedProducts.map((entity, i) => (
@@ -371,7 +371,7 @@ export default async function DashboardPage({
                     className="flex items-center gap-2 mb-2 px-1 -mx-1 py-1 rounded hover:bg-izi-gray-lt no-underline transition-colors"
                   >
                     <span
-                      className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
+                      className="font-mono text-sm font-semibold px-2 py-0.5 rounded"
                       style={{
                         backgroundColor:
                           entity.avgScore < 40
@@ -383,11 +383,11 @@ export default async function DashboardPage({
                     >
                       {entity.code}
                     </span>
-                    <span className="text-sm font-medium text-dark flex-1">
+                    <span className="text-base font-medium text-dark flex-1">
                       {entity.name}
                     </span>
                     <span
-                      className="font-mono text-sm font-bold"
+                      className="font-mono text-base font-bold"
                       style={{
                         color:
                           entity.avgScore >= 70
@@ -439,7 +439,7 @@ export default async function DashboardPage({
                     className="flex items-center gap-2 mb-2 px-1 -mx-1 py-1 rounded hover:bg-izi-gray-lt no-underline transition-colors"
                   >
                     <span
-                      className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
+                      className="font-mono text-sm font-semibold px-2 py-0.5 rounded"
                       style={{
                         backgroundColor:
                           entity.avgScore < 40
@@ -451,11 +451,11 @@ export default async function DashboardPage({
                     >
                       {entity.code}
                     </span>
-                    <span className="text-sm font-medium text-dark flex-1">
+                    <span className="text-base font-medium text-dark flex-1">
                       {entity.name}
                     </span>
                     <span
-                      className="font-mono text-sm font-bold"
+                      className="font-mono text-base font-bold"
                       style={{
                         color:
                           entity.avgScore >= 70

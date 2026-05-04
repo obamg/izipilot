@@ -25,19 +25,19 @@ export function KrProgressBar({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {label && (
-        <span className="text-[10px] text-dark-md flex-1 min-w-0 truncate">
+        <span className="text-[13px] text-dark-md flex-1 min-w-0 truncate">
           {label}
         </span>
       )}
-      <div className="w-[70px] h-1 bg-izi-gray-lt rounded-sm overflow-hidden shrink-0">
+      <div className="w-[90px] h-1.5 bg-izi-gray-lt rounded-sm overflow-hidden shrink-0">
         <div
-          className="h-1 rounded-sm transition-all duration-300"
+          className="h-1.5 rounded-sm transition-all duration-300"
           style={{ backgroundColor: color, width: `${Math.min(rounded, 100)}%` }}
         />
       </div>
       {showScore && (
         <span
-          className="font-mono text-[10px] font-semibold min-w-[28px] text-right shrink-0"
+          className="font-mono text-[13px] font-semibold min-w-[34px] text-right shrink-0"
           style={{ color }}
         >
           {rounded}%
@@ -45,7 +45,7 @@ export function KrProgressBar({
       )}
       {delta !== undefined && delta !== 0 && (
         <span
-          className={`text-[9px] font-medium shrink-0 ${
+          className={`text-[11px] font-medium shrink-0 ${
             delta > 0 ? "text-izi-green" : "text-izi-red"
           }`}
         >
