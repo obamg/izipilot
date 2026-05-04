@@ -21,6 +21,14 @@ interface AlertData {
   entityName: string;
   triggeredByName: string;
   resolvedByName: string | null;
+  poNotes: {
+    blocker: string | null;
+    proposedSolution: string | null;
+    actionNeeded: string | null;
+    comment: string | null;
+    weekNumber: number;
+    year: number;
+  } | null;
 }
 
 interface AlertsListProps {
@@ -189,6 +197,43 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
                       </>
                     )}
                   </div>
+
+                  {(alert.type === "KR_BLOCKED" || alert.type === "ESCALATION_48H") &&
+                    alert.poNotes &&
+                    (alert.poNotes.blocker ||
+                      alert.poNotes.proposedSolution ||
+                      alert.poNotes.actionNeeded ||
+                      alert.poNotes.comment) && (
+                      <div className="mt-2 p-2 bg-izi-gray-lt rounded text-[10px] text-dark space-y-1.5 border-l-2 border-red">
+                        <div className="text-[9px] font-semibold text-izi-gray uppercase tracking-wide">
+                          Note du PO &mdash; semaine {alert.poNotes.weekNumber}/{alert.poNotes.year}
+                        </div>
+                        {alert.poNotes.blocker && (
+                          <div>
+                            <span className="font-semibold">Blocage :</span>{" "}
+                            {alert.poNotes.blocker}
+                          </div>
+                        )}
+                        {alert.poNotes.proposedSolution && (
+                          <div>
+                            <span className="font-semibold">Solution propos&eacute;e :</span>{" "}
+                            {alert.poNotes.proposedSolution}
+                          </div>
+                        )}
+                        {alert.poNotes.actionNeeded && (
+                          <div>
+                            <span className="font-semibold">Besoin :</span>{" "}
+                            {alert.poNotes.actionNeeded}
+                          </div>
+                        )}
+                        {alert.poNotes.comment && (
+                          <div>
+                            <span className="font-semibold">Commentaire :</span>{" "}
+                            {alert.poNotes.comment}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   {alert.resolution && (
                     <div className="mt-2 p-2 bg-izi-green-lt rounded text-[10px] text-dark">
