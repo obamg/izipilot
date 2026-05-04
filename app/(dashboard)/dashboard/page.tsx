@@ -232,9 +232,12 @@ export default async function DashboardPage({
         : 0;
   }
 
-  // Sort: blocked entities first, then by score ascending
-  const sortedEntities = Array.from(entityGroups.values())
+  // Sort: blocked entities first, then by score ascending — split by type
+  const sortedProducts = Array.from(entityGroups.values())
     .filter((e) => e.entityType === "PRODUCT")
+    .sort((a, b) => a.avgScore - b.avgScore);
+  const sortedDepartments = Array.from(entityGroups.values())
+    .filter((e) => e.entityType === "DEPARTMENT")
     .sort((a, b) => a.avgScore - b.avgScore);
 
   const formattedDate = new Date().toLocaleDateString("fr-FR", {
@@ -331,73 +334,142 @@ export default async function DashboardPage({
 
       {/* Main grid: OKR scores + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 mb-4">
-        {/* OKR Scores — Products */}
+        {/* OKR Scores — Products + Departments */}
         <div className="bg-white rounded-xl border border-[#deeaea] p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-dark">
-                Scores OKR &mdash; Produits
+                Scores OKR
               </h2>
               <p className="text-sm text-izi-gray mt-0.5">
                 S{String(weekNumber).padStart(2, "0")} &middot; {year}
               </p>
             </div>
           </div>
-          {sortedEntities.length === 0 && (
+
+          {sortedProducts.length === 0 && sortedDepartments.length === 0 && (
             <p className="text-sm text-izi-gray py-6">Aucun OKR trouv&eacute;.</p>
           )}
-          {sortedEntities.map((entity, i) => (
-            <div
-              key={entity.code}
-              className={`mb-4 pb-4 ${
-                i < sortedEntities.length - 1
-                  ? "border-b border-izi-gray-lt"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
-                  style={{
-                    backgroundColor:
-                      entity.avgScore < 40
-                        ? "var(--red-lt)"
-                        : "var(--teal-lt)",
-                    color:
-                      entity.avgScore < 40 ? "var(--red)" : "var(--teal)",
-                  }}
+
+          {sortedProducts.length > 0 && (
+            <div className="mb-5">
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-3">
+                Produits
+              </h3>
+              {sortedProducts.map((entity, i) => (
+                <div
+                  key={entity.code}
+                  className={`mb-4 pb-4 ${
+                    i < sortedProducts.length - 1
+                      ? "border-b border-izi-gray-lt"
+                      : ""
+                  }`}
                 >
-                  {entity.code}
-                </span>
-                <span className="text-sm font-medium text-dark flex-1">
-                  {entity.name}
-                </span>
-                <span
-                  className="font-mono text-sm font-bold"
-                  style={{
-                    color:
-                      entity.avgScore >= 70
-                        ? "var(--green)"
-                        : entity.avgScore >= 40
-                        ? "var(--gold)"
-                        : "var(--red)",
-                  }}
-                >
-                  {entity.avgScore}%
-                </span>
-              </div>
-              {Array.from(entity.objectives.values()).flatMap((obj) =>
-                obj.krs.map((kr) => (
-                  <KrProgressBar
-                    key={kr.id}
-                    score={Math.round(getKrScore(kr))}
-                    label={kr.title}
-                    className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
-                  />
-                ))
-              )}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor:
+                          entity.avgScore < 40
+                            ? "var(--red-lt)"
+                            : "var(--teal-lt)",
+                        color:
+                          entity.avgScore < 40 ? "var(--red)" : "var(--teal)",
+                      }}
+                    >
+                      {entity.code}
+                    </span>
+                    <span className="text-sm font-medium text-dark flex-1">
+                      {entity.name}
+                    </span>
+                    <span
+                      className="font-mono text-sm font-bold"
+                      style={{
+                        color:
+                          entity.avgScore >= 70
+                            ? "var(--green)"
+                            : entity.avgScore >= 40
+                            ? "var(--gold)"
+                            : "var(--red)",
+                      }}
+                    >
+                      {entity.avgScore}%
+                    </span>
+                  </div>
+                  {Array.from(entity.objectives.values()).flatMap((obj) =>
+                    obj.krs.map((kr) => (
+                      <KrProgressBar
+                        key={kr.id}
+                        score={Math.round(getKrScore(kr))}
+                        label={kr.title}
+                        className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
+                      />
+                    ))
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {sortedDepartments.length > 0 && (
+            <div className={sortedProducts.length > 0 ? "pt-5 border-t border-izi-gray-lt" : ""}>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-3">
+                D&eacute;partements
+              </h3>
+              {sortedDepartments.map((entity, i) => (
+                <div
+                  key={entity.code}
+                  className={`mb-4 pb-4 ${
+                    i < sortedDepartments.length - 1
+                      ? "border-b border-izi-gray-lt"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor:
+                          entity.avgScore < 40
+                            ? "var(--red-lt)"
+                            : "var(--teal-lt)",
+                        color:
+                          entity.avgScore < 40 ? "var(--red)" : "var(--teal)",
+                      }}
+                    >
+                      {entity.code}
+                    </span>
+                    <span className="text-sm font-medium text-dark flex-1">
+                      {entity.name}
+                    </span>
+                    <span
+                      className="font-mono text-sm font-bold"
+                      style={{
+                        color:
+                          entity.avgScore >= 70
+                            ? "var(--green)"
+                            : entity.avgScore >= 40
+                            ? "var(--gold)"
+                            : "var(--red)",
+                      }}
+                    >
+                      {entity.avgScore}%
+                    </span>
+                  </div>
+                  {Array.from(entity.objectives.values()).flatMap((obj) =>
+                    obj.krs.map((kr) => (
+                      <KrProgressBar
+                        key={kr.id}
+                        score={Math.round(getKrScore(kr))}
+                        label={kr.title}
+                        className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
+                      />
+                    ))
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right column: Alerts */}
