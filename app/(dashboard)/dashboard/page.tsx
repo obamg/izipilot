@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { KrProgressBar } from "@/components/ui/KrProgressBar";
 import { AlertCard } from "@/components/ui/AlertCard";
@@ -365,7 +366,10 @@ export default async function DashboardPage({
                       : ""
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-2">
+                  <Link
+                    href={`/products/${entity.code}`}
+                    className="flex items-center gap-2 mb-2 px-1 -mx-1 py-1 rounded hover:bg-izi-gray-lt no-underline transition-colors"
+                  >
                     <span
                       className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
                       style={{
@@ -395,15 +399,20 @@ export default async function DashboardPage({
                     >
                       {entity.avgScore}%
                     </span>
-                  </div>
+                  </Link>
                   {Array.from(entity.objectives.values()).flatMap((obj) =>
                     obj.krs.map((kr) => (
-                      <KrProgressBar
+                      <Link
                         key={kr.id}
-                        score={Math.round(getKrScore(kr))}
-                        label={kr.title}
-                        className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
-                      />
+                        href={`/kr/${kr.id}`}
+                        className="block px-1 -mx-1 rounded hover:bg-izi-gray-lt no-underline transition-colors"
+                      >
+                        <KrProgressBar
+                          score={Math.round(getKrScore(kr))}
+                          label={kr.title}
+                          className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
+                        />
+                      </Link>
                     ))
                   )}
                 </div>
@@ -425,7 +434,10 @@ export default async function DashboardPage({
                       : ""
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-2">
+                  <Link
+                    href={`/departments/${entity.code}`}
+                    className="flex items-center gap-2 mb-2 px-1 -mx-1 py-1 rounded hover:bg-izi-gray-lt no-underline transition-colors"
+                  >
                     <span
                       className="font-mono text-xs font-semibold px-2 py-0.5 rounded"
                       style={{
@@ -455,15 +467,20 @@ export default async function DashboardPage({
                     >
                       {entity.avgScore}%
                     </span>
-                  </div>
+                  </Link>
                   {Array.from(entity.objectives.values()).flatMap((obj) =>
                     obj.krs.map((kr) => (
-                      <KrProgressBar
+                      <Link
                         key={kr.id}
-                        score={Math.round(getKrScore(kr))}
-                        label={kr.title}
-                        className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
-                      />
+                        href={`/kr/${kr.id}`}
+                        className="block px-1 -mx-1 rounded hover:bg-izi-gray-lt no-underline transition-colors"
+                      >
+                        <KrProgressBar
+                          score={Math.round(getKrScore(kr))}
+                          label={kr.title}
+                          className="py-1.5 border-b border-izi-gray-lt last:border-b-0"
+                        />
+                      </Link>
                     ))
                   )}
                 </div>
