@@ -11,7 +11,7 @@ export default async function AlertsPage() {
   const orgId = session.user.orgId;
   const userRole = session.user.role;
 
-  const isOwnerScoped = userRole === "PO" || userRole === "MANAGEMENT";
+  const isOwnerScoped = userRole === "PO";
 
   const alerts = await prisma.alert.findMany({
     where: {

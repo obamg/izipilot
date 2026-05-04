@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { type, severity, isResolved } = params.data;
-  const isOwnerScoped = session.user.role === "PO" || session.user.role === "MANAGEMENT";
+  const isOwnerScoped = session.user.role === "PO";
 
   const alerts = await prisma.alert.findMany({
     where: {
