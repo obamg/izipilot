@@ -293,14 +293,22 @@ export function WeeklyEntryForm({
                   {first.entityCode} {first.entityName} &middot; S
                   {String(weekNumber).padStart(2, "0")}
                 </div>
-                <div className="text-[10px] text-izi-gray mt-px">
-                  {first.objectiveTitle}
-                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              {krs.map((kr) => {
+            {Array.from(
+              krs.reduce((map, kr) => {
+                if (!map.has(kr.objectiveTitle)) map.set(kr.objectiveTitle, []);
+                map.get(kr.objectiveTitle)!.push(kr);
+                return map;
+              }, new Map<string, KrData[]>())
+            ).map(([objectiveTitle, objectiveKrs]) => (
+              <div key={objectiveTitle} className="mb-4 last:mb-0">
+                <div className="text-[10px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-2">
+                  Objectif &middot; {objectiveTitle}
+                </div>
+                <div className="space-y-4">
+                  {objectiveKrs.map((kr) => {
                 const entry = entries[kr.id];
                 const displayScore = entry.progress;
                 const scoreColor = getScoreColor(displayScore);
@@ -605,7 +613,9 @@ export function WeeklyEntryForm({
                   </div>
                 );
               })}
-            </div>
+                </div>
+              </div>
+            ))}
           </div>
         );
       })}
