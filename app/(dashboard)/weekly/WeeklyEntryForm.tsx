@@ -303,11 +303,19 @@ export function WeeklyEntryForm({
                 return map;
               }, new Map<string, KrData[]>())
             ).map(([objectiveTitle, objectiveKrs]) => (
-              <div key={objectiveTitle} className="mb-4 last:mb-0">
-                <div className="text-[10px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-2">
-                  Objectif &middot; {objectiveTitle}
+              <div
+                key={objectiveTitle}
+                className="rounded-[10px] border border-teal-md bg-teal-lt/40 mb-4 last:mb-0 overflow-hidden"
+              >
+                <div className="bg-teal-lt border-b border-teal-md px-4 py-2.5">
+                  <div className="text-[9px] font-semibold tracking-[0.08em] uppercase text-teal-dk mb-0.5">
+                    Objectif
+                  </div>
+                  <div className="font-serif text-[15px] leading-tight text-dark">
+                    {objectiveTitle}
+                  </div>
                 </div>
-                <div className="space-y-4">
+                <div className="p-3 space-y-4">
                   {objectiveKrs.map((kr) => {
                 const entry = entries[kr.id];
                 const displayScore = entry.progress;
