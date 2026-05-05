@@ -4,16 +4,19 @@ import { useState, useEffect, useRef, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ScoreDonutFilled } from "@/components/ui/ScoreDonut";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { KrStatus, KrType, ActionStatus, ActionPriority } from "@prisma/client";
+import type { KrStatus, KrType, ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { ActionForm } from "@/components/ui/ActionForm";
+import { ActionEditModal, type EditableAction } from "@/components/ui/ActionEditModal";
 
 interface ActionData {
   id: string;
   title: string;
+  description: string | null;
   status: ActionStatus;
   priority: ActionPriority;
+  assigneeId: string;
   assigneeName: string;
   dueDate: string | null;
 }
@@ -49,6 +52,7 @@ interface WeeklyEntryFormProps {
   year: number;
   orgUsers: { id: string; name: string }[];
   currentUserId: string;
+  currentUserRole: UserRole;
 }
 
 interface EntryState {
@@ -86,6 +90,7 @@ export function WeeklyEntryForm({
   year,
   orgUsers,
   currentUserId,
+  currentUserRole,
 }: WeeklyEntryFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -97,6 +102,10 @@ export function WeeklyEntryForm({
   const [actionUpdates, setActionUpdates] = useState<Record<string, ActionStatus>>({});
   const [showActionForm, setShowActionForm] = useState<string | null>(null);
   const [actionCreating, setActionCreating] = useState(false);
+  const [editingAction, setEditingAction] = useState<EditableAction | null>(null);
+
+  const canEditAction = currentUserRole !== "VIEWER";
+  const canDeleteAction = currentUserRole === "CEO" || currentUserRole === "MANAGEMENT";
 
   const [entries, setEntries] = useState<Record<string, EntryState>>(() => {
     const initial: Record<string, EntryState> = {};
@@ -493,10 +502,27 @@ export function WeeklyEntryForm({
                             return (
                               <div
                                 key={action.id}
-                                className={`flex items-center gap-2.5 px-3 py-2 ${isDone ? "opacity-60" : ""}`}
+                                onClick={
+                                  canEditAction
+                                    ? () =>
+                                        setEditingAction({
+                                          id: action.id,
+                                          title: action.title,
+                                          description: action.description,
+                                          assigneeId: action.assigneeId,
+                                          status: currentStatus,
+                                          priority: action.priority,
+                                          dueDate: action.dueDate,
+                                        })
+                                    : undefined
+                                }
+                                className={`flex items-center gap-2.5 px-3 py-2 ${isDone ? "opacity-60" : ""} ${canEditAction ? "cursor-pointer hover:bg-gray-lt/40" : ""}`}
                               >
                                 {/* Status dot/checkbox */}
-                                <div className="relative shrink-0">
+                                <div
+                                  className="relative shrink-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <select
                                     value={currentStatus}
                                     onChange={(e) => handleActionStatusChange(action.id, e.target.value as ActionStatus)}
@@ -611,6 +637,17 @@ export function WeeklyEntryForm({
           {isPending ? "Envoi..." : "Soumettre la revue \u2192"}
         </button>
       </div>
+
+      {editingAction && (
+        <ActionEditModal
+          action={editingAction}
+          users={orgUsers}
+          canDelete={canDeleteAction}
+          onClose={() => setEditingAction(null)}
+          onUpdated={() => router.refresh()}
+          onDeleted={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

@@ -105,8 +105,10 @@ export default async function WeeklyPage() {
       actions: kr.actions.map((a) => ({
         id: a.id,
         title: a.title,
+        description: a.description,
         status: a.status,
         priority: a.priority,
+        assigneeId: a.assignee.id,
         assigneeName: a.assignee.name,
         dueDate: a.dueDate?.toISOString() ?? null,
       })),
@@ -142,6 +144,7 @@ export default async function WeeklyPage() {
           year={year}
           orgUsers={orgUsers}
           currentUserId={userId}
+          currentUserRole={session.user.role}
         />
       )}
     </div>
