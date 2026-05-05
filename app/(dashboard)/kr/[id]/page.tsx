@@ -3,9 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
-import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { KrHistoryChart } from "@/components/kr/KrHistoryChart";
+import { KrActionsList } from "@/components/kr/KrActionsList";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", {
@@ -22,6 +21,7 @@ function formatDateShort(iso: string): string {
   });
 }
 
+
 export default async function KrDetailPage({
   params,
 }: {
@@ -32,31 +32,38 @@ export default async function KrDetailPage({
   const { id } = await params;
   const orgId = session.user.orgId;
 
-  const kr = await prisma.keyResult.findFirst({
-    where: { id, orgId, deletedAt: null },
-    include: {
-      owner: { select: { id: true, name: true } },
-      objective: {
-        include: {
-          product: { select: { code: true, name: true, color: true } },
-          department: { select: { code: true, name: true, color: true } },
+  const [kr, orgUsers] = await Promise.all([
+    prisma.keyResult.findFirst({
+      where: { id, orgId, deletedAt: null },
+      include: {
+        owner: { select: { id: true, name: true } },
+        objective: {
+          include: {
+            product: { select: { code: true, name: true, color: true } },
+            department: { select: { code: true, name: true, color: true } },
+          },
+        },
+        weeklyEntries: {
+          orderBy: [{ year: "asc" }, { weekNumber: "asc" }],
+          take: 13,
+          include: { submitter: { select: { name: true } } },
+        },
+        actions: {
+          orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+          include: { assignee: { select: { id: true, name: true } } },
+        },
+        alerts: {
+          where: { isResolved: false },
+          orderBy: { createdAt: "desc" },
         },
       },
-      weeklyEntries: {
-        orderBy: [{ year: "asc" }, { weekNumber: "asc" }],
-        take: 13,
-        include: { submitter: { select: { name: true } } },
-      },
-      actions: {
-        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-        include: { assignee: { select: { name: true } } },
-      },
-      alerts: {
-        where: { isResolved: false },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+    }),
+    prisma.user.findMany({
+      where: { orgId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!kr) notFound();
 
@@ -271,42 +278,20 @@ export default async function KrDetailPage({
           </p>
         )}
 
-        <div className="space-y-1.5">
-          {kr.actions.map((a) => {
-            const isOverdue =
-              a.dueDate &&
-              new Date(a.dueDate) < new Date() &&
-              a.status !== "DONE" &&
-              a.status !== "CANCELLED";
-            return (
-              <div
-                key={a.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-md border border-[#deeaea] hover:border-teal-md transition-colors"
-              >
-                <ActionStatusBadge status={a.status} />
-                <ActionPriorityBadge priority={a.priority} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-medium text-dark truncate">
-                    {a.title}
-                  </div>
-                  <div className="text-[10px] text-izi-gray truncate">
-                    Assign&eacute; &agrave; {a.assignee.name}
-                    {a.description ? ` — ${a.description}` : ""}
-                  </div>
-                </div>
-                {a.dueDate && (
-                  <div
-                    className={`text-[10px] font-medium shrink-0 ${
-                      isOverdue ? "text-red" : "text-izi-gray"
-                    }`}
-                  >
-                    {formatDateShort(a.dueDate.toISOString())}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <KrActionsList
+          actions={kr.actions.map((a) => ({
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            status: a.status,
+            priority: a.priority,
+            assigneeId: a.assignee.id,
+            assigneeName: a.assignee.name,
+            dueDate: a.dueDate?.toISOString() ?? null,
+          }))}
+          users={orgUsers}
+          currentUserRole={session.user.role}
+        />
       </div>
     </div>
   );

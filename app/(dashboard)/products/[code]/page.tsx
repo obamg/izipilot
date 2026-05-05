@@ -13,30 +13,37 @@ export default async function ProductDetailPage({
   const { code } = await params;
   const orgId = session.user.orgId;
 
-  const product = await prisma.product.findFirst({
-    where: { orgId, code, isActive: true },
-    include: {
-      objectives: {
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
-        include: {
-          keyResults: {
-            where: { isActive: true, deletedAt: null },
-            orderBy: { sortOrder: "asc" },
-            include: {
-              owner: { select: { name: true } },
-              actions: {
-                orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-                include: {
-                  assignee: { select: { name: true } },
+  const [product, orgUsers] = await Promise.all([
+    prisma.product.findFirst({
+      where: { orgId, code, isActive: true },
+      include: {
+        objectives: {
+          where: { isActive: true },
+          orderBy: { sortOrder: "asc" },
+          include: {
+            keyResults: {
+              where: { isActive: true, deletedAt: null },
+              orderBy: { sortOrder: "asc" },
+              include: {
+                owner: { select: { name: true } },
+                actions: {
+                  orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+                  include: {
+                    assignee: { select: { id: true, name: true } },
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.user.findMany({
+      where: { orgId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!product) notFound();
 
@@ -66,11 +73,12 @@ export default async function ProductDetailPage({
       kr.actions.map((a) => ({
         id: a.id,
         title: a.title,
+        description: a.description,
         status: a.status,
         priority: a.priority,
+        assigneeId: a.assignee.id,
         assigneeName: a.assignee.name,
         dueDate: a.dueDate?.toISOString() ?? null,
-        krId: kr.id,
         krTitle: kr.title,
       }))
     )
@@ -86,5 +94,11 @@ export default async function ProductDetailPage({
     actions,
   };
 
-  return <EntityDetailView entity={data} />;
+  return (
+    <EntityDetailView
+      entity={data}
+      users={orgUsers}
+      currentUserRole={session.user.role}
+    />
+  );
 }

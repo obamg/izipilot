@@ -1,20 +1,10 @@
 import Link from "next/link";
 import { KrProgressBar } from "@/components/ui/KrProgressBar";
-import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
-import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { ActionStatus, ActionPriority, KrStatus } from "@prisma/client";
+import { EntityActionsList, type EntityAction } from "@/components/entity/EntityActionsList";
+import type { KrStatus, UserRole } from "@prisma/client";
 
-interface ActionItem {
-  id: string;
-  title: string;
-  status: ActionStatus;
-  priority: ActionPriority;
-  assigneeName: string;
-  dueDate: string | null;
-  krId: string;
-  krTitle: string;
-}
+type ActionItem = EntityAction;
 
 interface KrItem {
   id: string;
@@ -41,14 +31,13 @@ export interface EntityDetailData {
   actions: ActionItem[];
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-  });
+interface EntityDetailViewProps {
+  entity: EntityDetailData;
+  users: { id: string; name: string }[];
+  currentUserRole: UserRole;
 }
 
-export function EntityDetailView({ entity }: { entity: EntityDetailData }) {
+export function EntityDetailView({ entity, users, currentUserRole }: EntityDetailViewProps) {
   const openActions = entity.actions.filter(
     (a) => a.status !== "DONE" && a.status !== "CANCELLED"
   );
@@ -182,43 +171,11 @@ export function EntityDetailView({ entity }: { entity: EntityDetailData }) {
         )}
 
         {openActions.length > 0 && (
-          <div className="space-y-1.5">
-            {openActions.slice(0, 10).map((a) => {
-              const isOverdue =
-                a.dueDate && new Date(a.dueDate) < new Date();
-              return (
-                <div
-                  key={a.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-md border border-[#deeaea] hover:border-teal-md transition-colors"
-                >
-                  <ActionStatusBadge status={a.status} />
-                  <ActionPriorityBadge priority={a.priority} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-medium text-dark truncate">
-                      {a.title}
-                    </div>
-                    <div className="text-[10px] text-izi-gray truncate">
-                      {a.krTitle} &middot; Assign&eacute; &agrave; {a.assigneeName}
-                    </div>
-                  </div>
-                  {a.dueDate && (
-                    <div
-                      className={`text-[10px] font-medium shrink-0 ${
-                        isOverdue ? "text-red" : "text-izi-gray"
-                      }`}
-                    >
-                      {formatDate(a.dueDate)}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {openActions.length > 10 && (
-              <div className="text-[11px] text-izi-gray text-center pt-2">
-                + {openActions.length - 10} autre{openActions.length - 10 > 1 ? "s" : ""}
-              </div>
-            )}
-          </div>
+          <EntityActionsList
+            actions={openActions}
+            users={users}
+            currentUserRole={currentUserRole}
+          />
         )}
       </div>
     </div>

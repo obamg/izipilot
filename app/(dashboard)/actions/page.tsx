@@ -70,7 +70,11 @@ export default async function ActionsPage() {
         </div>
       </div>
 
-      <ActionsList actions={actionsData} users={orgUsers} />
+      <ActionsList
+        actions={actionsData}
+        users={orgUsers}
+        currentUserRole={session.user.role}
+      />
     </div>
   );
 }

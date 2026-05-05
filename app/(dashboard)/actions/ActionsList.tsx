@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { ActionStatus, ActionPriority } from "@prisma/client";
+import { useRouter } from "next/navigation";
+import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
+import { ActionEditModal, type EditableAction } from "@/components/ui/ActionEditModal";
 
 interface ActionItem {
   id: string;
@@ -28,6 +30,7 @@ interface ActionItem {
 interface ActionsListProps {
   actions: ActionItem[];
   users: { id: string; name: string }[];
+  currentUserRole: UserRole;
 }
 
 const STATUS_FILTERS: { value: ActionStatus | "ALL"; label: string }[] = [
@@ -47,10 +50,15 @@ const PRIORITY_FILTERS: { value: ActionPriority | "ALL"; label: string }[] = [
   { value: "LOW", label: "Basse" },
 ];
 
-export function ActionsList({ actions, users }: ActionsListProps) {
+export function ActionsList({ actions, users, currentUserRole }: ActionsListProps) {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<ActionStatus | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<ActionPriority | "ALL">("ALL");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
+  const [editing, setEditing] = useState<EditableAction | null>(null);
+
+  const canEdit = currentUserRole !== "VIEWER";
+  const canDelete = currentUserRole === "CEO" || currentUserRole === "MANAGEMENT";
 
   const filtered = actions.filter((a) => {
     if (statusFilter !== "ALL" && a.status !== statusFilter) return false;
@@ -146,7 +154,23 @@ export function ActionsList({ actions, users }: ActionsListProps) {
                   return (
                     <tr
                       key={action.id}
-                      className="border-b border-izi-gray-lt last:border-b-0 hover:bg-izi-gray-lt/30 transition-colors"
+                      onClick={
+                        canEdit
+                          ? () =>
+                              setEditing({
+                                id: action.id,
+                                title: action.title,
+                                description: action.description,
+                                assigneeId: action.assigneeId,
+                                status: action.status,
+                                priority: action.priority,
+                                dueDate: action.dueDate,
+                              })
+                          : undefined
+                      }
+                      className={`border-b border-izi-gray-lt last:border-b-0 hover:bg-izi-gray-lt/30 transition-colors ${
+                        canEdit ? "cursor-pointer" : ""
+                      }`}
                     >
                       <td className="py-2.5 px-3">
                         <div className={`font-medium ${action.status === "DONE" ? "line-through text-izi-gray" : "text-dark"}`}>
@@ -186,6 +210,17 @@ export function ActionsList({ actions, users }: ActionsListProps) {
           </div>
         )}
       </div>
+
+      {editing && (
+        <ActionEditModal
+          action={editing}
+          users={users}
+          canDelete={canDelete}
+          onClose={() => setEditing(null)}
+          onUpdated={() => router.refresh()}
+          onDeleted={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }
