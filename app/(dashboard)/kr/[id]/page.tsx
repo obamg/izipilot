@@ -5,6 +5,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { KrHistoryChart } from "@/components/kr/KrHistoryChart";
 import { KrActionsList } from "@/components/kr/KrActionsList";
+import { RaiseAlertButton } from "@/components/alerts/RaiseAlertButton";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", {
@@ -170,8 +171,13 @@ export default async function KrDetailPage({
           </div>
         </div>
 
-        <div className="text-[11px] text-izi-gray mt-3">
-          Responsable: <span className="text-dark font-medium">{kr.owner.name}</span>
+        <div className="flex items-center justify-between gap-3 mt-3">
+          <div className="text-[11px] text-izi-gray">
+            Responsable: <span className="text-dark font-medium">{kr.owner.name}</span>
+          </div>
+          {session.user.role !== "VIEWER" && (
+            <RaiseAlertButton krId={kr.id} krTitle={kr.title} />
+          )}
         </div>
       </div>
 

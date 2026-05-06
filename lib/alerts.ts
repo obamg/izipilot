@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { scoreToPercent } from "./score";
 import { escalateActionsOnBlock } from "./actions";
-import type { AlertType, AlertSeverity } from "@prisma/client";
+import type { AlertType, AlertSeverity, AlertSource } from "@prisma/client";
 
 interface AlertInput {
   orgId: string;
@@ -10,10 +10,12 @@ interface AlertInput {
   type: AlertType;
   severity: AlertSeverity;
   message: string;
+  source?: AlertSource;
 }
 
 /**
  * Create an alert if one doesn't already exist (unresolved) for this KR+type.
+ * Defaults source to AUTOMATIC — automatic detection paths should not pass source.
  */
 export async function createAlertIfNew(input: AlertInput) {
   const existing = await prisma.alert.findFirst({
@@ -27,7 +29,9 @@ export async function createAlertIfNew(input: AlertInput) {
 
   if (existing) return existing;
 
-  return prisma.alert.create({ data: input });
+  return prisma.alert.create({
+    data: { ...input, source: input.source ?? "AUTOMATIC" },
+  });
 }
 
 /**

@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { AlertSeverity, AlertType, KrStatus } from "@prisma/client";
+import type { AlertSeverity, AlertSource, AlertType, KrStatus } from "@prisma/client";
 
 interface AlertData {
   id: string;
   type: AlertType;
   severity: AlertSeverity;
+  source: AlertSource;
   message: string;
   isResolved: boolean;
   createdAt: string;
@@ -56,6 +57,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState<"all" | "active" | "resolved">("active");
   const [typeFilter, setTypeFilter] = useState<AlertType | "ALL">("ALL");
+  const [sourceFilter, setSourceFilter] = useState<AlertSource | "ALL">("ALL");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolution, setResolution] = useState("");
 
@@ -63,6 +65,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
     if (filter === "active" && a.isResolved) return false;
     if (filter === "resolved" && !a.isResolved) return false;
     if (typeFilter !== "ALL" && a.type !== typeFilter) return false;
+    if (sourceFilter !== "ALL" && a.source !== sourceFilter) return false;
     return true;
   });
 
@@ -111,6 +114,28 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
               }`}
             >
               {f === "active" ? "Actives" : f === "all" ? "Toutes" : "R\u00e9solues"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-0.5 bg-white rounded-lg border border-[#deeaea] p-0.5">
+          {(
+            [
+              { v: "ALL", label: "Toutes sources" },
+              { v: "AUTOMATIC", label: "Automatiques" },
+              { v: "MANUAL", label: "Manuelles" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.v}
+              onClick={() => setSourceFilter(opt.v as AlertSource | "ALL")}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
+                sourceFilter === opt.v
+                  ? "bg-teal text-white"
+                  : "text-izi-gray hover:bg-izi-gray-lt"
+              }`}
+            >
+              {opt.label}
             </button>
           ))}
         </div>
@@ -174,6 +199,20 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
                     </span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-izi-gray-lt text-izi-gray font-medium">
                       {TYPE_LABELS[alert.type]}
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                        alert.source === "MANUAL"
+                          ? "bg-teal-lt text-teal-dk"
+                          : "bg-izi-gray-lt text-izi-gray"
+                      }`}
+                      title={
+                        alert.source === "MANUAL"
+                          ? `Soulev\u00e9e manuellement par ${alert.triggeredByName}`
+                          : "D\u00e9tection automatique"
+                      }
+                    >
+                      {alert.source === "MANUAL" ? "Manuelle" : "Auto"}
                     </span>
                     {alert.isResolved && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-izi-green-lt text-izi-green font-medium">

@@ -79,6 +79,11 @@ enum AlertSeverity {
   CRITICAL
 }
 
+enum AlertSource {
+  AUTOMATIC
+  MANUAL
+}
+
 enum DecisionStatus {
   OPEN
   IN_PROGRESS
@@ -445,6 +450,7 @@ model Alert {
 
   type        AlertType
   severity    AlertSeverity @default(HIGH)
+  source      AlertSource   @default(AUTOMATIC)
   message     String
 
   isResolved  Boolean  @default(false)

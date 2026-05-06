@@ -64,6 +64,7 @@ export default async function AlertsPage() {
       id: a.id,
       type: a.type,
       severity: a.severity,
+      source: a.source,
       message: a.message,
       isResolved: a.isResolved,
       createdAt: a.createdAt.toISOString(),

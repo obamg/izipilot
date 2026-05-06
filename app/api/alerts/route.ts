@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
       id: a.id,
       type: a.type,
       severity: a.severity,
+      source: a.source,
       message: a.message,
       isResolved: a.isResolved,
       createdAt: a.createdAt.toISOString(),
@@ -78,6 +79,63 @@ export async function GET(request: NextRequest) {
       resolvedBy: a.resolver,
     })),
   });
+}
+
+const createSchema = z.object({
+  krId: z.string().min(1),
+  type: alertTypeEnum,
+  severity: alertSeverityEnum,
+  message: z.string().min(3).max(500),
+});
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (session.user.role === "VIEWER") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const parsed = createSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { error: "Validation error", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  const { krId, type, severity, message } = parsed.data;
+
+  const kr = await prisma.keyResult.findFirst({
+    where: { id: krId, orgId: session.user.orgId, deletedAt: null },
+    select: { id: true, ownerId: true },
+  });
+
+  if (!kr) {
+    return Response.json({ error: "KR not found" }, { status: 404 });
+  }
+
+  // PO can only raise alerts on KRs they own
+  if (session.user.role === "PO" && kr.ownerId !== session.user.id) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const created = await prisma.alert.create({
+    data: {
+      orgId: session.user.orgId,
+      krId,
+      triggeredBy: session.user.id,
+      type,
+      severity,
+      message,
+      source: "MANUAL",
+    },
+  });
+
+  return Response.json({ data: { id: created.id } }, { status: 201 });
 }
 
 const resolveSchema = z.object({
