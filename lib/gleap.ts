@@ -2,7 +2,8 @@
 // Auth: JWT service-account token + `project` header. Base: https://api.gleap.io/v3
 
 const BASE_URL = "https://api.gleap.io/v3";
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const FETCH_TIMEOUT_MS = 90 * 1000;
 const TICKET_FETCH_LIMIT = 1000;
 
 export type GleapProjectKey = "TRADING" | "AFRICAPART" | "SHARED";
@@ -57,6 +58,7 @@ async function gleapFetch<T>(
       project: creds.projectId,
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`Gleap API ${res.status} on ${path}`);
@@ -71,6 +73,7 @@ interface GleapTicket {
   status: string;
   createdAt: string;
   updatedAt: string;
+  slaBreached?: boolean;
   processingUser?: {
     _id?: string;
     email?: string;
@@ -115,11 +118,20 @@ export interface GleapAgentMetric {
   name: string;
   ticketsHandled: number;
   avgResolutionHours: number | null;
+  slaBreached: number;
 }
 
-export async function getAgentMetrics(
+export interface GleapWorkspaceStats {
+  agents: GleapAgentMetric[];
+  // Total slaBreached tickets in the fetched sample (up to TICKET_FETCH_LIMIT
+  // most recent non-archived tickets). Lower bound for huge backlogs.
+  slaBreachedInSample: number;
+  sampleSize: number;
+}
+
+export async function getWorkspaceStats(
   key: GleapProjectKey
-): Promise<GleapAgentMetric[] | null> {
+): Promise<GleapWorkspaceStats | null> {
   const creds = getCredentials(key);
   if (!creds) return null;
   try {
@@ -146,7 +158,7 @@ export async function getAgentMetrics(
       grouped.set(uid, list);
     }
 
-    const result: GleapAgentMetric[] = [];
+    const agents: GleapAgentMetric[] = [];
     for (const [uid, userTickets] of grouped) {
       const user = userById.get(uid)!;
       const closed = userTickets.filter((t) => t.status !== "OPEN");
@@ -160,21 +172,30 @@ export async function getAgentMetrics(
         resolutionHours.length > 0
           ? resolutionHours.reduce((a, b) => a + b, 0) / resolutionHours.length
           : null;
+      const slaBreached = userTickets.filter((t) => t.slaBreached === true)
+        .length;
       const name =
         [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
         user.email ||
         "Agent";
-      result.push({
+      agents.push({
         id: uid,
         name,
         ticketsHandled: userTickets.length,
         avgResolutionHours,
+        slaBreached,
       });
     }
 
-    return result;
+    return {
+      agents,
+      slaBreachedInSample: tickets.tickets.filter(
+        (t) => t.slaBreached === true
+      ).length,
+      sampleSize: tickets.tickets.length,
+    };
   } catch (err) {
-    console.error(`[gleap] getAgentMetrics(${key}) failed:`, err);
+    console.error(`[gleap] getWorkspaceStats(${key}) failed:`, err);
     return null;
   }
 }

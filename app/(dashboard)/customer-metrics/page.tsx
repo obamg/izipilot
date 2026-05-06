@@ -4,10 +4,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   getOpenTicketsCount,
-  getAgentMetrics,
+  getWorkspaceStats,
   isGleapConfigured,
   type GleapProjectKey,
-  type GleapAgentMetric,
 } from "@/lib/gleap";
 import { PRODUCT_GLEAP_PROJECT } from "@/constants/gleap";
 
@@ -25,29 +24,10 @@ function responseColor(hours: number | null): string {
   return "var(--red)";
 }
 
-function agentScoreColor(score: number): string {
-  if (score >= 85) return "var(--green)";
-  if (score >= 70) return "var(--gold)";
+function slaColor(count: number): string {
+  if (count === 0) return "var(--green)";
+  if (count <= 5) return "var(--gold)";
   return "var(--red)";
-}
-
-interface AgentRow extends GleapAgentMetric {
-  score: number | null;
-}
-
-function computeAgentScore(m: GleapAgentMetric): number | null {
-  const throughputNorm = Math.max(
-    0,
-    Math.min(100, ((m.ticketsHandled - 50) / 150) * 100 + 50)
-  );
-  if (m.avgResolutionHours === null) {
-    return Math.round(throughputNorm);
-  }
-  const resolutionNorm = Math.max(
-    0,
-    Math.min(100, ((12 - m.avgResolutionHours) / 11) * 100)
-  );
-  return Math.round(resolutionNorm * 0.6 + throughputNorm * 0.4);
 }
 
 export default async function CustomerMetricsPage() {
@@ -81,25 +61,17 @@ export default async function CustomerMetricsPage() {
   );
   const openTicketsByProject = new Map(ticketCountEntries);
 
-  // Agent leaderboard from SHARED project for now (Trading/Africapart agents
-  // will be added when those keys arrive).
-  const sharedAgents = await getAgentMetrics("SHARED");
-  const agentsRanked: AgentRow[] = (sharedAgents ?? [])
-    .map((a) => ({ ...a, score: computeAgentScore(a) }))
-    .sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  // Workspace stats from SHARED project (leaderboard + SLA tile).
+  const sharedStats = await getWorkspaceStats("SHARED");
+  const agentsRanked = (sharedStats?.agents ?? [])
+    .slice()
+    .sort((a, b) => b.ticketsHandled - a.ticketsHandled);
 
   // Org-wide live KPIs.
   const totalOpenTickets = ticketCountEntries.reduce(
     (acc, [, c]) => acc + (c ?? 0),
     0
   );
-  const validScores = agentsRanked
-    .map((a) => a.score)
-    .filter((s): s is number => s !== null);
-  const orgAgentScore =
-    validScores.length > 0
-      ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
-      : null;
   const totalResolutionHours = agentsRanked
     .map((a) => a.avgResolutionHours)
     .filter((h): h is number => h !== null);
@@ -172,21 +144,24 @@ export default async function CustomerMetricsPage() {
         </div>
         <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
-            Score agents
+            SLA d&eacute;pass&eacute;s
           </div>
-          <div className="flex items-baseline gap-2">
-            <span
-              className="font-serif text-2xl leading-none"
-              style={{
-                color:
-                  orgAgentScore !== null
-                    ? agentScoreColor(orgAgentScore)
-                    : "var(--gray)",
-              }}
-            >
-              {orgAgentScore !== null ? orgAgentScore : "\u2014"}
-            </span>
-            <span className="text-xs text-izi-gray">/ 100</span>
+          <div
+            className="font-serif text-2xl leading-none"
+            style={{
+              color:
+                sharedStats !== null
+                  ? slaColor(sharedStats.slaBreachedInSample)
+                  : "var(--gray)",
+            }}
+          >
+            {sharedStats !== null
+              ? sharedStats.slaBreachedInSample
+              : "\u2014"}
+          </div>
+          <div className="text-[9px] text-izi-gray mt-2">
+            sur les {sharedStats?.sampleSize ?? 0} tickets r&eacute;cents
+            (workspace partag&eacute;)
           </div>
         </div>
       </div>
@@ -277,15 +252,15 @@ export default async function CustomerMetricsPage() {
               Performance des agents
             </h2>
             <p className="text-[10px] text-izi-gray mt-0.5">
-              Workspace partag&eacute; (P2/P4/P5/P6/P7) &middot; Score = Vitesse 60%
-              &middot; Volume 40%
+              Workspace partag&eacute; (P2/P4/P5/P6/P7) &middot; class&eacute;s par
+              volume de tickets trait&eacute;s
             </p>
           </div>
         </div>
 
         {agentsRanked.length === 0 ? (
           <p className="text-sm text-izi-gray py-6">
-            {sharedAgents === null
+            {sharedStats === null
               ? "Connexion Gleap non configur\u00e9e."
               : "Aucun agent avec ticket trait\u00e9 dans ce workspace."}
           </p>
@@ -298,7 +273,7 @@ export default async function CustomerMetricsPage() {
                   <th className="py-2 pr-3">Agent</th>
                   <th className="py-2 pr-3 text-right">Tickets</th>
                   <th className="py-2 pr-3 text-right">R&eacute;solution</th>
-                  <th className="py-2 text-right">Score</th>
+                  <th className="py-2 text-right">SLA d&eacute;pass&eacute;s</th>
                 </tr>
               </thead>
               <tbody>
@@ -329,24 +304,11 @@ export default async function CustomerMetricsPage() {
                         ? `${a.avgResolutionHours.toFixed(1)}h`
                         : "\u2014"}
                     </td>
-                    <td className="py-2.5 text-right">
-                      {a.score !== null ? (
-                        <>
-                          <span
-                            className="font-mono text-sm font-bold"
-                            style={{ color: agentScoreColor(a.score) }}
-                          >
-                            {a.score}
-                          </span>
-                          <span className="text-[10px] text-izi-gray ml-1">
-                            /100
-                          </span>
-                        </>
-                      ) : (
-                        <span className="font-mono text-[12px] text-izi-gray">
-                          &mdash;
-                        </span>
-                      )}
+                    <td
+                      className="py-2.5 text-right font-mono text-[12px] font-semibold"
+                      style={{ color: slaColor(a.slaBreached) }}
+                    >
+                      {a.slaBreached}
                     </td>
                   </tr>
                 ))}
