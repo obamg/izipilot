@@ -22,6 +22,42 @@ const STUB_METRICS: Record<string, ProductMetrics> = {
   P7: { npsScore: null, csatPercent: null, openTickets: null, avgResponseHours: null },
 };
 
+// TODO(gleap): pull agent-level stats from Gleap "agents" endpoint.
+// Composite score = weighted blend of CSAT (50%), avg resolution speed (30%),
+// throughput (20%) — tunable once we see real data.
+interface AgentPerformance {
+  id: string;
+  name: string;
+  ticketsHandled: number;
+  avgResolutionHours: number;
+  csatPercent: number;
+}
+
+const STUB_AGENTS: AgentPerformance[] = [
+  { id: "a1", name: "Aïcha K.", ticketsHandled: 142, avgResolutionHours: 3.1, csatPercent: 92 },
+  { id: "a2", name: "Bertrand O.", ticketsHandled: 118, avgResolutionHours: 4.4, csatPercent: 87 },
+  { id: "a3", name: "Chantal M.", ticketsHandled: 96, avgResolutionHours: 5.8, csatPercent: 81 },
+  { id: "a4", name: "Daniel S.", ticketsHandled: 134, avgResolutionHours: 4.1, csatPercent: 84 },
+  { id: "a5", name: "Esther T.", ticketsHandled: 78, avgResolutionHours: 7.2, csatPercent: 74 },
+  { id: "a6", name: "Frédéric N.", ticketsHandled: 105, avgResolutionHours: 5.2, csatPercent: 79 },
+];
+
+function computeAgentScore(a: AgentPerformance): number {
+  // Normalize each component to 0–100 then weight.
+  const csat = a.csatPercent;
+  // Resolution: 1h = 100, 12h = 0, linear clamp
+  const resolutionNorm = Math.max(0, Math.min(100, ((12 - a.avgResolutionHours) / 11) * 100));
+  // Throughput: 50 tickets = 50, 200 = 100, clamp
+  const throughputNorm = Math.max(0, Math.min(100, ((a.ticketsHandled - 50) / 150) * 100 + 50));
+  return Math.round(csat * 0.5 + resolutionNorm * 0.3 + throughputNorm * 0.2);
+}
+
+function agentScoreColor(score: number): string {
+  if (score >= 85) return "var(--green)";
+  if (score >= 70) return "var(--gold)";
+  return "var(--red)";
+}
+
 function npsColor(nps: number | null): string {
   if (nps === null) return "var(--gray)";
   if (nps >= 50) return "var(--green)";
@@ -109,6 +145,14 @@ export default async function CustomerMetricsPage() {
     withData.map((m) => m.avgResponseHours!).filter((v) => v !== null)
   );
 
+  // Agent performance
+  const agentsRanked = STUB_AGENTS
+    .map((a) => ({ ...a, score: computeAgentScore(a) }))
+    .sort((a, b) => b.score - a.score);
+  const orgAgentScore = agentsRanked.length > 0
+    ? Math.round(agentsRanked.reduce((acc, a) => acc + a.score, 0) / agentsRanked.length)
+    : null;
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
@@ -129,7 +173,7 @@ export default async function CustomerMetricsPage() {
       </div>
 
       {/* Org-wide KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             NPS moyen
@@ -172,6 +216,20 @@ export default async function CustomerMetricsPage() {
             style={{ color: responseColor(orgResponse) }}
           >
             {orgResponse !== null ? `${orgResponse.toFixed(1)}h` : "\u2014"}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
+          <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
+            Score agents
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span
+              className="font-serif text-2xl leading-none"
+              style={{ color: orgAgentScore !== null ? agentScoreColor(orgAgentScore) : "var(--gray)" }}
+            >
+              {orgAgentScore !== null ? orgAgentScore : "\u2014"}
+            </span>
+            <span className="text-xs text-izi-gray">/ 100</span>
           </div>
         </div>
       </div>
@@ -266,6 +324,66 @@ export default async function CustomerMetricsPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Agent performance leaderboard */}
+      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mt-4">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-base font-semibold text-dark">
+            Performance des agents
+          </h2>
+          <span className="text-[10px] text-izi-gray">
+            Score = CSAT 50% &middot; Vitesse 30% &middot; Volume 20%
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-[9px] uppercase tracking-wide text-izi-gray font-semibold border-b border-[#deeaea]">
+                <th className="py-2 pr-3 w-8">#</th>
+                <th className="py-2 pr-3">Agent</th>
+                <th className="py-2 pr-3 text-right">Tickets</th>
+                <th className="py-2 pr-3 text-right">R&eacute;solution</th>
+                <th className="py-2 pr-3 text-right">CSAT</th>
+                <th className="py-2 text-right">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agentsRanked.map((a, idx) => (
+                <tr
+                  key={a.id}
+                  className="border-b border-[#deeaea] last:border-0"
+                >
+                  <td className="py-2.5 pr-3 font-mono text-[11px] text-izi-gray">
+                    {idx + 1}
+                  </td>
+                  <td className="py-2.5 pr-3 text-sm text-dark font-medium">
+                    {a.name}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-dark">
+                    {a.ticketsHandled}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right font-mono text-[12px]" style={{ color: responseColor(a.avgResolutionHours) }}>
+                    {a.avgResolutionHours.toFixed(1)}h
+                  </td>
+                  <td className="py-2.5 pr-3 text-right font-mono text-[12px]" style={{ color: csatColor(a.csatPercent) }}>
+                    {a.csatPercent}%
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <span
+                      className="font-mono text-sm font-bold"
+                      style={{ color: agentScoreColor(a.score) }}
+                    >
+                      {a.score}
+                    </span>
+                    <span className="text-[10px] text-izi-gray ml-1">/100</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
