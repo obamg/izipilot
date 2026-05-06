@@ -18,6 +18,7 @@ interface DashboardShellProps {
   weekNumber: number;
   year: number;
   alertCount: number;
+  notificationCount: number;
   products: SidebarEntity[];
   departments: SidebarEntity[];
 }
@@ -29,6 +30,7 @@ export function DashboardShell({
   weekNumber,
   year,
   alertCount,
+  notificationCount,
   products,
   departments,
 }: DashboardShellProps) {
@@ -74,6 +76,7 @@ export function DashboardShell({
           products={products}
           departments={departments}
           alertCount={alertCount}
+          notificationCount={notificationCount}
           userRole={userRole}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}

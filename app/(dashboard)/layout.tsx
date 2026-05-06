@@ -16,9 +16,10 @@ export default async function DashboardLayout({
 
   const { weekNumber, year } = getISOWeek(new Date());
   const orgId = session.user.orgId;
+  const userId = session.user.id;
 
   // Fetch sidebar data: products + departments with average scores
-  const [products, departments, unresolvedAlertCount] = await Promise.all([
+  const [products, departments, unresolvedAlertCount, myNotificationCount] = await Promise.all([
     prisma.product.findMany({
       where: { orgId, isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -51,6 +52,17 @@ export default async function DashboardLayout({
     }),
     prisma.alert.count({
       where: { orgId, isResolved: false },
+    }),
+    prisma.alert.count({
+      where: {
+        orgId,
+        isResolved: false,
+        OR: [
+          { keyResult: { ownerId: userId } },
+          { keyResult: { objective: { product: { ownerId: userId } } } },
+          { keyResult: { objective: { department: { ownerId: userId } } } },
+        ],
+      },
     }),
   ]);
 
@@ -87,6 +99,7 @@ export default async function DashboardLayout({
       weekNumber={weekNumber}
       year={year}
       alertCount={unresolvedAlertCount}
+      notificationCount={myNotificationCount}
       products={sidebarProducts}
       departments={sidebarDepartments}
     >

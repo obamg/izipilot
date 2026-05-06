@@ -14,6 +14,7 @@ interface SidebarProps {
   products: SidebarEntity[];
   departments: SidebarEntity[];
   alertCount?: number;
+  notificationCount?: number;
   userRole?: string;
   isOpen?: boolean;
   onClose?: () => void;
@@ -63,6 +64,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/notifications",
+    label: "Mes notifications",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+        <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+      </svg>
+    ),
+  },
+  {
     href: "/alerts",
     label: "Alertes & d\u00e9cisions",
     icon: (
@@ -98,6 +109,7 @@ export function Sidebar({
   products,
   departments,
   alertCount = 0,
+  notificationCount = 0,
   userRole,
   isOpen = false,
   onClose,
@@ -150,6 +162,11 @@ export function Sidebar({
                     </span>
                   ) : null;
                 })()}
+                {item.href === "/notifications" && notificationCount > 0 && (
+                  <span className="ml-auto bg-[rgba(226,60,74,0.28)] text-[#ff8090] text-sm font-semibold px-[5px] py-px rounded-md">
+                    {notificationCount}
+                  </span>
+                )}
                 {item.href === "/alerts" && alertCount > 0 && (
                   <span className="ml-auto bg-[rgba(226,60,74,0.28)] text-[#ff8090] text-sm font-semibold px-[5px] py-px rounded-md">
                     {alertCount}
