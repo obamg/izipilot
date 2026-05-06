@@ -2,15 +2,25 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { WeeklyEntryForm } from "./WeeklyEntryForm";
+import { WeeklyWeekSelector } from "./WeeklyWeekSelector";
 import { getISOWeek } from "@/lib/date";
 
-export default async function WeeklyPage() {
+export default async function WeeklyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string; year?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const orgId = session.user.orgId;
   const userId = session.user.id;
-  const { weekNumber, year } = getISOWeek(new Date());
+  const { weekNumber: currentWeek, year: currentYear } = getISOWeek(new Date());
+
+  const params = await searchParams;
+  const weekNumber = params.week ? parseInt(params.week, 10) : currentWeek;
+  const year = params.year ? parseInt(params.year, 10) : currentYear;
+  const isHistorical = weekNumber !== currentWeek || year !== currentYear;
 
   // Fetch KRs owned by this user (with actions)
   const keyResults = await prisma.keyResult.findMany({
@@ -48,7 +58,7 @@ export default async function WeeklyPage() {
     select: { departmentId: true, userId: true, user: { select: { id: true, name: true } } },
   });
 
-  // Fetch existing entries for this week (to pre-fill form)
+  // Fetch existing entries for the requested week
   const existingEntries = await prisma.weeklyEntry.findMany({
     where: {
       orgId,
@@ -119,11 +129,22 @@ export default async function WeeklyPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <div>
-          <h1 className="font-serif text-[20px] text-dark">
-            Ma revue &mdash; S{String(weekNumber).padStart(2, "0")}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-serif text-[20px] text-dark">
+              Ma revue &mdash; S{String(weekNumber).padStart(2, "0")}
+            </h1>
+            <WeeklyWeekSelector
+              weekNumber={weekNumber}
+              year={year}
+              currentWeek={currentWeek}
+              currentYear={currentYear}
+            />
+          </div>
           <p className="text-[11px] text-izi-gray mt-0.5">
-            {Array.from(entityNames).join(", ")} &middot; Deadline lundi 09h00
+            {Array.from(entityNames).join(", ")}
+            {isHistorical
+              ? " \u00b7 Lecture seule"
+              : " \u00b7 Deadline lundi 09h00"}
           </p>
         </div>
       </div>
@@ -137,6 +158,12 @@ export default async function WeeklyPage() {
             Contactez votre administrateur pour configurer vos OKRs.
           </p>
         </div>
+      ) : isHistorical && existingEntries.length === 0 ? (
+        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+          <p className="text-sm text-izi-gray">
+            Aucune revue soumise pour S{String(weekNumber).padStart(2, "0")} &middot; {year}.
+          </p>
+        </div>
       ) : (
         <WeeklyEntryForm
           keyResults={krData}
@@ -145,6 +172,7 @@ export default async function WeeklyPage() {
           orgUsers={orgUsers}
           currentUserId={userId}
           currentUserRole={session.user.role}
+          isReadOnly={isHistorical}
         />
       )}
     </div>

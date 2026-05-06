@@ -53,6 +53,7 @@ interface WeeklyEntryFormProps {
   orgUsers: { id: string; name: string }[];
   currentUserId: string;
   currentUserRole: UserRole;
+  isReadOnly?: boolean;
 }
 
 interface EntryState {
@@ -91,6 +92,7 @@ export function WeeklyEntryForm({
   orgUsers,
   currentUserId,
   currentUserRole,
+  isReadOnly = false,
 }: WeeklyEntryFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -104,8 +106,8 @@ export function WeeklyEntryForm({
   const [actionCreating, setActionCreating] = useState(false);
   const [editingAction, setEditingAction] = useState<EditableAction | null>(null);
 
-  const canEditAction = currentUserRole !== "VIEWER";
-  const canDeleteAction = currentUserRole === "CEO" || currentUserRole === "MANAGEMENT";
+  const canEditAction = currentUserRole !== "VIEWER" && !isReadOnly;
+  const canDeleteAction = (currentUserRole === "CEO" || currentUserRole === "MANAGEMENT") && !isReadOnly;
 
   const [entries, setEntries] = useState<Record<string, EntryState>>(() => {
     const initial: Record<string, EntryState> = {};
@@ -124,6 +126,7 @@ export function WeeklyEntryForm({
 
   // Restore draft from localStorage on mount
   useEffect(() => {
+    if (isReadOnly) return;
     try {
       const saved = localStorage.getItem(draftKey);
       if (saved) {
@@ -363,7 +366,8 @@ export function WeeklyEntryForm({
                             onChange={(e) =>
                               updateEntry(kr.id, "progress", Number(e.target.value))
                             }
-                            className="flex-1 accent-teal"
+                            disabled={isReadOnly}
+                            className="flex-1 accent-teal disabled:opacity-60"
                             style={{ accentColor: "var(--teal)" }}
                           />
                           <span
@@ -386,7 +390,8 @@ export function WeeklyEntryForm({
                             onChange={(e) =>
                               updateEntry(kr.id, "status", e.target.value)
                             }
-                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+                            disabled={isReadOnly}
+                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             {STATUS_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>
@@ -404,7 +409,8 @@ export function WeeklyEntryForm({
                             onChange={(e) =>
                               updateEntry(kr.id, "comment", e.target.value)
                             }
-                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[38px] leading-relaxed"
+                            readOnly={isReadOnly}
+                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[38px] leading-relaxed read-only:bg-izi-gray-lt/40 read-only:opacity-80"
                             placeholder="Commentaire libre..."
                           />
                         </div>
@@ -421,7 +427,8 @@ export function WeeklyEntryForm({
                             onChange={(e) =>
                               updateEntry(kr.id, "blocker", e.target.value)
                             }
-                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed"
+                            readOnly={isReadOnly}
+                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed read-only:bg-izi-gray-lt/40 read-only:opacity-80"
                             placeholder="D\u00e9crivez le blocage..."
                           />
                         </div>
@@ -438,7 +445,8 @@ export function WeeklyEntryForm({
                             onChange={(e) =>
                               updateEntry(kr.id, "proposedSolution", e.target.value)
                             }
-                            className="w-full px-[9px] py-[7px] border border-[#e6d28a] bg-[var(--gold-lt)] rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed"
+                            readOnly={isReadOnly}
+                            className="w-full px-[9px] py-[7px] border border-[#e6d28a] bg-[var(--gold-lt)] rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed read-only:opacity-80"
                             placeholder="D&eacute;crivez votre approche pour r&eacute;soudre ce point..."
                           />
                         </div>
@@ -457,7 +465,8 @@ export function WeeklyEntryForm({
                             onChange={(e) =>
                               updateEntry(kr.id, "actionNeeded", e.target.value)
                             }
-                            className={`w-full px-[9px] py-[7px] border rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed ${
+                            readOnly={isReadOnly}
+                            className={`w-full px-[9px] py-[7px] border rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed read-only:opacity-80 ${
                               entry.status === "BLOCKED"
                                 ? "bg-izi-red-lt border-[#f0b0b0]"
                                 : "border-teal-md"
@@ -486,16 +495,18 @@ export function WeeklyEntryForm({
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowActionForm(showActionForm === kr.id ? null : kr.id)}
-                          className="flex items-center gap-1 text-[10px] font-semibold text-teal hover:text-teal-dk transition-colors px-2 py-1 rounded-[5px] hover:bg-white"
-                        >
-                          <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                            <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-                          </svg>
-                          Ajouter
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => setShowActionForm(showActionForm === kr.id ? null : kr.id)}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-teal hover:text-teal-dk transition-colors px-2 py-1 rounded-[5px] hover:bg-white"
+                          >
+                            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                              <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
+                            </svg>
+                            Ajouter
+                          </button>
+                        )}
                       </div>
 
                       {/* Warning: blocked KR without actions */}
@@ -542,7 +553,8 @@ export function WeeklyEntryForm({
                                   <select
                                     value={currentStatus}
                                     onChange={(e) => handleActionStatusChange(action.id, e.target.value as ActionStatus)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    disabled={isReadOnly}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                                     aria-label={`Statut: ${action.title}`}
                                   >
                                     {ACTION_STATUS_OPTIONS.map((o) => (
@@ -629,32 +641,34 @@ export function WeeklyEntryForm({
       })}
 
       {/* Submit bar */}
-      <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-[#deeaea] px-4 py-3 flex justify-end gap-2 -mx-5 mt-4">
-        {submitError && (
-          <span className="text-xs text-izi-red self-center mr-auto">
-            {submitError}
-          </span>
-        )}
-        {submitSuccess && (
-          <span className="text-xs text-izi-green self-center mr-auto">
-            Revue soumise avec succ&egrave;s !
-          </span>
-        )}
-        <button
-          onClick={() => handleSubmit(true)}
-          disabled={isPending}
-          className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal hover:bg-teal-lt transition-colors disabled:opacity-50"
-        >
-          Enregistrer brouillon
-        </button>
-        <button
-          onClick={() => handleSubmit(false)}
-          disabled={isPending}
-          className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-teal text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
-        >
-          {isPending ? "Envoi..." : "Soumettre la revue \u2192"}
-        </button>
-      </div>
+      {!isReadOnly && (
+        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-[#deeaea] px-4 py-3 flex justify-end gap-2 -mx-5 mt-4">
+          {submitError && (
+            <span className="text-xs text-izi-red self-center mr-auto">
+              {submitError}
+            </span>
+          )}
+          {submitSuccess && (
+            <span className="text-xs text-izi-green self-center mr-auto">
+              Revue soumise avec succ&egrave;s !
+            </span>
+          )}
+          <button
+            onClick={() => handleSubmit(true)}
+            disabled={isPending}
+            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal hover:bg-teal-lt transition-colors disabled:opacity-50"
+          >
+            Enregistrer brouillon
+          </button>
+          <button
+            onClick={() => handleSubmit(false)}
+            disabled={isPending}
+            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-teal text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
+          >
+            {isPending ? "Envoi..." : "Soumettre la revue \u2192"}
+          </button>
+        </div>
+      )}
 
       {editingAction && (
         <ActionEditModal
