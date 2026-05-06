@@ -9,6 +9,36 @@ import {
   type GleapProjectKey,
 } from "@/lib/gleap";
 import { PRODUCT_GLEAP_PROJECT } from "@/constants/gleap";
+import { getYesterdaySnapshots } from "@/lib/crm-snapshot";
+
+function DeltaPill({
+  delta,
+  lowerIsBetter = true,
+}: {
+  delta: number | null;
+  lowerIsBetter?: boolean;
+}) {
+  if (delta === null) return null;
+  if (delta === 0) {
+    return (
+      <span className="text-[9px] font-mono text-izi-gray ml-1.5">=</span>
+    );
+  }
+  const goingUp = delta > 0;
+  const isBad = lowerIsBetter ? goingUp : !goingUp;
+  const color = isBad ? "var(--red)" : "var(--green)";
+  const arrow = goingUp ? "\u2191" : "\u2193";
+  return (
+    <span
+      className="text-[10px] font-mono ml-1.5"
+      style={{ color }}
+      title="vs hier"
+    >
+      {arrow}
+      {Math.abs(delta)}
+    </span>
+  );
+}
 
 function ticketColor(tickets: number | null): string {
   if (tickets === null) return "var(--gray)";
@@ -63,6 +93,9 @@ export default async function CustomerMetricsPage() {
 
   // Workspace stats from SHARED project (leaderboard + SLA tile).
   const sharedStats = await getWorkspaceStats("SHARED");
+
+  // Yesterday's snapshots for "vs hier" deltas.
+  const yesterday = await getYesterdaySnapshots(orgId);
   const agentsRanked = (sharedStats?.agents ?? [])
     .slice()
     .sort((a, b) => b.ticketsHandled - a.ticketsHandled);
@@ -79,6 +112,37 @@ export default async function CustomerMetricsPage() {
     totalResolutionHours.length > 0
       ? totalResolutionHours.reduce((a, b) => a + b, 0) /
         totalResolutionHours.length
+      : null;
+
+  // Compute "vs hier" deltas — only when yesterday data exists for the same
+  // set of projects we're showing today.
+  function ticketsDelta(key: GleapProjectKey, todayCount: number | null) {
+    if (todayCount === null) return null;
+    const y = yesterday.byProject.get(key);
+    if (!y || y.openTickets === null) return null;
+    return todayCount - y.openTickets;
+  }
+
+  let totalTicketsYesterday = 0;
+  let allYesterdayPresent = uniqueProjectKeys.length > 0;
+  for (const key of uniqueProjectKeys) {
+    const y = yesterday.byProject.get(key);
+    if (!y || y.openTickets === null) {
+      allYesterdayPresent = false;
+      break;
+    }
+    totalTicketsYesterday += y.openTickets;
+  }
+  const totalTicketsDelta = allYesterdayPresent
+    ? totalOpenTickets - totalTicketsYesterday
+    : null;
+
+  const sharedYesterday = yesterday.byProject.get("SHARED");
+  const slaDelta =
+    sharedStats !== null &&
+    sharedYesterday &&
+    sharedYesterday.slaBreachedInSample !== null
+      ? sharedStats.slaBreachedInSample - sharedYesterday.slaBreachedInSample
       : null;
 
   return (
@@ -106,10 +170,11 @@ export default async function CustomerMetricsPage() {
             Tickets ouverts
           </div>
           <div
-            className="font-serif text-2xl leading-none"
+            className="font-serif text-2xl leading-none flex items-baseline"
             style={{ color: ticketColor(totalOpenTickets) }}
           >
             {totalOpenTickets}
+            <DeltaPill delta={totalTicketsDelta} />
           </div>
           <div className="text-[9px] text-izi-gray mt-2">
             tous projets connect&eacute;s
@@ -147,7 +212,7 @@ export default async function CustomerMetricsPage() {
             SLA d&eacute;pass&eacute;s
           </div>
           <div
-            className="font-serif text-2xl leading-none"
+            className="font-serif text-2xl leading-none flex items-baseline"
             style={{
               color:
                 sharedStats !== null
@@ -158,6 +223,7 @@ export default async function CustomerMetricsPage() {
             {sharedStats !== null
               ? sharedStats.slaBreachedInSample
               : "\u2014"}
+            <DeltaPill delta={slaDelta} />
           </div>
           <div className="text-[9px] text-izi-gray mt-2">
             sur les {sharedStats?.sampleSize ?? 0} tickets r&eacute;cents
@@ -181,6 +247,9 @@ export default async function CustomerMetricsPage() {
                 : false;
               const openTickets = projectKey
                 ? openTicketsByProject.get(projectKey) ?? null
+                : null;
+              const productDelta = projectKey
+                ? ticketsDelta(projectKey, openTickets)
                 : null;
               const isShared = projectKey === "SHARED";
 
@@ -220,10 +289,11 @@ export default async function CustomerMetricsPage() {
                         Tickets ouverts
                       </div>
                       <div
-                        className="font-serif text-[28px] leading-none mt-1"
+                        className="font-serif text-[28px] leading-none mt-1 flex items-baseline"
                         style={{ color: ticketColor(openTickets) }}
                       >
                         {openTickets !== null ? openTickets : "\u2014"}
+                        <DeltaPill delta={productDelta} />
                       </div>
                     </div>
                     <div className="text-right">

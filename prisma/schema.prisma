@@ -152,6 +152,7 @@ model Organization {
   alerts         Alert[]
   decisions      Decision[]
   actions        Action[]
+  crmSnapshots   CrmDailySnapshot[]
 
   @@map("organizations")
 }
@@ -590,4 +591,29 @@ model ActionComment {
   @@index([actionId])
   @@index([authorId])
   @@map("action_comments")
+}
+
+// ============================================================================
+// CRM — DAILY SNAPSHOTS (Gleap rolling history pour deltas "vs hier")
+// ============================================================================
+
+model CrmDailySnapshot {
+  id              String   @id @default(cuid())
+  orgId           String
+  gleapProjectKey String   // "TRADING" | "AFRICAPART" | "SHARED"
+  snapshotDate    DateTime @db.Date
+
+  openTickets         Int?
+  totalTickets        Int?
+  slaBreachedInSample Int?
+  sampleSize          Int?
+  agentsActive        Int?
+
+  capturedAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, gleapProjectKey, snapshotDate])
+  @@index([orgId, snapshotDate])
+  @@map("crm_daily_snapshots")
 }
