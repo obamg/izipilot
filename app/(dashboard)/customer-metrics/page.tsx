@@ -144,6 +144,12 @@ export default async function CustomerMetricsPage() {
       ? sharedStats.slaBreachedInSample - sharedYesterday.slaBreachedInSample
       : null;
 
+  const fetchedAtLabel = new Intl.DateTimeFormat("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Porto-Novo",
+  }).format(new Date());
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
@@ -151,6 +157,15 @@ export default async function CustomerMetricsPage() {
           <h1 className="font-serif text-[20px] text-dark">CRM</h1>
           <p className="text-[11px] text-izi-gray mt-0.5">
             Tickets clients et performance des agents &middot; donn&eacute;es Gleap en direct
+          </p>
+          <p className="text-[10px] text-izi-gray mt-1">
+            Mise &agrave; jour &agrave; {fetchedAtLabel}
+            {sharedStats !== null && (
+              <>
+                {" "}&middot; &eacute;chantillon des {sharedStats.sampleSize} derniers tickets (workspace partag&eacute;)
+              </>
+            )}
+            {" "}&middot; deltas vs hier 04h UTC
           </p>
         </div>
         <div className="text-[10px] text-izi-gray bg-teal-lt border border-teal-md rounded-[6px] px-2.5 py-1.5">
@@ -206,7 +221,10 @@ export default async function CustomerMetricsPage() {
             ayant trait&eacute; au moins un ticket
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
+        <div
+          className="bg-white rounded-xl border border-[#deeaea] px-5 py-4"
+          title="Nombre de tickets en breach SLA dans l'échantillon des derniers tickets fournis par Gleap. Borne basse — peut sous-estimer le total réel sur un gros backlog."
+        >
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             SLA d&eacute;pass&eacute;s
           </div>
@@ -225,7 +243,7 @@ export default async function CustomerMetricsPage() {
             <DeltaPill delta={slaDelta} />
           </div>
           <div className="text-[9px] text-izi-gray mt-2">
-            sur les {sharedStats?.sampleSize ?? 0} tickets r&eacute;cents
+            sur l&apos;&eacute;chantillon de {sharedStats?.sampleSize ?? 0} tickets
             (workspace partag&eacute;)
           </div>
         </div>
