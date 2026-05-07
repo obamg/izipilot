@@ -82,20 +82,19 @@ export default async function CustomerMetricsPage() {
     )
   );
 
-  // Parallel fetch open-ticket counts per project.
-  const ticketCountEntries = await Promise.all(
-    uniqueProjectKeys.map(async (key) => {
-      const count = await getOpenTicketsCount(key);
-      return [key, count] as const;
-    })
-  );
+  // Fetch everything in parallel so the page render is bounded by the
+  // single slowest Gleap call (12s timeout) rather than their sum.
+  const [ticketCountEntries, sharedStats, yesterday] = await Promise.all([
+    Promise.all(
+      uniqueProjectKeys.map(async (key) => {
+        const count = await getOpenTicketsCount(key);
+        return [key, count] as const;
+      })
+    ),
+    getWorkspaceStats("SHARED"),
+    getYesterdaySnapshots(orgId),
+  ]);
   const openTicketsByProject = new Map(ticketCountEntries);
-
-  // Workspace stats from SHARED project (leaderboard + SLA tile).
-  const sharedStats = await getWorkspaceStats("SHARED");
-
-  // Yesterday's snapshots for "vs hier" deltas.
-  const yesterday = await getYesterdaySnapshots(orgId);
   const agentsRanked = (sharedStats?.agents ?? [])
     .slice()
     .sort((a, b) => b.ticketsHandled - a.ticketsHandled);

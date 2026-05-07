@@ -3,7 +3,10 @@
 
 const BASE_URL = "https://api.gleap.io/v3";
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const FETCH_TIMEOUT_MS = 90 * 1000;
+// Short timeout so page renders quickly even when Gleap is slow.
+// Gleap's gateway often returns 504 on large workspaces (counting 26k OPEN
+// tickets) — we'd rather show "—" than hang.
+const FETCH_TIMEOUT_MS = 12 * 1000;
 const TICKET_FETCH_LIMIT = 1000;
 
 export type GleapProjectKey = "TRADING" | "AFRICAPART" | "SHARED";
