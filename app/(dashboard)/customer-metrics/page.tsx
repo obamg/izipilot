@@ -354,8 +354,15 @@ export default async function CustomerMetricsPage() {
                     <td className="py-2.5 pr-3 font-mono text-[11px] text-izi-gray">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 pr-3 text-sm text-dark font-medium">
-                      {a.name}
+                    <td className="py-2.5 pr-3">
+                      <div className="text-sm text-dark font-medium">
+                        {a.name}
+                      </div>
+                      {a.email && a.email !== a.name && (
+                        <div className="text-[10px] text-izi-gray font-mono mt-0.5">
+                          {a.email}
+                        </div>
+                      )}
                     </td>
                     <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-dark">
                       {a.ticketsHandled}

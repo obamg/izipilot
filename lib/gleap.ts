@@ -120,6 +120,7 @@ export async function getOpenTicketsCount(
 export interface GleapAgentMetric {
   id: string;
   name: string;
+  email: string | null;
   ticketsHandled: number;
   avgResolutionHours: number | null;
   slaBreached: number;
@@ -185,6 +186,7 @@ export async function getWorkspaceStats(
       agents.push({
         id: uid,
         name,
+        email: user.email ?? null,
         ticketsHandled: userTickets.length,
         avgResolutionHours,
         slaBreached,
