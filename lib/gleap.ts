@@ -78,6 +78,7 @@ interface GleapTicket {
   updatedAt: string;
   slaBreached?: boolean;
   processingUser?: {
+    id?: string;
     _id?: string;
     email?: string;
     firstName?: string;
@@ -154,7 +155,7 @@ export async function getWorkspaceStats(
 
     const grouped = new Map<string, GleapTicket[]>();
     for (const t of tickets.tickets) {
-      const uid = t.processingUser?._id;
+      const uid = t.processingUser?.id ?? t.processingUser?._id;
       if (!uid || !userById.has(uid)) continue;
       const list = grouped.get(uid) ?? [];
       list.push(t);
