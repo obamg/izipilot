@@ -153,6 +153,7 @@ model Organization {
   decisions      Decision[]
   actions        Action[]
   crmSnapshots   CrmDailySnapshot[]
+  agentSnapshots AgentDailySnapshot[]
 
   @@map("organizations")
 }
@@ -616,4 +617,36 @@ model CrmDailySnapshot {
   @@unique([orgId, gleapProjectKey, snapshotDate])
   @@index([orgId, snapshotDate])
   @@map("crm_daily_snapshots")
+}
+
+// ============================================================================
+// CRM — AGENT DAILY ACTIVITY (one row per agent / project / calendar day)
+// ============================================================================
+// snapshotDate = the calendar day of activity (UTC), not the day of capture.
+// The cron at 04h UTC captures the previous full UTC day, filtering tickets
+// by `updatedAt` within [00h UTC, 24h UTC) of that day.
+// Limitation: when a single project sees > 500 ticket-updates in one day the
+// sample is truncated by Gleap's API and counts will be a lower bound.
+
+model AgentDailySnapshot {
+  id              String   @id @default(cuid())
+  orgId           String
+  gleapProjectKey String   // "TRADING" | "AFRICAPART" | "SHARED"
+  snapshotDate    DateTime @db.Date
+
+  agentId    String   // Gleap user id
+  agentName  String
+  agentEmail String?
+
+  ticketsHandled     Int   @default(0)
+  slaBreached        Int   @default(0)
+  avgResolutionHours Float?
+
+  capturedAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, gleapProjectKey, snapshotDate, agentId])
+  @@index([orgId, snapshotDate])
+  @@map("agent_daily_snapshots")
 }

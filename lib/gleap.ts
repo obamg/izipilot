@@ -205,3 +205,99 @@ export async function getWorkspaceStats(
     return null;
   }
 }
+
+export interface GleapAgentDayActivity {
+  /** Whether the underlying sample appears truncated by Gleap's API.
+   *  When true, counts are a lower bound. */
+  sampleTruncated: boolean;
+  agents: GleapAgentMetric[];
+}
+
+/**
+ * Per-agent activity within a single UTC calendar day, derived from the
+ * sample of most-recent non-archived tickets. A ticket "counts for" day D
+ * iff its `updatedAt` falls inside [D 00:00 UTC, D+1 00:00 UTC).
+ */
+export async function getAgentActivityForDay(
+  key: GleapProjectKey,
+  dayUtc: Date
+): Promise<GleapAgentDayActivity | null> {
+  const creds = getCredentials(key);
+  if (!creds) return null;
+  try {
+    const [users, tickets] = await Promise.all([
+      gleapFetch<GleapProjectUser[]>(creds, "/projects/users"),
+      gleapFetch<GleapTicketsResponse>(
+        creds,
+        `/tickets?ignoreArchived=true&limit=${TICKET_FETCH_LIMIT}`
+      ),
+    ]);
+
+    const userById = new Map<string, GleapProjectUser>();
+    for (const u of users) {
+      const id = u.id || u._id;
+      if (id) userById.set(id, u);
+    }
+
+    const dayStart = Date.UTC(
+      dayUtc.getUTCFullYear(),
+      dayUtc.getUTCMonth(),
+      dayUtc.getUTCDate()
+    );
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+    const grouped = new Map<string, GleapTicket[]>();
+    let oldestUpdatedMs = Number.POSITIVE_INFINITY;
+    for (const t of tickets.tickets) {
+      const updatedMs = new Date(t.updatedAt).getTime();
+      if (updatedMs < oldestUpdatedMs) oldestUpdatedMs = updatedMs;
+      if (updatedMs < dayStart || updatedMs >= dayEnd) continue;
+      const uid = t.processingUser?.id ?? t.processingUser?._id;
+      if (!uid || !userById.has(uid)) continue;
+      const list = grouped.get(uid) ?? [];
+      list.push(t);
+      grouped.set(uid, list);
+    }
+
+    const agents: GleapAgentMetric[] = [];
+    for (const [uid, userTickets] of grouped) {
+      const user = userById.get(uid)!;
+      const closed = userTickets.filter((t) => t.status !== "OPEN");
+      const resolutionHours = closed.map(
+        (t) =>
+          (new Date(t.updatedAt).getTime() -
+            new Date(t.createdAt).getTime()) /
+          (1000 * 60 * 60)
+      );
+      const avgResolutionHours =
+        resolutionHours.length > 0
+          ? resolutionHours.reduce((a, b) => a + b, 0) / resolutionHours.length
+          : null;
+      const slaBreached = userTickets.filter((t) => t.slaBreached === true)
+        .length;
+      const name =
+        [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+        user.email ||
+        "Agent";
+      agents.push({
+        id: uid,
+        name,
+        email: user.email ?? null,
+        ticketsHandled: userTickets.length,
+        avgResolutionHours,
+        slaBreached,
+      });
+    }
+
+    // If the sample's oldest ticket is itself newer than dayStart, the day's
+    // activity may be truncated (older tickets from the same day fell off).
+    const sampleTruncated =
+      tickets.tickets.length >= TICKET_FETCH_LIMIT ||
+      (tickets.tickets.length > 0 && oldestUpdatedMs > dayStart);
+
+    return { agents, sampleTruncated };
+  } catch (err) {
+    console.error(`[gleap] getAgentActivityForDay(${key}) failed:`, err);
+    return null;
+  }
+}

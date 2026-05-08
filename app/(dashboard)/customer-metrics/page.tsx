@@ -9,7 +9,7 @@ import {
   type GleapProjectKey,
 } from "@/lib/gleap";
 import { PRODUCT_GLEAP_PROJECT } from "@/constants/gleap";
-import { getYesterdaySnapshots } from "@/lib/crm-snapshot";
+import { getWeekAgentTotals, getYesterdaySnapshots } from "@/lib/crm-snapshot";
 
 function DeltaPill({
   delta,
@@ -84,16 +84,18 @@ export default async function CustomerMetricsPage() {
 
   // Fetch everything in parallel so the page render is bounded by the
   // single slowest Gleap call (12s timeout) rather than their sum.
-  const [ticketCountEntries, sharedStats, yesterday] = await Promise.all([
-    Promise.all(
-      uniqueProjectKeys.map(async (key) => {
-        const count = await getOpenTicketsCount(key);
-        return [key, count] as const;
-      })
-    ),
-    getWorkspaceStats("SHARED"),
-    getYesterdaySnapshots(orgId),
-  ]);
+  const [ticketCountEntries, sharedStats, yesterday, weekTotals] =
+    await Promise.all([
+      Promise.all(
+        uniqueProjectKeys.map(async (key) => {
+          const count = await getOpenTicketsCount(key);
+          return [key, count] as const;
+        })
+      ),
+      getWorkspaceStats("SHARED"),
+      getYesterdaySnapshots(orgId),
+      getWeekAgentTotals(orgId),
+    ]);
   const openTicketsByProject = new Map(ticketCountEntries);
   const agentsRanked = (sharedStats?.agents ?? [])
     .slice()
@@ -149,6 +151,16 @@ export default async function CustomerMetricsPage() {
     minute: "2-digit",
     timeZone: "Africa/Porto-Novo",
   }).format(new Date());
+
+  const dayFmt = new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  });
+  const weekRangeLabel =
+    weekTotals.daysCovered > 0
+      ? `${dayFmt.format(weekTotals.from)} \u2014 ${dayFmt.format(weekTotals.to)}`
+      : null;
 
   return (
     <div>
@@ -384,6 +396,90 @@ export default async function CustomerMetricsPage() {
                     </td>
                     <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-dark">
                       {a.ticketsHandled}
+                    </td>
+                    <td
+                      className="py-2.5 pr-3 text-right font-mono text-[12px]"
+                      style={{
+                        color:
+                          a.avgResolutionHours !== null
+                            ? responseColor(a.avgResolutionHours)
+                            : "var(--gray)",
+                      }}
+                    >
+                      {a.avgResolutionHours !== null
+                        ? `${a.avgResolutionHours.toFixed(1)}h`
+                        : "\u2014"}
+                    </td>
+                    <td
+                      className="py-2.5 text-right font-mono text-[12px] font-semibold"
+                      style={{ color: slaColor(a.slaBreached) }}
+                    >
+                      {a.slaBreached}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Weekly agent totals from persisted snapshots */}
+      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mt-4">
+        <div className="flex items-baseline justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-dark">
+              Cette semaine (7 derniers jours)
+            </h2>
+            <p className="text-[10px] text-izi-gray mt-0.5">
+              {weekRangeLabel
+                ? `${weekRangeLabel} UTC \u00b7 ${weekTotals.daysCovered}/7 jours captur\u00e9s`
+                : "Aucune donn\u00e9e captur\u00e9e \u2014 le snapshot tourne chaque nuit \u00e0 04h UTC"}
+            </p>
+          </div>
+        </div>
+
+        {weekTotals.agents.length === 0 ? (
+          <p className="text-sm text-izi-gray py-6">
+            Aucune activit&eacute; agent captur&eacute;e sur les 7 derniers jours.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-[9px] uppercase tracking-wide text-izi-gray font-semibold border-b border-[#deeaea]">
+                  <th className="py-2 pr-3 w-8">#</th>
+                  <th className="py-2 pr-3">Agent</th>
+                  <th className="py-2 pr-3 text-right">Tickets 7j</th>
+                  <th className="py-2 pr-3 text-right">Jours actifs</th>
+                  <th className="py-2 pr-3 text-right">R&eacute;solution moy.</th>
+                  <th className="py-2 text-right">SLA d&eacute;pass&eacute;s</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weekTotals.agents.map((a, idx) => (
+                  <tr
+                    key={a.agentId}
+                    className="border-b border-[#deeaea] last:border-0"
+                  >
+                    <td className="py-2.5 pr-3 font-mono text-[11px] text-izi-gray">
+                      {idx + 1}
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <div className="text-sm text-dark font-medium">
+                        {a.agentName}
+                      </div>
+                      {a.agentEmail && a.agentEmail !== a.agentName && (
+                        <div className="text-[10px] text-izi-gray font-mono mt-0.5">
+                          {a.agentEmail}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-dark">
+                      {a.ticketsHandled}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-izi-gray">
+                      {a.daysActive}/7
                     </td>
                     <td
                       className="py-2.5 pr-3 text-right font-mono text-[12px]"
