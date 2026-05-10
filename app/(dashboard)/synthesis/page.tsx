@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -23,7 +24,9 @@ interface EntityRow {
   name: string;
   color: string;
   entityType: string;
+  href: string;
   objectives: {
+    id: string;
     title: string;
     avgScore: number;
   }[];
@@ -113,6 +116,7 @@ export default async function SynthesisPage() {
       name: string;
       color: string;
       objectives: {
+        id: string;
         title: string;
         keyResults: { score: unknown; _count: { actions: number }; actions: { id: string }[] }[];
       }[];
@@ -134,7 +138,7 @@ export default async function SynthesisPage() {
         actionsDone += kr.actions.length;
       }
 
-      return { title: obj.title, avgScore: avg };
+      return { id: obj.id, title: obj.title, avgScore: avg };
     });
 
     const allScores = entity.objectives.flatMap((o) =>
@@ -145,11 +149,14 @@ export default async function SynthesisPage() {
         ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
         : 0;
 
+    const basePath = entityType === "PRODUCT" ? "/products" : "/departments";
+
     return {
       code: entity.code,
       name: entity.name,
       color: entity.color,
       entityType,
+      href: `${basePath}/${entity.code}`,
       objectives,
       overallScore,
       actionsDone,
@@ -170,11 +177,14 @@ export default async function SynthesisPage() {
         const childScores = child.keyResults.map((kr) => Number(kr.score) * 100);
         const childAvg = childScores.length > 0 ? Math.round(childScores.reduce((a, b) => a + b, 0) / childScores.length) : 0;
         const entity = child.product || child.department;
+        const basePath = child.product ? "/products" : child.department ? "/departments" : null;
+        const href = basePath && entity?.code ? `${basePath}/${entity.code}` : null;
         return {
           code: entity?.code ?? "",
           color: entity?.color ?? "var(--teal)",
           title: child.title,
           avgScore: childAvg,
+          href,
         };
       }),
     };
@@ -224,23 +234,38 @@ export default async function SynthesisPage() {
                         <div className="text-[8px] font-semibold uppercase tracking-wider text-izi-gray mb-1">
                           Objectifs align&eacute;s
                         </div>
-                        {obj.children.map((child, ci) => (
-                          <div key={ci} className="flex items-center gap-2">
-                            <div
-                              className="w-[5px] h-[5px] rounded-full shrink-0"
-                              style={{ backgroundColor: child.color }}
-                            />
-                            <span className="text-[9px] text-izi-gray flex-1 truncate">
-                              {child.code} {child.title}
-                            </span>
-                            <span
-                              className="font-mono text-[9px] font-semibold"
-                              style={{ color: getScoreColor(child.avgScore) }}
+                        {obj.children.map((child, ci) => {
+                          const content = (
+                            <>
+                              <div
+                                className="w-[5px] h-[5px] rounded-full shrink-0"
+                                style={{ backgroundColor: child.color }}
+                              />
+                              <span className="text-[9px] text-izi-gray flex-1 truncate">
+                                {child.code} {child.title}
+                              </span>
+                              <span
+                                className="font-mono text-[9px] font-semibold"
+                                style={{ color: getScoreColor(child.avgScore) }}
+                              >
+                                {child.avgScore}%
+                              </span>
+                            </>
+                          );
+                          return child.href ? (
+                            <Link
+                              key={ci}
+                              href={child.href}
+                              className="flex items-center gap-2 -mx-1 px-1 py-0.5 rounded hover:bg-izi-gray-lt no-underline transition-colors"
                             >
-                              {child.avgScore}%
-                            </span>
-                          </div>
-                        ))}
+                              {content}
+                            </Link>
+                          ) : (
+                            <div key={ci} className="flex items-center gap-2">
+                              {content}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -306,22 +331,28 @@ function SynthesisTable({
                 className="border-b border-izi-gray-lt last:border-b-0 hover:bg-izi-gray-lt/50 transition-colors"
               >
                 <td className="py-2.5 px-2">
-                  <div className="flex items-center gap-2">
+                  <Link
+                    href={row.href}
+                    className="flex items-center gap-2 no-underline text-dark hover:text-teal"
+                  >
                     <div
                       className="w-[7px] h-[7px] rounded-full shrink-0"
                       style={{ backgroundColor: row.color }}
                     />
-                    <span className="font-medium text-dark">
+                    <span className="font-medium">
                       {row.code} {row.name}
                     </span>
-                  </div>
+                  </Link>
                 </td>
                 {[0, 1, 2].map((i) => {
                   const obj = row.objectives[i];
                   return (
                     <td key={i} className="py-2.5 px-2 text-center">
                       {obj ? (
-                        <div>
+                        <Link
+                          href={`${row.href}#obj-${obj.id}`}
+                          className="block no-underline rounded hover:bg-izi-gray-lt -mx-1 px-1 py-0.5"
+                        >
                           <span
                             className="font-mono text-[11px] font-semibold"
                             style={{ color: getScoreColor(obj.avgScore) }}
@@ -331,7 +362,7 @@ function SynthesisTable({
                           <div className="text-[9px] text-izi-gray truncate max-w-[120px] mx-auto mt-px">
                             {obj.title}
                           </div>
-                        </div>
+                        </Link>
                       ) : (
                         <span className="text-izi-gray">&mdash;</span>
                       )}
@@ -351,10 +382,13 @@ function SynthesisTable({
                 </td>
                 <td className="py-2.5 px-2 text-center">
                   {row.actionsTotal > 0 ? (
-                    <span className="font-mono text-[11px]">
+                    <Link
+                      href={`${row.href}#actions`}
+                      className="font-mono text-[11px] no-underline inline-block rounded px-1 py-0.5 hover:bg-izi-gray-lt"
+                    >
                       <span className="font-semibold" style={{ color: "var(--green)" }}>{row.actionsDone}</span>
                       <span className="text-izi-gray">/{row.actionsTotal}</span>
-                    </span>
+                    </Link>
                   ) : (
                     <span className="text-izi-gray">&mdash;</span>
                   )}
@@ -368,9 +402,10 @@ function SynthesisTable({
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
         {rows.map((row) => (
-          <div
+          <Link
             key={row.code}
-            className="border border-izi-gray-lt rounded-lg p-3"
+            href={row.href}
+            className="block border border-izi-gray-lt rounded-lg p-3 no-underline text-dark active:bg-izi-gray-lt"
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -378,7 +413,7 @@ function SynthesisTable({
                   className="w-[7px] h-[7px] rounded-full shrink-0"
                   style={{ backgroundColor: row.color }}
                 />
-                <span className="text-[11px] font-medium text-dark">
+                <span className="text-[11px] font-medium">
                   {row.code} {row.name}
                 </span>
               </div>
@@ -392,7 +427,7 @@ function SynthesisTable({
             <div className="flex gap-2">
               {row.objectives.map((obj, i) => (
                 <div
-                  key={i}
+                  key={obj.id}
                   className="flex-1 bg-izi-gray-lt rounded px-2 py-1 text-center"
                 >
                   <div
@@ -407,7 +442,18 @@ function SynthesisTable({
                 </div>
               ))}
             </div>
-          </div>
+            {row.actionsTotal > 0 && (
+              <div className="mt-2 pt-2 border-t border-izi-gray-lt flex items-center justify-between">
+                <span className="text-[9px] uppercase tracking-wide text-izi-gray">
+                  Actions
+                </span>
+                <span className="font-mono text-[10px]">
+                  <span className="font-semibold" style={{ color: "var(--green)" }}>{row.actionsDone}</span>
+                  <span className="text-izi-gray">/{row.actionsTotal}</span>
+                </span>
+              </div>
+            )}
+          </Link>
         ))}
       </div>
     </div>

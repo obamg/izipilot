@@ -101,7 +101,8 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
         {entity.objectives.map((obj, i) => (
           <div
             key={obj.id}
-            className={`mb-5 pb-5 ${
+            id={`obj-${obj.id}`}
+            className={`mb-5 pb-5 scroll-mt-20 ${
               i < entity.objectives.length - 1 ? "border-b border-izi-gray-lt" : ""
             }`}
           >
@@ -149,7 +150,7 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
       </div>
 
       {/* Actions */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5">
+      <div id="actions" className="bg-white rounded-xl border border-[#deeaea] p-5 scroll-mt-20">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-dark">Actions</h2>
