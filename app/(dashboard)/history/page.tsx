@@ -28,7 +28,12 @@ export default async function HistoryPage({
     }),
   ]);
 
-  // Fetch all KRs with their weekly entries for charting
+  // The chart shows 13 weeks. Loading every entry ever ballooned to ~7,000
+  // rows on a fully-seeded year — pre-filter to the last 13 ISO weeks via
+  // weekStart so the page stays fast as data accumulates.
+  const thirteenWeeksAgo = new Date();
+  thirteenWeeksAgo.setDate(thirteenWeeksAgo.getDate() - 13 * 7);
+
   const keyResults = await prisma.keyResult.findMany({
     where: { orgId, isActive: true },
     include: {
@@ -42,12 +47,13 @@ export default async function HistoryPage({
         },
       },
       weeklyEntries: {
-        orderBy: { weekNumber: "asc" },
+        where: { weekStart: { gte: thirteenWeeksAgo } },
+        // Year first so S52/2025 sorts before S03/2026.
+        orderBy: [{ year: "asc" }, { weekNumber: "asc" }],
         select: {
           weekNumber: true,
           year: true,
           scoreAtEntry: true,
-          progress: true,
         },
       },
     },
@@ -79,8 +85,13 @@ export default async function HistoryPage({
     objectiveTitle: kr.objective.title,
     weeklyData: kr.weeklyEntries.map((e) => ({
       week: `S${String(e.weekNumber).padStart(2, "0")}`,
+      year: e.year,
+      weekNumber: e.weekNumber,
+      // The chart shows the persisted OKR score (currentValue/target or the
+      // krType-specific formula), not the raw slider position. Using
+      // `progress` here caused the line to disagree with the donut on the
+      // same KR for BINARY/DATE types.
       score: Math.round(Number(e.scoreAtEntry) * 100),
-      progress: Math.round(e.progress * 100),
     })),
   }));
 
