@@ -6,6 +6,7 @@ import { checkMissingEntries, checkEscalation48h } from "@/lib/alerts";
 import { scoreToPercent } from "@/lib/score";
 import { getISOWeek } from "@/lib/date";
 import { log } from "@/lib/log";
+import { verifyCronSecret } from "@/lib/cron";
 import AlertBlocked from "@/emails/AlertBlocked";
 import Escalation48h from "@/emails/Escalation48h";
 
@@ -21,10 +22,7 @@ const logger = log.child("cron/check-alerts");
  * Secured by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
-  // ── Auth: verify cron secret ──────────────────────────────────────────────
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronSecret(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -63,13 +61,21 @@ export async function GET(request: NextRequest) {
         summary.escalations += escalationCount;
 
         // ── 3. Email Management/CEO for new ESCALATION_48H alerts ──────────
+        // Dedup by "no successful email notification yet" instead of a wall-
+        // clock window: a delayed cron (>2h late) used to silently miss new
+        // escalations.
         const escalationAlerts = await prisma.alert.findMany({
           where: {
             orgId: org.id,
             type: "ESCALATION_48H",
             isResolved: false,
-            // Find those created today (within the last 2 hours — cron window)
-            createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+            notifications: {
+              none: {
+                channel: "EMAIL",
+                type: "ESCALATION_48H",
+                isSent: true,
+              },
+            },
           },
           include: {
             keyResult: {

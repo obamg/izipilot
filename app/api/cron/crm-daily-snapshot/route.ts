@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { captureCrmSnapshots } from "@/lib/crm-snapshot";
 import { log } from "@/lib/log";
+import { verifyCronSecret } from "@/lib/cron";
 
 const logger = log.child("cron/crm-daily-snapshot");
 
@@ -14,9 +15,7 @@ export const maxDuration = 300;
  * show "vs hier" deltas. Triggered once a day. Secured by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronSecret(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
