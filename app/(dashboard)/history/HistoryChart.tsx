@@ -22,8 +22,9 @@ interface Entity {
 
 interface KrWeeklyData {
   week: string;
+  year: number;
+  weekNumber: number;
   score: number;
-  progress: number;
 }
 
 interface KrChartData {
@@ -57,26 +58,29 @@ export function HistoryChart({ entities, keyResults, defaultEntityCode }: Histor
     [keyResults, selectedEntityId]
   );
 
-  // Build chart data: merge all KRs by week
+  // Build chart data: merge all KRs by (year, weekNumber) so S52/2025 sorts
+  // before S03/2026 instead of getting alphabetically reordered.
   const chartData = useMemo(() => {
-    const weekMap = new Map<string, Record<string, number>>();
+    const weekMap = new Map<
+      number,
+      { week: string; sortKey: number; values: Record<string, number> }
+    >();
 
     for (const kr of filteredKrs) {
       for (const entry of kr.weeklyData) {
-        if (!weekMap.has(entry.week)) {
-          weekMap.set(entry.week, {});
+        const sortKey = entry.year * 100 + entry.weekNumber;
+        let row = weekMap.get(sortKey);
+        if (!row) {
+          row = { week: entry.week, sortKey, values: {} };
+          weekMap.set(sortKey, row);
         }
-        const row = weekMap.get(entry.week)!;
-        row[kr.id] = entry.progress;
+        row.values[kr.id] = entry.score;
       }
     }
 
-    return Array.from(weekMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([week, data]) => ({
-        week,
-        ...data,
-      }));
+    return Array.from(weekMap.values())
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map((r) => ({ week: r.week, ...r.values }));
   }, [filteredKrs]);
 
   const hasData = chartData.length > 0;
