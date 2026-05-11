@@ -1,6 +1,6 @@
 import type { Prisma, KrStatus, KrType, UserRole, WeeklyEntry } from "@prisma/client";
 import { calculateScore, calculateDelta, deriveStatus, scoreToPercent } from "./score";
-import { getISOWeekStart } from "./date";
+import { getISOWeekStart, getPreviousISOWeek } from "./date";
 import { checkKrAlerts } from "./alerts";
 import { escalateActionsOnBlock } from "./actions";
 
@@ -124,15 +124,13 @@ export async function upsertWeeklyEntry(
     kr.isInverse
   );
 
+  const prev = getPreviousISOWeek(input.year, input.weekNumber);
   const previousEntry = await tx.weeklyEntry.findFirst({
     where: {
       krId: input.krId,
-      OR: [
-        { year: input.year, weekNumber: input.weekNumber - 1 },
-        { year: input.year - 1, weekNumber: 52 },
-      ],
+      year: prev.year,
+      weekNumber: prev.weekNumber,
     },
-    orderBy: [{ year: "desc" }, { weekNumber: "desc" }],
   });
 
   const delta = calculateDelta(

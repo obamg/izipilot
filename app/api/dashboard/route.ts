@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent, objectiveScore } from "@/lib/score";
-import { getISOWeek } from "@/lib/date";
+import { getISOWeek, getPreviousISOWeek } from "@/lib/date";
 
 export async function GET() {
   const session = await auth();
@@ -15,10 +15,9 @@ export async function GET() {
   const now = new Date();
   const { weekNumber, year } = getISOWeek(now);
 
-  // Compute previous week
-  const prevWeek = weekNumber > 1
-    ? { weekNumber: weekNumber - 1, year }
-    : { weekNumber: 52, year: year - 1 };
+  // Compute previous ISO week — crosses year boundaries correctly (some
+  // ISO years have 53 weeks, e.g. 2020 and 2026).
+  const prevWeek = getPreviousISOWeek(year, weekNumber);
 
   // Run queries in parallel
   const [krs, alerts, weekEntries, totalKrs, prevWeekEntries] = await Promise.all([
