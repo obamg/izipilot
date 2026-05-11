@@ -270,10 +270,13 @@ export function WeeklyEntryForm({
         );
       }
 
-      // Bulk update action statuses if any changed
+      // Bulk update action statuses if any changed. We previously fired
+      // this off without checking res.ok — a 403/500 surfaced as "Revue
+      // soumise avec succès" while the action statuses silently stayed
+      // unchanged.
       const actionUpdateList = Object.entries(actionUpdates);
       if (actionUpdateList.length > 0) {
-        await fetch("/api/actions/bulk-status", {
+        const actionsRes = await fetch("/api/actions/bulk-status", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -283,6 +286,13 @@ export function WeeklyEntryForm({
             })),
           }),
         });
+        if (!actionsRes.ok) {
+          const data = await actionsRes.json().catch(() => ({}));
+          throw new Error(
+            (data as { error?: string }).error ||
+              `Statuts d'actions non sauvegardés (HTTP ${actionsRes.status})`
+          );
+        }
       }
 
       // Clear draft from localStorage after successful submission
