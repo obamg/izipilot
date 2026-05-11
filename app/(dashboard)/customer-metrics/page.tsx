@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   getOpenTicketsCount,
-  getWorkspaceStats,
   isGleapConfigured,
   type GleapProjectKey,
 } from "@/lib/gleap";
@@ -82,22 +81,27 @@ export default async function CustomerMetricsPage() {
     )
   );
 
-  // Fetch everything in parallel so the page render is bounded by the
-  // single slowest Gleap call (12s timeout) rather than their sum.
-  const [ticketCountEntries, sharedStats, yesterday, weekTotals] =
-    await Promise.all([
-      Promise.all(
-        uniqueProjectKeys.map(async (key) => {
-          const count = await getOpenTicketsCount(key);
-          return [key, count] as const;
-        })
-      ),
-      getWorkspaceStats("SHARED"),
-      getYesterdaySnapshots(orgId),
-      getWeekAgentTotals(orgId),
-    ]);
+  // Page render path used to fetch /tickets?limit=1000 on every request to
+  // build the agent leaderboard and the SLA breach KPI. That call took up
+  // to 12s, was per-process cached only, and dominated cold-start time on
+  // Mon-morning traffic. The nightly snapshot already captures the same
+  // data — read it instead and only hit Gleap for the live open-ticket
+  // counts (one cheap /tickets?limit=1 call per project).
+  const [ticketCountEntries, yesterday, weekTotals] = await Promise.all([
+    Promise.all(
+      uniqueProjectKeys.map(async (key) => {
+        const count = await getOpenTicketsCount(key);
+        return [key, count] as const;
+      })
+    ),
+    getYesterdaySnapshots(orgId),
+    getWeekAgentTotals(orgId),
+  ]);
   const openTicketsByProject = new Map(ticketCountEntries);
-  const agentsRanked = (sharedStats?.agents ?? [])
+
+  // Leaderboard now reflects the last 7 fully-captured days. More stable
+  // than a single-day snapshot and matches the daysCovered label.
+  const agentsRanked = weekTotals.agents
     .slice()
     .sort((a, b) => b.ticketsHandled - a.ticketsHandled);
 
@@ -114,6 +118,13 @@ export default async function CustomerMetricsPage() {
       ? totalResolutionHours.reduce((a, b) => a + b, 0) /
         totalResolutionHours.length
       : null;
+
+  // SLA breach KPI now comes from yesterday's SHARED snapshot. We lose the
+  // live-vs-yesterday delta in exchange for fast page loads; deltas inside
+  // the leaderboard already use the 7-day window.
+  const sharedSnapshot = yesterday.byProject.get("SHARED") ?? null;
+  const slaBreachedInSample = sharedSnapshot?.slaBreachedInSample ?? null;
+  const sharedSampleSize = sharedSnapshot?.sampleSize ?? null;
 
   // Compute "vs hier" deltas — only when yesterday data exists for the same
   // set of projects we're showing today.
@@ -138,14 +149,6 @@ export default async function CustomerMetricsPage() {
     ? totalOpenTickets - totalTicketsYesterday
     : null;
 
-  const sharedYesterday = yesterday.byProject.get("SHARED");
-  const slaDelta =
-    sharedStats !== null &&
-    sharedYesterday &&
-    sharedYesterday.slaBreachedInSample !== null
-      ? sharedStats.slaBreachedInSample - sharedYesterday.slaBreachedInSample
-      : null;
-
   const fetchedAtLabel = new Intl.DateTimeFormat("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
@@ -168,16 +171,16 @@ export default async function CustomerMetricsPage() {
         <div>
           <h1 className="font-serif text-[20px] text-dark">CRM</h1>
           <p className="text-[11px] text-izi-gray mt-0.5">
-            Tickets clients et performance des agents &middot; donn&eacute;es Gleap en direct
+            Tickets clients et performance des agents
           </p>
           <p className="text-[10px] text-izi-gray mt-1">
-            Mise &agrave; jour &agrave; {fetchedAtLabel}
-            {sharedStats !== null && (
+            Tickets ouverts en direct &middot; mise &agrave; jour &agrave; {fetchedAtLabel}
+            {sharedSampleSize !== null && (
               <>
-                {" "}&middot; &eacute;chantillon des {sharedStats.sampleSize} derniers tickets (workspace partag&eacute;)
+                {" "}&middot; SLA et agents bas&eacute;s sur le snapshot quotidien
+                {" "}(&eacute;chantillon {sharedSampleSize} tickets)
               </>
             )}
-            {" "}&middot; deltas vs hier 04h UTC
           </p>
         </div>
         <div className="text-[10px] text-izi-gray bg-teal-lt border border-teal-md rounded-[6px] px-2.5 py-1.5">
@@ -241,21 +244,18 @@ export default async function CustomerMetricsPage() {
             SLA d&eacute;pass&eacute;s
           </div>
           <div
-            className="font-serif text-2xl leading-none flex items-baseline"
+            className="font-serif text-2xl leading-none"
             style={{
               color:
-                sharedStats !== null
-                  ? slaColor(sharedStats.slaBreachedInSample)
+                slaBreachedInSample !== null
+                  ? slaColor(slaBreachedInSample)
                   : "var(--gray)",
             }}
           >
-            {sharedStats !== null
-              ? sharedStats.slaBreachedInSample
-              : "\u2014"}
-            <DeltaPill delta={slaDelta} />
+            {slaBreachedInSample !== null ? slaBreachedInSample : "\u2014"}
           </div>
           <div className="text-[9px] text-izi-gray mt-2">
-            sur l&apos;&eacute;chantillon de {sharedStats?.sampleSize ?? 0} tickets
+            snapshot d&apos;hier &middot; {sharedSampleSize ?? 0} tickets
             (workspace partag&eacute;)
           </div>
         </div>
@@ -339,87 +339,6 @@ export default async function CustomerMetricsPage() {
                 </Link>
               );
             })}
-          </div>
-        )}
-      </div>
-
-      {/* Agent performance leaderboard */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mt-4">
-        <div className="flex items-baseline justify-between mb-4">
-          <div>
-            <h2 className="text-base font-semibold text-dark">
-              Performance des agents
-            </h2>
-            <p className="text-[10px] text-izi-gray mt-0.5">
-              Workspace partag&eacute; (P2/P4/P5/P6/P7) &middot; class&eacute;s par
-              volume de tickets trait&eacute;s
-            </p>
-          </div>
-        </div>
-
-        {agentsRanked.length === 0 ? (
-          <p className="text-sm text-izi-gray py-6">
-            {sharedStats === null
-              ? "Connexion Gleap non configur\u00e9e."
-              : "Aucun agent avec ticket trait\u00e9 dans ce workspace."}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[9px] uppercase tracking-wide text-izi-gray font-semibold border-b border-[#deeaea]">
-                  <th className="py-2 pr-3 w-8">#</th>
-                  <th className="py-2 pr-3">Agent</th>
-                  <th className="py-2 pr-3 text-right">Tickets</th>
-                  <th className="py-2 pr-3 text-right">R&eacute;solution</th>
-                  <th className="py-2 text-right">SLA d&eacute;pass&eacute;s</th>
-                </tr>
-              </thead>
-              <tbody>
-                {agentsRanked.map((a, idx) => (
-                  <tr
-                    key={a.id}
-                    className="border-b border-[#deeaea] last:border-0"
-                  >
-                    <td className="py-2.5 pr-3 font-mono text-[11px] text-izi-gray">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      <div className="text-sm text-dark font-medium">
-                        {a.name}
-                      </div>
-                      {a.email && a.email !== a.name && (
-                        <div className="text-[10px] text-izi-gray font-mono mt-0.5">
-                          {a.email}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-dark">
-                      {a.ticketsHandled}
-                    </td>
-                    <td
-                      className="py-2.5 pr-3 text-right font-mono text-[12px]"
-                      style={{
-                        color:
-                          a.avgResolutionHours !== null
-                            ? responseColor(a.avgResolutionHours)
-                            : "var(--gray)",
-                      }}
-                    >
-                      {a.avgResolutionHours !== null
-                        ? `${a.avgResolutionHours.toFixed(1)}h`
-                        : "\u2014"}
-                    </td>
-                    <td
-                      className="py-2.5 text-right font-mono text-[12px] font-semibold"
-                      style={{ color: slaColor(a.slaBreached) }}
-                    >
-                      {a.slaBreached}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </div>
