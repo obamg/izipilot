@@ -26,8 +26,15 @@ declare module "@auth/core/jwt" {
   interface JWT {
     role: UserRole;
     orgId: string;
+    lastValidated?: number;
   }
 }
+
+// How often we re-read role / orgId / isActive from the database while a
+// session is open. JWTs are stateless, so without this a CEO demoted to
+// VIEWER or a deactivated user would keep their old role until the 4h
+// session expired. 60s caps that drift to a minute.
+const REVALIDATE_MS = 60 * 1000;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -81,15 +88,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "credentials") return true;
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // Initial login or session.update() — seed from the User row.
       if (user) {
         token.role = user.role;
         token.orgId = user.orgId;
+        token.lastValidated = Date.now();
+        return token;
       }
+
+      const lastValidated =
+        typeof token.lastValidated === "number" ? token.lastValidated : 0;
+      const stale = Date.now() - lastValidated > REVALIDATE_MS;
+
+      if (!stale && trigger !== "update") return token;
+      if (!token.sub) return null;
+
+      const fresh = await prisma.user.findUnique({
+        where: { id: token.sub },
+        select: { role: true, orgId: true, isActive: true },
+      });
+      // User deleted or deactivated since the JWT was issued → revoke the
+      // session. Returning null forces NextAuth to treat the request as
+      // unauthenticated, which the middleware redirects to /login.
+      if (!fresh || !fresh.isActive) return null;
+
+      token.role = fresh.role;
+      token.orgId = fresh.orgId;
+      token.lastValidated = Date.now();
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.sub!;
+      if (!token?.sub) return session;
+      session.user.id = token.sub;
       session.user.role = token.role;
       session.user.orgId = token.orgId;
       return session;
