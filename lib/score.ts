@@ -94,13 +94,22 @@ export function calculateDelta(
 }
 
 /**
- * Calculate the average score for an objective (mean of its KRs).
+ * Generic unweighted mean of a list of scores. Returns 0 when empty.
+ * Used for every level of the OKR rollup: KR → objective, objective →
+ * entity, entity → org. Each level averages the means of the level below
+ * so a single objective with many KRs does not dominate the entity score.
  */
-export function objectiveScore(krScores: (number | Decimal)[]): number {
-  if (krScores.length === 0) return 0;
+export function meanScore(scores: (number | Decimal)[]): number {
+  if (scores.length === 0) return 0;
   let sum = 0;
-  for (const s of krScores) {
+  for (const s of scores) {
     sum += typeof s === "number" ? s : Number(s);
   }
-  return sum / krScores.length;
+  return sum / scores.length;
 }
+
+/**
+ * Backward-compatible alias for the KR → objective level. Prefer meanScore
+ * directly when rolling up objectives → entity or entity → org.
+ */
+export const objectiveScore = meanScore;
