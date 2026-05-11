@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { scoreToPercent } from "@/lib/score";
 import { getISOWeek } from "@/lib/date";
 import { log } from "@/lib/log";
+import { verifyCronSecret } from "@/lib/cron";
 import WeeklyDigest from "@/emails/WeeklyDigest";
 import type { DigestKr, DigestDecision } from "@/emails/WeeklyDigest";
 
@@ -17,9 +18,7 @@ const logger = log.child("cron/weekly-digest");
  * Secured by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronSecret(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
