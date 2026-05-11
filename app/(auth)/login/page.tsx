@@ -30,7 +30,13 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      setError("Email ou mot de passe incorrect");
+      if (result.status === 429) {
+        setError(
+          "Trop de tentatives. Réessayez dans quelques minutes."
+        );
+      } else {
+        setError("Email ou mot de passe incorrect");
+      }
       setLoading(false);
     } else if (result?.url) {
       window.location.href = result.url;

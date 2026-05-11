@@ -1,10 +1,52 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const publicPaths = ["/login", "/api/auth", "/api/cron"];
 
+// Brute-force protection on the credentials sign-in endpoint. Behind
+// nginx/Cloudflare so the real client IP arrives via x-forwarded-for —
+// take the first entry in the list (the original client).
+const AUTH_RATE_LIMIT = 10; // attempts
+const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000; // per 5 minutes
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]!.trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+
+  // Rate-limit the credentials sign-in POST before NextAuth gets the
+  // request. /api/auth/* is otherwise a public path, so without this
+  // guard a credential-stuffing run is unbounded.
+  if (
+    req.method === "POST" &&
+    pathname === "/api/auth/callback/credentials"
+  ) {
+    const ip = getClientIp(req);
+    const r = checkRateLimit(
+      `auth:${ip}`,
+      AUTH_RATE_LIMIT,
+      AUTH_RATE_WINDOW_MS
+    );
+    if (!r.allowed) {
+      return new NextResponse(
+        JSON.stringify({
+          error: "Too many login attempts. Try again later.",
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(r.retryAfterSec),
+          },
+        }
+      );
+    }
+  }
 
   // Allow public paths (cron routes have their own CRON_SECRET auth)
   if (publicPaths.some((p) => pathname.startsWith(p))) {
