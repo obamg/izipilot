@@ -150,11 +150,25 @@ export default async function DashboardPage({
     return kr.status;
   }
 
-  // Compute KPIs
-  const allScores = keyResults.map((kr) => getKrScore(kr));
+  // Compute KPIs.
+  // overallScore is the mean of objective means (each objective = mean of
+  // its KRs). Flattening would let an objective with more KRs dominate.
+  const objectiveAverages = new Map<string, number[]>();
+  for (const kr of keyResults) {
+    const arr = objectiveAverages.get(kr.objective.id) ?? [];
+    arr.push(getKrScore(kr));
+    objectiveAverages.set(kr.objective.id, arr);
+  }
+  const objectiveMeans: number[] = [];
+  for (const arr of objectiveAverages.values()) {
+    if (arr.length === 0) continue;
+    objectiveMeans.push(arr.reduce((a, b) => a + b, 0) / arr.length);
+  }
   const overallScore =
-    allScores.length > 0
-      ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+    objectiveMeans.length > 0
+      ? Math.round(
+          objectiveMeans.reduce((a, b) => a + b, 0) / objectiveMeans.length
+        )
       : 0;
 
   const statusCounts = {
@@ -216,20 +230,24 @@ export default async function DashboardPage({
     group.objectives.get(obj.id)!.krs.push(kr);
   }
 
-  // Compute averages
+  // Compute averages: entity avgScore = mean of objective avgScores (not
+  // mean of all KRs flat — that would weight bigger objectives more).
   for (const group of entityGroups.values()) {
-    const scores: number[] = [];
+    const objectiveScores: number[] = [];
     for (const obj of group.objectives.values()) {
       const objScores = obj.krs.map((kr) => getKrScore(kr));
       obj.avgScore =
         objScores.length > 0
           ? Math.round(objScores.reduce((a, b) => a + b, 0) / objScores.length)
           : 0;
-      scores.push(...objScores);
+      objectiveScores.push(obj.avgScore);
     }
     group.avgScore =
-      scores.length > 0
-        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      objectiveScores.length > 0
+        ? Math.round(
+            objectiveScores.reduce((a, b) => a + b, 0) /
+              objectiveScores.length
+          )
         : 0;
   }
 

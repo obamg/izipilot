@@ -6,6 +6,7 @@ import {
   deriveStatus,
   calculateDelta,
   objectiveScore,
+  meanScore,
 } from '@/lib/score'
 
 // ---------------------------------------------------------------------------
@@ -292,5 +293,48 @@ describe('objectiveScore', () => {
 
   it('returns 0.0 when all KRs have 0 score', () => {
     expect(objectiveScore([0, 0, 0])).toBe(0)
+  })
+
+  it('is an alias for meanScore (same function reference)', () => {
+    expect(objectiveScore).toBe(meanScore)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// meanScore — used for hierarchical rollups (objective → entity → org)
+// ---------------------------------------------------------------------------
+describe('meanScore for hierarchical rollups', () => {
+  it('mean of objective means is not the same as flat mean of all KRs', () => {
+    // Entity A has 2 objectives:
+    //   obj1: KRs [1.0, 1.0] → mean 1.0
+    //   obj2: KRs [0.0, 0.0, 0.0, 0.0] → mean 0.0
+    // Flat mean of all 6 KRs = 2/6 = 0.333…
+    // Mean of objective means = (1.0 + 0.0) / 2 = 0.5
+    // Mean-of-means is the correct rollup — objectives are weighted equally.
+    const allKrs = [1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    expect(meanScore(allKrs)).toBeCloseTo(0.333, 3)
+
+    const objMeans = [meanScore([1.0, 1.0]), meanScore([0.0, 0.0, 0.0, 0.0])]
+    expect(meanScore(objMeans)).toBe(0.5)
+  })
+
+  it('a single dominant objective no longer drowns out a smaller one', () => {
+    // Common real-world case: one objective has 5 KRs all at 0.2; another
+    // has 1 KR at 1.0. Flat = (1.0 + 5*0.2)/6 = 0.333 → entity looks bad.
+    // Mean of means = (0.2 + 1.0)/2 = 0.6 → entity is genuinely mixed.
+    const flat = meanScore([0.2, 0.2, 0.2, 0.2, 0.2, 1.0])
+    const rollup = meanScore([meanScore([0.2, 0.2, 0.2, 0.2, 0.2]), meanScore([1.0])])
+    expect(flat).toBeCloseTo(0.333, 3)
+    expect(rollup).toBe(0.6)
+  })
+
+  it('handles empty objectives by skipping them at the caller level', () => {
+    // Convention: callers filter empty groups before passing in. meanScore
+    // itself returns 0 only for a truly empty input list.
+    expect(meanScore([])).toBe(0)
+    expect(meanScore([meanScore([0.5, 0.5]), meanScore([0.8])])).toBeCloseTo(
+      0.65,
+      10
+    )
   })
 })

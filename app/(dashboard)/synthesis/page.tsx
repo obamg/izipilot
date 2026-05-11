@@ -142,12 +142,15 @@ export default async function SynthesisPage() {
       return { id: obj.id, title: obj.title, avgScore: avg };
     });
 
-    const allScores = entity.objectives.flatMap((o) =>
-      o.keyResults.map((kr) => Number(kr.score) * 100)
-    );
+    // Entity overall = mean of objective avgScores. Flattening KRs would
+    // let objectives with more KRs disproportionately weight the entity.
+    const objectiveAverages = objectives.map((o) => o.avgScore);
     const overallScore =
-      allScores.length > 0
-        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+      objectiveAverages.length > 0
+        ? Math.round(
+            objectiveAverages.reduce((a, b) => a + b, 0) /
+              objectiveAverages.length
+          )
         : 0;
 
     const basePath = entityType === "PRODUCT" ? "/products" : "/departments";

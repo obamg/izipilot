@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { scoreToPercent, objectiveScore } from "@/lib/score";
+import { scoreToPercent, meanScore } from "@/lib/score";
 import { getISOWeek, getPreviousISOWeek } from "@/lib/date";
 
 export async function GET() {
@@ -21,10 +21,10 @@ export async function GET() {
 
   // Run queries in parallel
   const [krs, alerts, weekEntries, totalKrs, prevWeekEntries] = await Promise.all([
-    // All active KRs with scores
+    // All active KRs with scores + objectiveId for the rollup
     prisma.keyResult.findMany({
       where: { orgId, isActive: true, deletedAt: null },
-      select: { score: true, status: true },
+      select: { score: true, status: true, objectiveId: true },
     }),
 
     // Unresolved alerts
@@ -45,10 +45,13 @@ export async function GET() {
       where: { orgId, isActive: true, deletedAt: null },
     }),
 
-    // Previous week's entries for delta calculation
+    // Previous week's entries grouped by objective for the delta
     prisma.weeklyEntry.findMany({
       where: { orgId, weekNumber: prevWeek.weekNumber, year: prevWeek.year },
-      select: { scoreAtEntry: true },
+      select: {
+        scoreAtEntry: true,
+        keyResult: { select: { objectiveId: true } },
+      },
     }),
   ]);
 
@@ -60,8 +63,33 @@ export async function GET() {
     notStarted: krs.filter((kr) => kr.status === "NOT_STARTED").length,
   };
 
-  // Overall score
-  const overallScore = objectiveScore(krs.map((kr) => kr.score));
+  // Overall score: mean of objective means. Flattening every KR would let
+  // objectives with more KRs disproportionately weight the company score.
+  function meanByObjective<T>(
+    rows: T[],
+    objectiveOf: (r: T) => string,
+    scoreOf: (r: T) => number
+  ): number {
+    const byObj = new Map<string, number[]>();
+    for (const row of rows) {
+      const key = objectiveOf(row);
+      const arr = byObj.get(key) ?? [];
+      arr.push(scoreOf(row));
+      byObj.set(key, arr);
+    }
+    const means: number[] = [];
+    for (const arr of byObj.values()) {
+      if (arr.length === 0) continue;
+      means.push(arr.reduce((a, b) => a + b, 0) / arr.length);
+    }
+    return meanScore(means);
+  }
+
+  const overallScore = meanByObjective(
+    krs,
+    (kr) => kr.objectiveId,
+    (kr) => Number(kr.score)
+  );
   const overallScorePercent = scoreToPercent(overallScore);
 
   // Alert counts
@@ -83,8 +111,14 @@ export async function GET() {
       overallScorePercent,
       overallDelta: (() => {
         if (prevWeekEntries.length === 0) return 0;
-        const prevAvg = prevWeekEntries.reduce((sum, e) => sum + Number(e.scoreAtEntry), 0) / prevWeekEntries.length;
-        const prevPercent = Math.round(prevAvg * 100);
+        // Aggregate prev week the same way as current — mean of objective
+        // means — so the delta is a like-for-like comparison.
+        const prevOverall = meanByObjective(
+          prevWeekEntries,
+          (e) => e.keyResult.objectiveId,
+          (e) => Number(e.scoreAtEntry)
+        );
+        const prevPercent = scoreToPercent(prevOverall);
         return overallScorePercent - prevPercent;
       })(),
       alertCounts: {
