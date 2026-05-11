@@ -1,8 +1,47 @@
-import type { Prisma, KrStatus, UserRole, WeeklyEntry } from "@prisma/client";
+import type { Prisma, KrStatus, KrType, UserRole, WeeklyEntry } from "@prisma/client";
 import { calculateScore, calculateDelta, deriveStatus, scoreToPercent } from "./score";
 import { getISOWeekStart } from "./date";
 import { checkKrAlerts } from "./alerts";
 import { escalateActionsOnBlock } from "./actions";
+
+/**
+ * Back-compute the KR's currentValue from the submitted progress so the
+ * persisted score matches what the PO sees in the slider. The form sends a
+ * 0–1 progress; for NUMERIC/PERCENTAGE the score is currentValue/target
+ * (or the inverse formula), so we solve for currentValue. BINARY snaps to
+ * 0 or 1; DATE has no numeric currentValue.
+ *
+ * If the caller passes an explicit `currentValue`, it wins — the future
+ * "enter the raw value" UI can use that path.
+ */
+export function effectiveCurrentValue(
+  kr: {
+    krType: KrType;
+    target: number | null;
+    isInverse: boolean;
+    currentValue: number;
+  },
+  input: { progress: number; currentValue?: number }
+): number {
+  if (input.currentValue !== undefined) return input.currentValue;
+
+  switch (kr.krType) {
+    case "BINARY":
+      return input.progress >= 0.5 ? 1 : 0;
+    case "DATE":
+      // Score is derived from `progress` directly; currentValue is unused
+      return kr.currentValue;
+    case "NUMERIC":
+    case "PERCENTAGE":
+      if (kr.target === null) return kr.currentValue;
+      if (!kr.isInverse) return input.progress * kr.target;
+      // Inverse: score = (start − cv) / (start − target). Solve for cv.
+      // start defaults to target * 3 (matches lib/score.ts).
+      const start = kr.target * 3;
+      if (start <= kr.target) return kr.target;
+      return start - input.progress * (start - kr.target);
+  }
+}
 
 export interface WeeklyEntryInput {
   krId: string;
@@ -76,7 +115,7 @@ export async function upsertWeeklyEntry(
     );
   }
 
-  const effectiveValue = input.currentValue ?? kr.currentValue;
+  const effectiveValue = effectiveCurrentValue(kr, input);
   const newScore = calculateScore(
     kr.krType,
     effectiveValue,
@@ -145,11 +184,12 @@ export async function upsertWeeklyEntry(
     where: { id: input.krId },
     data: {
       score: newScore,
-      status: derivedStatus,
-      currentValue:
-        kr.krType === "DATE" || kr.krType === "BINARY"
-          ? input.progress * (kr.target ?? 1)
-          : effectiveValue,
+      // Honor the PO's manual status override on the KR record too. Without
+      // this, the dashboard would show derivedStatus while the weekly entry
+      // showed what the PO selected — "I set Bloqué but the dashboard is
+      // green."
+      status: input.status ?? derivedStatus,
+      currentValue: effectiveValue,
     },
   });
 
