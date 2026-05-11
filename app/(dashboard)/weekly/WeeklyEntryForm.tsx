@@ -73,7 +73,8 @@ const STATUS_OPTIONS: { value: KrStatus; label: string }[] = [
   { value: "NOT_STARTED", label: "Non d\u00e9marr\u00e9" },
 ];
 
-function getScoreColor(score: number): string {
+function getScoreColor(score: number, status: KrStatus): string {
+  if (status === "NOT_STARTED") return "var(--gray)";
   if (score >= 70) return "var(--green)";
   if (score >= 40) return "var(--gold)";
   return "var(--red)";
@@ -97,8 +98,10 @@ export function WeeklyEntryForm({
 }: WeeklyEntryFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const submitBlocked = isPending || isSubmitting;
 
   const draftKey = `izipilot-draft-S${weekNumber}-${year}`;
   const [draftRestored, setDraftRestored] = useState(false);
@@ -150,21 +153,48 @@ export function WeeklyEntryForm({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save to localStorage on change (debounced)
+  // Auto-save to localStorage on change (debounced). A ref tracks the most
+  // recent unsaved payload so we can flush it synchronously on tab close
+  // or background — otherwise the last 500ms of keystrokes are lost.
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pendingDraft = useRef<Record<string, EntryState> | null>(null);
+
+  const flushDraft = useCallback(() => {
+    if (saveTimeout.current) {
+      clearTimeout(saveTimeout.current);
+      saveTimeout.current = undefined;
+    }
+    if (pendingDraft.current === null) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(pendingDraft.current));
+    } catch {
+      // quota exceeded or unavailable — ignore
+    }
+    pendingDraft.current = null;
+  }, [draftKey]);
+
   const saveDraft = useCallback(
     (data: Record<string, EntryState>) => {
+      pendingDraft.current = data;
       clearTimeout(saveTimeout.current);
-      saveTimeout.current = setTimeout(() => {
-        try {
-          localStorage.setItem(draftKey, JSON.stringify(data));
-        } catch {
-          // quota exceeded or unavailable — ignore
-        }
-      }, 500);
+      saveTimeout.current = setTimeout(flushDraft, 500);
     },
-    [draftKey]
+    [flushDraft]
   );
+
+  // Flush pending draft when the tab is hidden / unloaded.
+  useEffect(() => {
+    if (isReadOnly) return;
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushDraft();
+    };
+    window.addEventListener("beforeunload", flushDraft);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("beforeunload", flushDraft);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [flushDraft, isReadOnly]);
 
   function updateEntry(krId: string, field: keyof EntryState, value: string | number) {
     setEntries((prev) => {
@@ -207,8 +237,10 @@ export function WeeklyEntryForm({
   }
 
   async function handleSubmit(isDraft: boolean) {
+    if (submitBlocked) return; // guard against double-click race
     setSubmitError(null);
     setSubmitSuccess(false);
+    setIsSubmitting(true);
 
     try {
       // One atomic batch — all entries succeed together or none persist.
@@ -265,6 +297,8 @@ export function WeeklyEntryForm({
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -323,7 +357,7 @@ export function WeeklyEntryForm({
                   {objectiveKrs.map((kr) => {
                 const entry = entries[kr.id];
                 const displayScore = entry.progress;
-                const scoreColor = getScoreColor(displayScore);
+                const scoreColor = getScoreColor(displayScore, entry.status);
                 const actionsCount = kr.actions.length;
                 const actionsDone = kr.actions.filter(
                   (a) => (actionUpdates[a.id] ?? a.status) === "DONE"
@@ -695,17 +729,17 @@ export function WeeklyEntryForm({
           )}
           <button
             onClick={() => handleSubmit(true)}
-            disabled={isPending}
-            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal hover:bg-teal-lt transition-colors disabled:opacity-50"
+            disabled={submitBlocked}
+            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal hover:bg-teal-lt transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Enregistrer brouillon
           </button>
           <button
             onClick={() => handleSubmit(false)}
-            disabled={isPending}
-            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-teal text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
+            disabled={submitBlocked}
+            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-teal text-white hover:bg-teal-dk transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPending ? "Envoi..." : "Soumettre la revue \u2192"}
+            {submitBlocked ? "Envoi..." : "Soumettre la revue \u2192"}
           </button>
         </div>
       )}

@@ -7,6 +7,7 @@ import {
   upsertWeeklyEntry,
   fireWeeklyEntrySideEffects,
   WeeklyEntryError,
+  revalidateWeeklyEntryPaths,
 } from "@/lib/weekly-entry";
 
 const createEntrySchema = z.object({
@@ -102,6 +103,7 @@ export async function POST(request: NextRequest) {
     );
 
     await fireWeeklyEntrySideEffects([upsertResult], sessionUser);
+    revalidateWeeklyEntryPaths();
 
     const { entry } = upsertResult;
     return Response.json(
