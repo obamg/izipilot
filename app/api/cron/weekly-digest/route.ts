@@ -37,12 +37,16 @@ export async function GET(request: NextRequest) {
       summary.orgsProcessed++;
 
       try {
-        // Fetch all active KRs with scores
+        // Only pull the fields the digest renders. Full record + nested
+        // include used to fetch ~10× the bytes per KR.
         const krs = await prisma.keyResult.findMany({
           where: { orgId: org.id, isActive: true },
-          include: {
+          select: {
+            title: true,
+            score: true,
+            status: true,
             objective: {
-              include: {
+              select: {
                 product: { select: { name: true } },
                 department: { select: { name: true } },
               },
