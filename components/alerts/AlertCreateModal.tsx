@@ -10,11 +10,11 @@ interface Props {
   onClose: () => void;
 }
 
+// ENTRY_MISSING and ESCALATION_48H are system-only (cron-driven) and rejected
+// by /api/alerts POST. Don't offer them in the manual picker.
 const TYPES: { value: AlertType; label: string }[] = [
   { value: "KR_BLOCKED", label: "KR bloqu\u00e9" },
   { value: "KR_DECLINING", label: "KR en baisse" },
-  { value: "ENTRY_MISSING", label: "Revue manquante" },
-  { value: "ESCALATION_48H", label: "Escalade 48h" },
   { value: "SCORE_BELOW_40", label: "Score < 40%" },
 ];
 

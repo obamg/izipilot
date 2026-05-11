@@ -81,9 +81,19 @@ export async function GET(request: NextRequest) {
   });
 }
 
+// ESCALATION_48H and ENTRY_MISSING are system-only — the cron creates them
+// based on wait timers and deadline checks. Allowing a manual POST would
+// let a PO fabricate an "escalation" to bypass the 48h wait or distort the
+// missing-entry audit trail.
+const manualAlertTypeEnum = z.enum([
+  "KR_BLOCKED",
+  "KR_DECLINING",
+  "SCORE_BELOW_40",
+]);
+
 const createSchema = z.object({
   krId: z.string().min(1),
-  type: alertTypeEnum,
+  type: manualAlertTypeEnum,
   severity: alertSeverityEnum,
   message: z.string().min(3).max(500),
 });
