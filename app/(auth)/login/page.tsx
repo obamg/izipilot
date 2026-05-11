@@ -30,14 +30,13 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      // authorize threw a CredentialsSignin subclass with a known code.
-      // Keep wrong-credential responses generic so an attacker can't probe
-      // which emails exist.
-      setError(
-        result.code === "account_deactivated"
-          ? "Compte désactivé. Contactez votre administrateur."
-          : "Email ou mot de passe incorrect"
-      );
+      if (result.status === 429) {
+        setError(
+          "Trop de tentatives. Réessayez dans quelques minutes."
+        );
+      } else {
+        setError("Email ou mot de passe incorrect");
+      }
       setLoading(false);
     } else if (result?.url) {
       window.location.href = result.url;
