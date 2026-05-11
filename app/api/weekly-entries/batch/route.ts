@@ -6,6 +6,7 @@ import { scoreToPercent } from "@/lib/score";
 import {
   upsertWeeklyEntry,
   fireWeeklyEntrySideEffects,
+  revalidateWeeklyEntryPaths,
   WeeklyEntryError,
   type UpsertWeeklyEntryResult,
 } from "@/lib/weekly-entry";
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
   }
 
   await fireWeeklyEntrySideEffects(upserts, sessionUser);
+  revalidateWeeklyEntryPaths();
 
   return Response.json(
     {

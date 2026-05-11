@@ -1,8 +1,23 @@
 import type { Prisma, KrStatus, KrType, UserRole, WeeklyEntry } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { calculateScore, calculateDelta, deriveStatus, scoreToPercent } from "./score";
 import { getISOWeekStart, getPreviousISOWeek } from "./date";
 import { checkKrAlerts } from "./alerts";
 import { escalateActionsOnBlock } from "./actions";
+
+/**
+ * Pages whose Server Component reads weekly-entry derived data and must
+ * therefore be revalidated after any successful upsert. Called from both
+ * the single and batch routes so other open sessions see fresh values
+ * without a manual refresh.
+ */
+export function revalidateWeeklyEntryPaths(): void {
+  revalidatePath("/weekly");
+  revalidatePath("/dashboard");
+  revalidatePath("/synthesis");
+  revalidatePath("/history");
+  revalidatePath("/alerts");
+}
 
 /**
  * Back-compute the KR's currentValue from the submitted progress so the

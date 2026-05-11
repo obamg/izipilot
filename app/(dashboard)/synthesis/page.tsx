@@ -7,6 +7,7 @@ import { getISOWeek } from "@/lib/date";
 import type { KrStatus } from "@prisma/client";
 
 function getStatusFromScore(score: number): KrStatus {
+  if (score === 0) return "NOT_STARTED";
   if (score >= 70) return "ON_TRACK";
   if (score >= 40) return "AT_RISK";
   return "BLOCKED";
