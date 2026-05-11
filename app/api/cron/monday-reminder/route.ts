@@ -3,7 +3,10 @@ import * as React from "react";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getISOWeek } from "@/lib/date";
+import { log } from "@/lib/log";
 import WeeklyReminder from "@/emails/WeeklyReminder";
+
+const logger = log.child("cron/monday-reminder");
 
 /**
  * GET /api/cron/monday-reminder
@@ -69,17 +72,23 @@ export async function GET(request: NextRequest) {
           totalSent++;
         } else {
           totalFailed++;
-          console.error(
-            `[cron/monday-reminder] Failed to send to ${po.email}:`,
-            result.error
-          );
+          logger.error("failed to send reminder", {
+            email: po.email,
+            userId: po.id,
+            weekNumber,
+            year,
+            reason: result.error,
+          });
         }
       }
     }
 
-    console.log(
-      `[cron/monday-reminder] Week ${weekNumber}/${year} — sent: ${totalSent}, failed: ${totalFailed}`
-    );
+    logger.info("run complete", {
+      weekNumber,
+      year,
+      sent: totalSent,
+      failed: totalFailed,
+    });
 
     return Response.json({
       ok: true,
@@ -89,7 +98,7 @@ export async function GET(request: NextRequest) {
       failed: totalFailed,
     });
   } catch (err) {
-    console.error("[cron/monday-reminder] Unexpected error:", err);
+    logger.error("unexpected error", undefined, err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
