@@ -211,31 +211,31 @@ export function WeeklyEntryForm({
     setSubmitSuccess(false);
 
     try {
-      // Submit each KR entry individually
-      const results = await Promise.all(
-        keyResults.map((kr) =>
-          fetch("/api/weekly-entries", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              krId: kr.id,
-              weekNumber,
-              year,
-              progress: entries[kr.id].progress / 100,
-              status: entries[kr.id].status,
-              blocker: entries[kr.id].blocker || null,
-              proposedSolution: entries[kr.id].proposedSolution || null,
-              actionNeeded: entries[kr.id].actionNeeded || null,
-              comment: entries[kr.id].comment || null,
-            }),
-          })
-        )
-      );
+      // One atomic batch — all entries succeed together or none persist.
+      const res = await fetch("/api/weekly-entries/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: keyResults.map((kr) => ({
+            krId: kr.id,
+            weekNumber,
+            year,
+            progress: entries[kr.id].progress / 100,
+            status: entries[kr.id].status,
+            blocker: entries[kr.id].blocker || null,
+            proposedSolution: entries[kr.id].proposedSolution || null,
+            actionNeeded: entries[kr.id].actionNeeded || null,
+            comment: entries[kr.id].comment || null,
+          })),
+        }),
+      });
 
-      const failed = results.filter((r) => !r.ok);
-      if (failed.length > 0) {
-        const data = await failed[0].json().catch(() => ({}));
-        throw new Error(data.error || `${failed.length} saisie(s) en erreur`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          (data as { error?: string }).error ||
+            `Erreur lors de l'enregistrement (HTTP ${res.status})`
+        );
       }
 
       // Bulk update action statuses if any changed
