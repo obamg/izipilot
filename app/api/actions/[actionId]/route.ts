@@ -99,6 +99,24 @@ export async function PATCH(
     return Response.json({ error: "Forbidden: not the owner of this KR" }, { status: 403 });
   }
 
+  // Reassigning to another org's user would leak the action across tenants
+  if (parsed.data.assigneeId && parsed.data.assigneeId !== existing.assigneeId) {
+    const assignee = await prisma.user.findFirst({
+      where: {
+        id: parsed.data.assigneeId,
+        orgId: session.user.orgId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!assignee) {
+      return Response.json(
+        { error: "Assignee not found in your organization" },
+        { status: 400 }
+      );
+    }
+  }
+
   const updateData: Record<string, unknown> = { ...parsed.data };
 
   // Handle status → DONE: set completedAt and weekCompleted
@@ -159,6 +177,12 @@ export async function DELETE(
   const session = await auth();
   if (!session?.user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // VIEWER is read-only; without an explicit gate they fell through the
+  // PO-creator check below and could delete any action in the org.
+  if (session.user.role === "VIEWER") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { actionId } = await params;

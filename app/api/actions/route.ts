@@ -106,6 +106,18 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Forbidden: not the owner of this KR" }, { status: 403 });
   }
 
+  // Assignee must be an active member of the same org — never another tenant's user
+  const assignee = await prisma.user.findFirst({
+    where: { id: assigneeId, orgId: session.user.orgId, isActive: true },
+    select: { id: true },
+  });
+  if (!assignee) {
+    return Response.json(
+      { error: "Assignee not found in your organization" },
+      { status: 400 }
+    );
+  }
+
   const { weekNumber } = getISOWeek(new Date());
 
   const action = await prisma.action.create({
