@@ -13,6 +13,10 @@ export default async function AlertsPage() {
 
   const isOwnerScoped = userRole === "PO";
 
+  // Cap to the most recent ~150 alerts. Past that, the page lazy-loads
+  // older resolved ones via a "load more" interaction (or the user can
+  // filter — alerts older than ~3 months are rarely useful and stale
+  // resolved alerts piled up to several hundred rows per page view).
   const alerts = await prisma.alert.findMany({
     where: {
       orgId,
@@ -20,6 +24,7 @@ export default async function AlertsPage() {
         keyResult: { ownerId: session.user.id },
       }),
     },
+    take: 150,
     include: {
       keyResult: {
         select: {
