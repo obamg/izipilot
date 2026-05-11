@@ -43,6 +43,7 @@ interface KrData {
   existingActionNeeded?: string;
   existingComment?: string;
   isSubmitted: boolean;
+  submittedByOther: string | null;
   actions: ActionData[];
 }
 
@@ -349,6 +350,13 @@ export function WeeklyEntryForm({
                       </div>
                       <StatusBadge status={entry.status} />
                     </div>
+
+                    {/* "Saisi par X" note when another user submitted this KR */}
+                    {kr.submittedByOther && (
+                      <div className="px-4 py-1.5 bg-[var(--gold-lt)] border-b border-[#e6d28a] text-[10px] text-dark-md">
+                        Saisi cette semaine par <span className="font-semibold">{kr.submittedByOther}</span>. Vos modifications &eacute;craseront sa saisie.
+                      </div>
+                    )}
 
                     {/* ── KR Saisie ── form fields */}
                     <div className="px-4 py-3 space-y-3 bg-white">

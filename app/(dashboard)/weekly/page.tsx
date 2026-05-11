@@ -58,13 +58,20 @@ export default async function WeeklyPage({
     select: { departmentId: true, userId: true, user: { select: { id: true, name: true } } },
   });
 
-  // Fetch existing entries for the requested week
+  // Fetch existing entries for the requested week.
+  // Scope by orgId + (krId in PO's KR set) — never by submittedBy: another user
+  // (CEO/Management saving on behalf, or a co-PO) would otherwise hide the row
+  // and the form would silently overwrite their input on next save.
+  const krIds = keyResults.map((kr) => kr.id);
   const existingEntries = await prisma.weeklyEntry.findMany({
     where: {
       orgId,
-      submittedBy: userId,
+      krId: { in: krIds },
       weekNumber,
       year,
+    },
+    include: {
+      submitter: { select: { id: true, name: true } },
     },
   });
 
@@ -112,6 +119,10 @@ export default async function WeeklyPage({
       existingActionNeeded: existing?.actionNeeded ?? undefined,
       existingComment: existing?.comment ?? undefined,
       isSubmitted: !!existing,
+      submittedByOther:
+        existing && existing.submitter.id !== userId
+          ? existing.submitter.name
+          : null,
       actions: kr.actions.map((a) => ({
         id: a.id,
         title: a.title,
