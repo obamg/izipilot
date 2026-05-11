@@ -10,6 +10,7 @@ import {
   WeeklyEntryError,
   type UpsertWeeklyEntryResult,
 } from "@/lib/weekly-entry";
+import { log } from "@/lib/log";
 
 const entrySchema = z.object({
   krId: z.string(),
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
         { status }
       );
     }
-    console.error("[weekly-entries/batch] transaction failed:", err);
+    log.child("weekly-entries/batch").error("transaction failed", undefined, err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 

@@ -4,8 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { scoreToPercent } from "@/lib/score";
 import { getISOWeek } from "@/lib/date";
+import { log } from "@/lib/log";
 import WeeklyDigest from "@/emails/WeeklyDigest";
 import type { DigestKr, DigestDecision } from "@/emails/WeeklyDigest";
+
+const logger = log.child("cron/weekly-digest");
 
 /**
  * GET /api/cron/weekly-digest
@@ -34,12 +37,16 @@ export async function GET(request: NextRequest) {
       summary.orgsProcessed++;
 
       try {
-        // Fetch all active KRs with scores
+        // Only pull the fields the digest renders. Full record + nested
+        // include used to fetch ~10× the bytes per KR.
         const krs = await prisma.keyResult.findMany({
           where: { orgId: org.id, isActive: true },
-          include: {
+          select: {
+            title: true,
+            score: true,
+            status: true,
             objective: {
-              include: {
+              select: {
                 product: { select: { name: true } },
                 department: { select: { name: true } },
               },
@@ -145,25 +152,24 @@ export async function GET(request: NextRequest) {
           if (result.success) summary.sent++;
           else {
             summary.failed++;
-            console.error(
-              `[cron/weekly-digest] Failed to send to ${manager.email}:`,
-              result.error
-            );
+            logger.error("digest email failed", {
+              email: manager.email,
+              managerId: manager.id,
+              orgId: org.id,
+              reason: result.error,
+            });
           }
         }
       } catch (orgErr) {
         summary.failed++;
-        console.error(
-          `[cron/weekly-digest] Error processing org ${org.id}:`,
-          orgErr
-        );
+        logger.error("org processing failed", { orgId: org.id }, orgErr);
       }
     }
 
-    console.log("[cron/weekly-digest] Completed:", summary);
+    logger.info("run complete", { weekNumber, year, ...summary });
     return Response.json({ ok: true, weekNumber, year, ...summary });
   } catch (err) {
-    console.error("[cron/weekly-digest] Unexpected error:", err);
+    logger.error("unexpected error", undefined, err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
