@@ -30,7 +30,14 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      setError("Email ou mot de passe incorrect");
+      // authorize threw a CredentialsSignin subclass with a known code.
+      // Keep wrong-credential responses generic so an attacker can't probe
+      // which emails exist.
+      setError(
+        result.code === "account_deactivated"
+          ? "Compte désactivé. Contactez votre administrateur."
+          : "Email ou mot de passe incorrect"
+      );
       setLoading(false);
     } else if (result?.url) {
       window.location.href = result.url;

@@ -1,9 +1,16 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import type { UserRole } from "@prisma/client";
+
+// Distinct credentials-error subclass so the login page can show "your
+// account is disabled" rather than the generic "wrong email or password"
+// banner. Wrong-credential cases stay generic to avoid user enumeration.
+class AccountDeactivatedError extends CredentialsSignin {
+  code = "account_deactivated";
+}
 
 declare module "next-auth" {
   interface Session {
@@ -50,15 +57,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: credentials.email as string },
         });
 
-        if (!user || !user.isActive) return null;
-
-        // Verify password against bcrypt hash
+        // Wrong email, missing password hash, wrong password — all collapse
+        // to "invalid credentials" so an attacker can't probe which emails
+        // are registered.
+        if (!user) return null;
         if (!user.passwordHash) return null;
         const isValid = await bcrypt.compare(
           credentials.password as string,
           user.passwordHash
         );
         if (!isValid) return null;
+
+        // Password is correct but the account was deactivated by an admin.
+        // Surface that distinctly so the user contacts their admin instead
+        // of trying password resets.
+        if (!user.isActive) throw new AccountDeactivatedError();
 
         await prisma.user.update({
           where: { id: user.id },
