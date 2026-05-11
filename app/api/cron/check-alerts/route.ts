@@ -5,8 +5,11 @@ import { sendEmail } from "@/lib/email";
 import { checkMissingEntries, checkEscalation48h } from "@/lib/alerts";
 import { scoreToPercent } from "@/lib/score";
 import { getISOWeek } from "@/lib/date";
+import { log } from "@/lib/log";
 import AlertBlocked from "@/emails/AlertBlocked";
 import Escalation48h from "@/emails/Escalation48h";
+
+const logger = log.child("cron/check-alerts");
 
 /**
  * GET /api/cron/check-alerts
@@ -120,10 +123,13 @@ export async function GET(request: NextRequest) {
                 summary.escalationEmailsSent++;
               } else {
                 summary.errors++;
-                console.error(
-                  `[cron/check-alerts] Failed escalation email to ${manager.email}:`,
-                  result.error
-                );
+                logger.error("escalation email failed", {
+                  email: manager.email,
+                  managerId: manager.id,
+                  alertId: alert.id,
+                  krId: kr.id,
+                  reason: result.error,
+                });
               }
             }
           }
@@ -173,27 +179,27 @@ export async function GET(request: NextRequest) {
                 summary.blockedEmailsSent++;
               } else {
                 summary.errors++;
-                console.error(
-                  `[cron/check-alerts] Failed blocked email to ${manager.email}:`,
-                  result.error
-                );
+                logger.error("blocked-alert email failed", {
+                  email: manager.email,
+                  managerId: manager.id,
+                  alertId: alert.id,
+                  krId: kr.id,
+                  reason: result.error,
+                });
               }
             }
           }
         }
       } catch (orgErr) {
         summary.errors++;
-        console.error(
-          `[cron/check-alerts] Error processing org ${org.id}:`,
-          orgErr
-        );
+        logger.error("org processing failed", { orgId: org.id }, orgErr);
       }
     }
 
-    console.log("[cron/check-alerts] Completed:", summary);
+    logger.info("run complete", { weekNumber, year, ...summary });
     return Response.json({ ok: true, weekNumber, year, ...summary });
   } catch (err) {
-    console.error("[cron/check-alerts] Unexpected error:", err);
+    logger.error("unexpected error", undefined, err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

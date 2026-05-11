@@ -4,6 +4,7 @@ import { calculateScore, calculateDelta, deriveStatus, scoreToPercent } from "./
 import { getISOWeekStart, getPreviousISOWeek } from "./date";
 import { checkKrAlerts } from "./alerts";
 import { escalateActionsOnBlock } from "./actions";
+import { log } from "./log";
 
 /**
  * Pages whose Server Component reads weekly-entry derived data and must
@@ -225,8 +226,9 @@ export async function fireWeeklyEntrySideEffects(
         await escalateActionsOnBlock(r.krId, session.orgId);
       }
     } catch (err) {
-      console.error(
-        `[weekly-entry] side-effect failed for kr ${r.krId}:`,
+      log.child("weekly-entry").error(
+        "side-effect failed",
+        { krId: r.krId, orgId: session.orgId },
         err
       );
     }

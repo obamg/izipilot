@@ -1,5 +1,8 @@
 import { Resend } from "resend";
 import type { ReactElement } from "react";
+import { log } from "./log";
+
+const logger = log.child("email");
 
 // Singleton Resend client
 let _resend: Resend | null = null;
@@ -49,14 +52,14 @@ export async function sendEmail(
     });
 
     if (result.error) {
-      console.error("[email] Resend error:", result.error);
+      logger.error("resend api error", { subject: options.subject }, result.error);
       return { success: false, error: result.error.message };
     }
 
     return { success: true, id: result.data?.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[email] Failed to send email:", message);
+    logger.error("send failed", { subject: options.subject }, err);
     return { success: false, error: message };
   }
 }

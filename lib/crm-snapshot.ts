@@ -6,6 +6,7 @@ import {
   isGleapConfigured,
   type GleapProjectKey,
 } from "@/lib/gleap";
+import { log } from "@/lib/log";
 
 const PROJECT_KEYS: GleapProjectKey[] = ["TRADING", "AFRICAPART", "SHARED"];
 
@@ -85,7 +86,7 @@ export async function captureCrmSnapshots(orgId: string): Promise<{
       await captureAgentActivity(orgId, key);
     } catch (err) {
       errors++;
-      console.error(`[crm-snapshot] capture failed for ${key}:`, err);
+      log.child("crm-snapshot").error("capture failed", { project: key, orgId }, err);
     }
   }
 

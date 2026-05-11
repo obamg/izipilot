@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { captureCrmSnapshots } from "@/lib/crm-snapshot";
+import { log } from "@/lib/log";
+
+const logger = log.child("cron/crm-daily-snapshot");
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -37,17 +40,14 @@ export async function GET(request: NextRequest) {
         summary.errors += errors;
       } catch (orgErr) {
         summary.errors++;
-        console.error(
-          `[cron/crm-daily-snapshot] org ${org.id} failed:`,
-          orgErr
-        );
+        logger.error("org capture failed", { orgId: org.id }, orgErr);
       }
     }
 
-    console.log("[cron/crm-daily-snapshot] Completed:", summary);
+    logger.info("run complete", summary);
     return Response.json({ ok: true, ...summary });
   } catch (err) {
-    console.error("[cron/crm-daily-snapshot] Unexpected error:", err);
+    logger.error("unexpected error", undefined, err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

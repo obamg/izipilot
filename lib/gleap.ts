@@ -1,6 +1,8 @@
 // Gleap REST API client with in-memory caching.
 // Auth: JWT service-account token + `project` header. Base: https://api.gleap.io/v3
 
+import { log } from "./log";
+
 const BASE_URL = "https://api.gleap.io/v3";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 // Short timeout so page renders quickly even when Gleap is slow.
@@ -112,7 +114,7 @@ export async function getOpenTicketsCount(
     );
     return typeof data.totalCount === "number" ? data.totalCount : null;
   } catch (err) {
-    console.error(`[gleap] getOpenTicketsCount(${key}) failed:`, err);
+    log.child("gleap").error("getOpenTicketsCount failed", { project: key }, err);
     return null;
   }
 }
@@ -201,7 +203,7 @@ export async function getWorkspaceStats(
       sampleSize: tickets.tickets.length,
     };
   } catch (err) {
-    console.error(`[gleap] getWorkspaceStats(${key}) failed:`, err);
+    log.child("gleap").error("getWorkspaceStats failed", { project: key }, err);
     return null;
   }
 }
@@ -297,7 +299,7 @@ export async function getAgentActivityForDay(
 
     return { agents, sampleTruncated };
   } catch (err) {
-    console.error(`[gleap] getAgentActivityForDay(${key}) failed:`, err);
+    log.child("gleap").error("getAgentActivityForDay failed", { project: key }, err);
     return null;
   }
 }
