@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { calculateScore, scoreToPercent, deriveStatus, calculateDelta } from "@/lib/score";
-import { checkKrAlerts } from "@/lib/alerts";
-import { getISOWeekStart } from "@/lib/date";
-import { escalateActionsOnBlock } from "@/lib/actions";
+import { scoreToPercent } from "@/lib/score";
+import {
+  upsertWeeklyEntry,
+  fireWeeklyEntrySideEffects,
+  WeeklyEntryError,
+} from "@/lib/weekly-entry";
 
 const createEntrySchema = z.object({
   krId: z.string(),
@@ -88,118 +90,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { krId, weekNumber, year, progress, currentValue: submittedValue, status, blocker, proposedSolution, actionNeeded, comment } = parsed.data;
+  const sessionUser = {
+    id: session.user.id,
+    orgId: session.user.orgId,
+    role: session.user.role,
+  };
 
-  // Verify KR exists and belongs to user's org
-  const kr = await prisma.keyResult.findFirst({
-    where: { id: krId, orgId: session.user.orgId, isActive: true, deletedAt: null },
-  });
+  try {
+    const upsertResult = await prisma.$transaction((tx) =>
+      upsertWeeklyEntry(tx, parsed.data, sessionUser)
+    );
 
-  if (!kr) {
-    return Response.json({ error: "Key Result not found" }, { status: 404 });
+    await fireWeeklyEntrySideEffects([upsertResult], sessionUser);
+
+    const { entry } = upsertResult;
+    return Response.json(
+      {
+        data: {
+          id: entry.id,
+          krId: entry.krId,
+          weekNumber: entry.weekNumber,
+          year: entry.year,
+          progress: entry.progress,
+          status: entry.status,
+          delta: entry.delta,
+          scoreAtEntry: scoreToPercent(entry.scoreAtEntry),
+          submittedAt: entry.submittedAt.toISOString(),
+        },
+      },
+      { status: 201 }
+    );
+  } catch (err) {
+    if (err instanceof WeeklyEntryError) {
+      const status = err.code === "NOT_FOUND" ? 404 : 403;
+      return Response.json({ error: err.message }, { status });
+    }
+    throw err;
   }
-
-  // PO can only submit for their own KRs
-  if (session.user.role === "PO" && kr.ownerId !== session.user.id) {
-    return Response.json({ error: "Forbidden: not the owner of this KR" }, { status: 403 });
-  }
-
-  // Use submitted currentValue for NUMERIC/PERCENTAGE, fall back to DB value
-  const effectiveValue = submittedValue ?? kr.currentValue;
-
-  // Calculate score using the submitted value, not the stale DB value
-  const newScore = calculateScore(kr.krType, effectiveValue, kr.target, progress, kr.isInverse);
-  const newScorePercent = scoreToPercent(newScore);
-
-  // Get previous week entry for delta
-  const previousEntry = await prisma.weeklyEntry.findFirst({
-    where: {
-      krId,
-      OR: [
-        { year, weekNumber: weekNumber - 1 },
-        { year: year - 1, weekNumber: 52 },
-      ],
-    },
-    orderBy: [{ year: "desc" }, { weekNumber: "desc" }],
-  });
-
-  const delta = calculateDelta(newScore, previousEntry ? Number(previousEntry.scoreAtEntry) : null);
-  const derivedStatus = deriveStatus(newScorePercent, true);
-
-  // Compute weekStart (Monday of the ISO week)
-  const weekStart = getISOWeekStart(year, weekNumber);
-
-  // Use transaction for atomicity
-  const result = await prisma.$transaction(async (tx) => {
-    // Upsert the weekly entry
-    const entry = await tx.weeklyEntry.upsert({
-      where: { krId_weekNumber_year: { krId, weekNumber, year } },
-      create: {
-        orgId: session.user.orgId,
-        krId,
-        submittedBy: session.user.id,
-        weekNumber,
-        year,
-        weekStart,
-        progress,
-        status: status ?? derivedStatus,
-        delta,
-        blocker: blocker ?? null,
-        proposedSolution: proposedSolution ?? null,
-        actionNeeded: actionNeeded ?? null,
-        comment: comment ?? null,
-        scoreAtEntry: newScore,
-      },
-      update: {
-        progress,
-        status: status ?? derivedStatus,
-        delta,
-        blocker: blocker ?? null,
-        proposedSolution: proposedSolution ?? null,
-        actionNeeded: actionNeeded ?? null,
-        comment: comment ?? null,
-        scoreAtEntry: newScore,
-        submittedBy: session.user.id,
-      },
-    });
-
-    // Update the KR with new score, status, and current value
-    await tx.keyResult.update({
-      where: { id: krId },
-      data: {
-        score: newScore,
-        status: derivedStatus,
-        currentValue: kr.krType === "DATE" || kr.krType === "BINARY"
-          ? progress * (kr.target ?? 1)
-          : effectiveValue,
-      },
-    });
-
-    return entry;
-  });
-
-  // Check for alerts (outside transaction)
-  await checkKrAlerts(krId, session.user.orgId, session.user.id);
-
-  // Auto-escalate actions if KR is now BLOCKED
-  if (derivedStatus === "BLOCKED") {
-    await escalateActionsOnBlock(krId, session.user.orgId);
-  }
-
-  return Response.json(
-    {
-      data: {
-        id: result.id,
-        krId: result.krId,
-        weekNumber: result.weekNumber,
-        year: result.year,
-        progress: result.progress,
-        status: result.status,
-        delta: result.delta,
-        scoreAtEntry: scoreToPercent(result.scoreAtEntry),
-        submittedAt: result.submittedAt.toISOString(),
-      },
-    },
-    { status: 201 }
-  );
 }

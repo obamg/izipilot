@@ -43,6 +43,7 @@ interface KrData {
   existingActionNeeded?: string;
   existingComment?: string;
   isSubmitted: boolean;
+  submittedByOther: string | null;
   actions: ActionData[];
 }
 
@@ -210,31 +211,31 @@ export function WeeklyEntryForm({
     setSubmitSuccess(false);
 
     try {
-      // Submit each KR entry individually
-      const results = await Promise.all(
-        keyResults.map((kr) =>
-          fetch("/api/weekly-entries", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              krId: kr.id,
-              weekNumber,
-              year,
-              progress: entries[kr.id].progress / 100,
-              status: entries[kr.id].status,
-              blocker: entries[kr.id].blocker || null,
-              proposedSolution: entries[kr.id].proposedSolution || null,
-              actionNeeded: entries[kr.id].actionNeeded || null,
-              comment: entries[kr.id].comment || null,
-            }),
-          })
-        )
-      );
+      // One atomic batch — all entries succeed together or none persist.
+      const res = await fetch("/api/weekly-entries/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: keyResults.map((kr) => ({
+            krId: kr.id,
+            weekNumber,
+            year,
+            progress: entries[kr.id].progress / 100,
+            status: entries[kr.id].status,
+            blocker: entries[kr.id].blocker || null,
+            proposedSolution: entries[kr.id].proposedSolution || null,
+            actionNeeded: entries[kr.id].actionNeeded || null,
+            comment: entries[kr.id].comment || null,
+          })),
+        }),
+      });
 
-      const failed = results.filter((r) => !r.ok);
-      if (failed.length > 0) {
-        const data = await failed[0].json().catch(() => ({}));
-        throw new Error(data.error || `${failed.length} saisie(s) en erreur`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          (data as { error?: string }).error ||
+            `Erreur lors de l'enregistrement (HTTP ${res.status})`
+        );
       }
 
       // Bulk update action statuses if any changed
@@ -350,33 +351,72 @@ export function WeeklyEntryForm({
                       <StatusBadge status={entry.status} />
                     </div>
 
+                    {/* "Saisi par X" note when another user submitted this KR */}
+                    {kr.submittedByOther && (
+                      <div className="px-4 py-1.5 bg-[var(--gold-lt)] border-b border-[#e6d28a] text-[10px] text-dark-md">
+                        Saisi cette semaine par <span className="font-semibold">{kr.submittedByOther}</span>. Vos modifications &eacute;craseront sa saisie.
+                      </div>
+                    )}
+
                     {/* ── KR Saisie ── form fields */}
                     <div className="px-4 py-3 space-y-3 bg-white">
-                      {/* Progress slider */}
+                      {/* Progress input — toggle for BINARY, slider otherwise */}
                       <div>
                         <label className="text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-1 block">
-                          Avancement
+                          {kr.krType === "BINARY" ? "Atteint ?" : "Avancement"}
                         </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={entry.progress}
-                            onChange={(e) =>
-                              updateEntry(kr.id, "progress", Number(e.target.value))
-                            }
-                            disabled={isReadOnly}
-                            className="flex-1 accent-teal disabled:opacity-60"
-                            style={{ accentColor: "var(--teal)" }}
-                          />
-                          <span
-                            className="font-mono text-sm font-semibold min-w-[34px] text-right"
-                            style={{ color: scoreColor }}
-                          >
-                            {displayScore}%
-                          </span>
-                        </div>
+                        {kr.krType === "BINARY" ? (
+                          <div className="flex items-center gap-2" role="radiogroup" aria-label="Atteint">
+                            {[
+                              { value: 0, label: "Non" },
+                              { value: 100, label: "Oui" },
+                            ].map((opt) => {
+                              const selected = entry.progress >= 50
+                                ? opt.value === 100
+                                : opt.value === 0;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={selected}
+                                  onClick={() =>
+                                    updateEntry(kr.id, "progress", opt.value)
+                                  }
+                                  disabled={isReadOnly}
+                                  className={`flex-1 px-3 py-2 rounded-[7px] text-[11px] font-medium border transition-colors ${
+                                    selected
+                                      ? "bg-teal text-white border-teal"
+                                      : "bg-white text-dark border-teal-md hover:bg-teal-lt"
+                                  } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={entry.progress}
+                              onChange={(e) =>
+                                updateEntry(kr.id, "progress", Number(e.target.value))
+                              }
+                              disabled={isReadOnly}
+                              className="flex-1 accent-teal disabled:opacity-60"
+                              style={{ accentColor: "var(--teal)" }}
+                            />
+                            <span
+                              className="font-mono text-sm font-semibold min-w-[34px] text-right"
+                              style={{ color: scoreColor }}
+                            >
+                              {displayScore}%
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Status + Comment row */}
