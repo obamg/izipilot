@@ -1,6 +1,12 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import authConfig from "@/lib/auth.config";
 import { checkRateLimit } from "@/lib/rate-limit";
+
+// Use the edge-safe slim config — middleware runs in the edge runtime, so it
+// must not import Prisma (which lives in the full lib/auth.ts via the JWT
+// revalidation callback).
+const { auth } = NextAuth(authConfig);
 
 const publicPaths = ["/login", "/api/auth", "/api/cron"];
 
