@@ -3,38 +3,13 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
-import type { UserRole } from "@prisma/client";
+import authConfig from "./auth.config";
 
 // Distinct credentials-error subclass so the login page can show "your
 // account is disabled" rather than the generic "wrong email or password"
 // banner. Wrong-credential cases stay generic to avoid user enumeration.
 class AccountDeactivatedError extends CredentialsSignin {
   code = "account_deactivated";
-}
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      role: UserRole;
-      orgId: string;
-    };
-  }
-
-  interface User {
-    role: UserRole;
-    orgId: string;
-  }
-}
-
-declare module "@auth/core/jwt" {
-  interface JWT {
-    role: UserRole;
-    orgId: string;
-    lastValidated?: number;
-  }
 }
 
 // How often we re-read role / orgId / isActive from the database while a
@@ -44,12 +19,8 @@ declare module "@auth/core/jwt" {
 const REVALIDATE_MS = 60 * 1000;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt", maxAge: 4 * 60 * 60 }, // 4 hours
-  pages: {
-    signIn: "/login",
-  },
   providers: [
     Credentials({
       name: "Credentials",
@@ -96,7 +67,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    ...authConfig.callbacks,
+    async signIn({ account }) {
       // Allow all credential sign-ins (adapter doesn't manage these)
       if (account?.provider === "credentials") return true;
       return true;
@@ -130,13 +102,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       token.orgId = fresh.orgId;
       token.lastValidated = Date.now();
       return token;
-    },
-    async session({ session, token }) {
-      if (!token?.sub) return session;
-      session.user.id = token.sub;
-      session.user.role = token.role;
-      session.user.orgId = token.orgId;
-      return session;
     },
   },
 });
