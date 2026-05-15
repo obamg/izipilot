@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { checkMissingEntries, checkEscalation48h } from "@/lib/alerts";
 import { scoreToPercent } from "@/lib/score";
-import { getISOWeek } from "@/lib/date";
+import { getISOWeek, getPreviousISOWeek } from "@/lib/date";
 import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
 import AlertBlocked from "@/emails/AlertBlocked";
@@ -27,7 +27,15 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
-  const { weekNumber, year } = getISOWeek(now);
+  // Missing-entry alerts target the most-recently-completed ISO week (i.e.
+  // the one whose Sunday 23:59 deadline has already passed). The current ISO
+  // week's deadline is always upcoming, so flagging it would produce a flood
+  // of false positives every Monday morning.
+  const current = getISOWeek(now);
+  const { weekNumber, year } = getPreviousISOWeek(
+    current.year,
+    current.weekNumber
+  );
 
   const summary = {
     orgsProcessed: 0,

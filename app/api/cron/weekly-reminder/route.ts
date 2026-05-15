@@ -7,13 +7,13 @@ import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
 import WeeklyReminder from "@/emails/WeeklyReminder";
 
-const logger = log.child("cron/monday-reminder");
+const logger = log.child("cron/weekly-reminder");
 
 /**
- * GET /api/cron/monday-reminder
- * Triggered every Monday at 08:30 by Vercel Cron.
- * Sends a weekly review reminder to all active POs.
- * Secured by CRON_SECRET.
+ * GET /api/cron/weekly-reminder
+ * Triggered every Sunday at 20:00 WAT (19:00 UTC).
+ * Sends a weekly-review reminder to all active POs ~4h before the
+ * Sunday 23:59 submission deadline. Secured by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
         const result = await sendEmail({
           to: po.email,
-          subject: `Rappel OKR — Soumettez votre revue avant 09h00 (Semaine ${weekNumber})`,
+          subject: `Rappel OKR — Soumettez votre revue avant dimanche 23h59 (Semaine ${weekNumber})`,
           react: React.createElement(WeeklyReminder, {
             name: po.name,
             weekNumber,

@@ -69,8 +69,8 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Auto-redirect PO to /weekly on Monday before 09:00 deadline
-  // Only redirects from /dashboard to avoid loops on other pages
+  // Auto-redirect PO to /weekly on Sunday (submission day, deadline 23:59).
+  // Only redirects from /dashboard to avoid loops on other pages.
   if (
     req.auth.user &&
     "role" in req.auth.user &&
@@ -78,9 +78,8 @@ export default auth((req) => {
     pathname === "/dashboard"
   ) {
     const now = new Date();
-    const day = now.getDay(); // 0=Sun, 1=Mon
-    const hour = now.getHours();
-    if (day === 1 && hour < 9) {
+    const day = now.getDay(); // 0=Sun, 1=Mon … 6=Sat
+    if (day === 0) {
       return NextResponse.redirect(new URL("/weekly", req.url));
     }
   }

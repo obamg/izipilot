@@ -167,7 +167,8 @@ export function Sidebar({
                 {item.label}
                 {item.href === "/weekly" && (() => {
                   const now = new Date();
-                  const isBeforeDeadline = now.getDay() === 1 && now.getHours() < 9;
+                  // Submission day = Sunday; deadline is Sunday 23:59.
+                  const isBeforeDeadline = now.getDay() === 0;
                   return isBeforeDeadline ? (
                     <span className="ml-auto bg-[rgba(226,60,74,0.28)] text-[#ff8090] text-sm font-semibold px-[5px] py-px rounded-md">
                       Due
