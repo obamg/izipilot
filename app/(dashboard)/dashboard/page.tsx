@@ -284,7 +284,7 @@ export default async function DashboardPage({
             />
           </div>
           <p className="text-sm text-izi-gray mt-1">
-            Deadline saisie 09h00 &middot;{" "}
+            Deadline dimanche 23h59 &middot;{" "}
             <span className="font-medium text-dark-md">{submittedCount.length}/{poCount}</span> revues soumises
           </p>
         </div>

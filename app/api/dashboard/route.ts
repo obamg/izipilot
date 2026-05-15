@@ -97,13 +97,14 @@ export async function GET() {
     alerts.map((a) => [a.severity.toLowerCase(), a._count])
   );
 
-  // Check if deadline passed (Monday 09:00 local)
-  // Deadline is Monday at 09:00 — it has passed if we're past Monday 09:00
-  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon
+  // Submission deadline is Sunday 23:59 local. Since getISOWeek() rolls the
+  // current week forward on Monday 00:00, the current week's deadline is
+  // always upcoming (Sun) — except in the brief Sun 23:59→Mon 00:00 window.
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon … 6=Sat
   const deadlinePassed =
-    dayOfWeek > 1 || // Tuesday–Saturday: deadline passed
-    dayOfWeek === 0 || // Sunday: deadline passed (from last week)
-    (dayOfWeek === 1 && now.getHours() >= 9); // Monday after 09:00
+    dayOfWeek === 0 &&
+    (now.getHours() > 23 ||
+      (now.getHours() === 23 && now.getMinutes() >= 59));
 
   return Response.json({
     data: {

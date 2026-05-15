@@ -25,7 +25,7 @@ export default function WeeklyReminder({
   year,
   appUrl = "https://izipilote.com",
 }: WeeklyReminderProps) {
-  const deadline = "09h00";
+  const deadline = "dimanche 23h59";
 
   return (
     <Html lang="fr">
@@ -50,8 +50,8 @@ export default function WeeklyReminder({
             </Heading>
 
             <Text style={textStyle}>
-              C&apos;est lundi matin — il est temps de soumettre votre revue OKR
-              hebdomadaire avant <strong>{deadline}</strong>.
+              C&apos;est dimanche soir — il est temps de soumettre votre revue
+              OKR hebdomadaire avant <strong>{deadline}</strong>.
             </Text>
 
             <Section style={weekBadgeContainerStyle}>
@@ -89,7 +89,7 @@ export default function WeeklyReminder({
               IziPilot · IziChange S.A. · Bénin
             </Text>
             <Text style={footerTextStyle}>
-              Cet email est envoyé automatiquement chaque lundi matin.
+              Cet email est envoyé automatiquement chaque dimanche soir.
             </Text>
           </Section>
         </Container>

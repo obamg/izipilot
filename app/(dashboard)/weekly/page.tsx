@@ -155,7 +155,7 @@ export default async function WeeklyPage({
             {Array.from(entityNames).join(", ")}
             {isHistorical
               ? " \u00b7 Lecture seule"
-              : " \u00b7 Deadline lundi 09h00"}
+              : " \u00b7 Deadline dimanche 23h59"}
           </p>
         </div>
       </div>

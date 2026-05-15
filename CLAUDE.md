@@ -11,7 +11,7 @@ Il remplace les fichiers Excel de revue OKR hebdomadaire par une application web
 - **Tagline** : L'exécution au rythme de vos ambitions
 - **URL cible** : pilot.izichange.com (domaine à définir)
 - **Utilisateurs** : 20–30 personnes (POs, Management, CEO, Viewers)
-- **Rythme clé** : chaque lundi matin, chaque PO saisit sa revue avant 9h00
+- **Rythme clé** : chaque dimanche soir, chaque PO saisit sa revue avant 23h59
 
 ---
 
@@ -102,7 +102,7 @@ izipilot/
 │   │   ├── weekly-entries/route.ts
 │   │   ├── alerts/route.ts
 │   │   └── cron/
-│   │       ├── monday-reminder/route.ts   ← Lundi 8h30
+│   │       ├── weekly-reminder/route.ts   ← Dimanche 20h00
 │   │       └── check-alerts/route.ts      ← Vérif 48h quotidien
 │   ├── globals.css
 │   ├── layout.tsx
@@ -172,7 +172,7 @@ Product         → P1–P7 (code, name, color, status, ownerId)
 Objective       → OKR lié à Dept OU Product (entityType)
 KeyResult       → KR avec target, currentValue, score (Decimal), status, orgId
 WeeklyEntry     → Saisie PO par KR par semaine (unique: krId+week+year), orgId
-WeeklySession   → Session globale par semaine (deadline lundi 09h00)
+WeeklySession   → Session globale par semaine (deadline dimanche 23h59)
 Alert           → KR_BLOCKED | ENTRY_MISSING | ESCALATION_48H
 Decision        → Décision actée en CODIR
 Notification    → EMAIL | IN_APP
@@ -295,7 +295,7 @@ Total : 135 KRs à seeder pour 2026 (Q1–Q4)
 **Mission** : Système d'alertes et emails automatiques
 ```
 - Resend + React Email : 4 templates (reminder, blocked, escalade, digest)
-- Cron lundi 8h30 : rappel à chaque PO "Soumettez votre revue"
+- Cron dimanche 20h00 : rappel à chaque PO "Soumettez votre revue avant 23h59"
 - Cron quotidien 10h : vérif KRs rouges non traités → escalade 48h
 - Détection auto : KR passe rouge → email Management dans l'heure
 - Digest hebdo : résumé tous statuts + décisions à prendre
