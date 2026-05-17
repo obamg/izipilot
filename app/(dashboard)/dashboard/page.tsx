@@ -48,6 +48,34 @@ export default async function DashboardPage({
     ownedDepartmentIds = ownedDepartments.map((d) => d.id);
   }
 
+  // On Sunday (submission day), nudge a PO with unsubmitted KRs to /weekly.
+  // Once every owned KR has an entry for the current week, the PO regains
+  // access to the dashboard for the rest of Sunday.
+  if (userRole === "PO" && new Date().getDay() === 0) {
+    const ownedObjectiveFilter = {
+      OR: [
+        { productId: { in: ownedProductIds } },
+        { departmentId: { in: ownedDepartmentIds } },
+      ],
+    };
+    const [ownedKrCount, submittedKrCount] = await Promise.all([
+      prisma.keyResult.count({
+        where: { orgId, isActive: true, objective: ownedObjectiveFilter },
+      }),
+      prisma.weeklyEntry.count({
+        where: {
+          orgId,
+          weekNumber: currentWeek,
+          year: currentYear,
+          keyResult: { isActive: true, objective: ownedObjectiveFilter },
+        },
+      }),
+    ]);
+    if (ownedKrCount > 0 && submittedKrCount < ownedKrCount) {
+      redirect("/weekly");
+    }
+  }
+
   // Build KR filter: PO/MANAGEMENT see only their entities, CEO/VIEWER see all
   const krWhereClause = isRestrictedView
     ? {
