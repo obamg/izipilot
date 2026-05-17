@@ -69,20 +69,9 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Auto-redirect PO to /weekly on Sunday (submission day, deadline 23:59).
-  // Only redirects from /dashboard to avoid loops on other pages.
-  if (
-    req.auth.user &&
-    "role" in req.auth.user &&
-    req.auth.user.role === "PO" &&
-    pathname === "/dashboard"
-  ) {
-    const now = new Date();
-    const day = now.getDay(); // 0=Sun, 1=Mon … 6=Sat
-    if (day === 0) {
-      return NextResponse.redirect(new URL("/weekly", req.url));
-    }
-  }
+  // PO submission-day redirect is handled inside app/(dashboard)/dashboard/page.tsx
+  // (needs DB access to check whether the PO has already submitted — middleware
+  // runs in the edge runtime and cannot query Prisma).
 
   // Add security headers
   const response = NextResponse.next();
