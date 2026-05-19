@@ -402,6 +402,9 @@ model WeeklyEntry {
   // Calculs auto
   scoreAtEntry Decimal @default(0) @db.Decimal(5, 4)
 
+  // Submitted after Sunday 23:59 deadline (within the 24h Monday grace window)
+  isLate Boolean @default(false)
+
   submittedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

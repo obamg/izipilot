@@ -84,7 +84,32 @@ export interface UpsertWeeklyEntryResult {
   derivedStatus: KrStatus;
 }
 
-export type WeeklyEntryErrorCode = "NOT_FOUND" | "FORBIDDEN";
+export type WeeklyEntryErrorCode = "NOT_FOUND" | "FORBIDDEN" | "DEADLINE_PASSED";
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Submission window for a given ISO week.
+ *
+ * - Deadline: Sunday 23:59:59.999 of that week.
+ * - Grace: 24h after the deadline — Monday 23:59:59.999.
+ *
+ * POs can submit up to the grace cutoff; entries saved after the deadline
+ * are flagged isLate=true. CEO/MANAGEMENT are not bound by either cutoff
+ * (they need retroactive correction rights).
+ */
+export function getSubmissionWindow(
+  year: number,
+  weekNumber: number
+): { deadline: number; graceCutoff: number } {
+  // Start of next Monday = Sunday 23:59:59.999 + 1ms.
+  const nextMondayMs =
+    getISOWeekStart(year, weekNumber).getTime() + 7 * ONE_DAY_MS;
+  return {
+    deadline: nextMondayMs - 1,
+    graceCutoff: nextMondayMs + ONE_DAY_MS - 1,
+  };
+}
 
 export class WeeklyEntryError extends Error {
   constructor(
@@ -130,6 +155,20 @@ export async function upsertWeeklyEntry(
       "Not the owner of this KR"
     );
   }
+
+  const { deadline, graceCutoff } = getSubmissionWindow(
+    input.year,
+    input.weekNumber
+  );
+  const nowMs = Date.now();
+  if (session.role === "PO" && nowMs > graceCutoff) {
+    throw new WeeklyEntryError(
+      "DEADLINE_PASSED",
+      input.krId,
+      `La saisie de la semaine ${input.weekNumber} est verrouillée (deadline dépassée).`
+    );
+  }
+  const isLate = nowMs > deadline;
 
   const effectiveValue = effectiveCurrentValue(kr, input);
   const newScore = calculateScore(
@@ -180,6 +219,7 @@ export async function upsertWeeklyEntry(
       actionNeeded: input.actionNeeded ?? null,
       comment: input.comment ?? null,
       scoreAtEntry: newScore,
+      isLate,
     },
     update: {
       progress: input.progress,
@@ -191,6 +231,7 @@ export async function upsertWeeklyEntry(
       comment: input.comment ?? null,
       scoreAtEntry: newScore,
       submittedBy: session.id,
+      isLate,
     },
   });
 
