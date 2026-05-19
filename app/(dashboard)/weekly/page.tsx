@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { WeeklyEntryForm } from "./WeeklyEntryForm";
 import { WeeklyWeekSelector } from "./WeeklyWeekSelector";
 import { getISOWeek } from "@/lib/date";
+import { getSubmissionWindow } from "@/lib/weekly-entry";
 
 export default async function WeeklyPage({
   searchParams,
@@ -21,6 +22,17 @@ export default async function WeeklyPage({
   const weekNumber = params.week ? parseInt(params.week, 10) : currentWeek;
   const year = params.year ? parseInt(params.year, 10) : currentYear;
   const isHistorical = weekNumber !== currentWeek || year !== currentYear;
+
+  // A PO viewing the just-ended week stays editable through the 24h Monday
+  // grace window — ISO week rolls Monday 00:00, so "the week the PO is
+  // catching up on" is historical from the calendar's perspective.
+  // Past that grace cutoff, historical weeks are read-only for everyone.
+  const { deadline, graceCutoff } = getSubmissionWindow(year, weekNumber);
+  const nowMs = Date.now();
+  const isInGraceWindow = nowMs > deadline && nowMs <= graceCutoff;
+  const isPoGrace =
+    session.user.role === "PO" && isHistorical && nowMs <= graceCutoff;
+  const isReadOnly = isHistorical && !isPoGrace;
 
   // Fetch KRs owned by this user (with actions)
   const keyResults = await prisma.keyResult.findMany({
@@ -153,9 +165,11 @@ export default async function WeeklyPage({
           </div>
           <p className="text-[11px] text-izi-gray mt-0.5">
             {Array.from(entityNames).join(", ")}
-            {isHistorical
-              ? " \u00b7 Lecture seule"
-              : " \u00b7 Deadline dimanche 23h59"}
+            {isPoGrace && isInGraceWindow
+              ? " \u00b7 Saisie en retard \u2014 verrouillage lundi 23h59"
+              : isReadOnly
+                ? " \u00b7 Lecture seule"
+                : " \u00b7 Deadline dimanche 23h59"}
           </p>
         </div>
       </div>
@@ -183,7 +197,7 @@ export default async function WeeklyPage({
           orgUsers={orgUsers}
           currentUserId={userId}
           currentUserRole={session.user.role}
-          isReadOnly={isHistorical}
+          isReadOnly={isReadOnly}
         />
       )}
     </div>

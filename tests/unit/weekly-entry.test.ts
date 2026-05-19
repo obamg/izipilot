@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { effectiveCurrentValue } from "@/lib/weekly-entry";
+import { effectiveCurrentValue, getSubmissionWindow } from "@/lib/weekly-entry";
 import { calculateScore } from "@/lib/score";
+import { getISOWeekStart } from "@/lib/date";
 
 const baseKr = {
   target: 100,
@@ -131,5 +132,26 @@ describe("effectiveCurrentValue", () => {
       );
       expect(cv).toBe(999);
     });
+  });
+});
+
+describe("getSubmissionWindow", () => {
+  it("deadline is the last ms of Sunday of the requested ISO week", () => {
+    // ISO 2026 W20 starts Mon 2026-05-11. Sun = 2026-05-17.
+    const { deadline } = getSubmissionWindow(2026, 20);
+    const sundayEnd = new Date(2026, 4, 18, 0, 0, 0, 0).getTime() - 1; // Mon 00:00 minus 1ms
+    expect(deadline).toBe(sundayEnd);
+  });
+
+  it("graceCutoff is 24h after the deadline (end of Monday)", () => {
+    const { deadline, graceCutoff } = getSubmissionWindow(2026, 20);
+    expect(graceCutoff - deadline).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("crosses ISO year boundary cleanly (W1 of 2026 starts Mon 2025-12-29)", () => {
+    const { deadline } = getSubmissionWindow(2026, 1);
+    const expectedSundayEnd =
+      getISOWeekStart(2026, 1).getTime() + 7 * 24 * 60 * 60 * 1000 - 1;
+    expect(deadline).toBe(expectedSundayEnd);
   });
 });
