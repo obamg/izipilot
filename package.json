@@ -24,6 +24,7 @@
     "@auth/prisma-adapter": "^2.11.2",
     "@prisma/client": "^6.19.3",
     "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^2.4.3",
     "next": "16.2.4",
