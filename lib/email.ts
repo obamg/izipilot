@@ -17,6 +17,27 @@ function getResend(): Resend {
   return _resend;
 }
 
+// Resend free/standard tier caps at 5 req/s. Serialize sends with a 220ms
+// minimum gap so concurrent callers (e.g. the alerts cron looping over many
+// managers) don't blow the rate limit.
+const MIN_SEND_GAP_MS = 220;
+let _lastSendAt = 0;
+let _sendChain: Promise<unknown> = Promise.resolve();
+
+function throttle<T>(task: () => Promise<T>): Promise<T> {
+  const run = _sendChain.then(async () => {
+    const wait = MIN_SEND_GAP_MS - (Date.now() - _lastSendAt);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    try {
+      return await task();
+    } finally {
+      _lastSendAt = Date.now();
+    }
+  });
+  _sendChain = run.catch(() => undefined);
+  return run;
+}
+
 export interface SendEmailOptions {
   to: string | string[];
   subject: string;
@@ -44,12 +65,14 @@ export async function sendEmail(
 
   try {
     const resend = getResend();
-    const result = await resend.emails.send({
-      from: options.from ?? "IziPilot <notifications@izipilote.com>",
-      to: options.to,
-      subject: options.subject,
-      react: options.react,
-    });
+    const result = await throttle(() =>
+      resend.emails.send({
+        from: options.from ?? "IziPilot <notifications@izipilote.com>",
+        to: options.to,
+        subject: options.subject,
+        react: options.react,
+      })
+    );
 
     if (result.error) {
       logger.error("resend api error", { subject: options.subject }, result.error);
