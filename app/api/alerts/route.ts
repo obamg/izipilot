@@ -1,8 +1,14 @@
 import { NextRequest } from "next/server";
+import * as React from "react";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendEmail } from "@/lib/email";
 import { scoreToPercent } from "@/lib/score";
+import { log } from "@/lib/log";
+import AlertBlocked from "@/emails/AlertBlocked";
+
+const logger = log.child("api/alerts");
 
 const alertTypeEnum = z.enum([
   "KR_BLOCKED", "KR_DECLINING", "ENTRY_MISSING", "ESCALATION_48H", "SCORE_BELOW_40",
@@ -121,7 +127,18 @@ export async function POST(request: NextRequest) {
 
   const kr = await prisma.keyResult.findFirst({
     where: { id: krId, orgId: session.user.orgId, deletedAt: null },
-    select: { id: true, ownerId: true },
+    select: {
+      id: true,
+      ownerId: true,
+      title: true,
+      score: true,
+      objective: {
+        select: {
+          product: { select: { name: true } },
+          department: { select: { name: true } },
+        },
+      },
+    },
   });
 
   if (!kr) {
@@ -145,7 +162,75 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // Notify Management/CEO. Manual alerts are the only path that emails —
+  // automatic alerts (cron-created) live in the dashboard but stay silent.
+  await notifyManagersOfManualAlert({
+    orgId: session.user.orgId,
+    alertId: created.id,
+    krTitle: kr.title,
+    scorePercent: scoreToPercent(kr.score),
+    entityName:
+      kr.objective.product?.name ?? kr.objective.department?.name ?? "Unknown",
+    alertMessage: message,
+  });
+
   return Response.json({ data: { id: created.id } }, { status: 201 });
+}
+
+async function notifyManagersOfManualAlert(input: {
+  orgId: string;
+  alertId: string;
+  krTitle: string;
+  scorePercent: number;
+  entityName: string;
+  alertMessage: string;
+}) {
+  const managers = await prisma.user.findMany({
+    where: {
+      orgId: input.orgId,
+      role: { in: ["CEO", "MANAGEMENT"] },
+      isActive: true,
+    },
+    select: { id: true, name: true, email: true },
+  });
+
+  const subject = `ALERTE: ${input.krTitle} (${input.scorePercent}%)`;
+
+  for (const manager of managers) {
+    const result = await sendEmail({
+      to: manager.email,
+      subject,
+      react: React.createElement(AlertBlocked, {
+        recipientName: manager.name,
+        krTitle: input.krTitle,
+        scorePercent: input.scorePercent,
+        entityName: input.entityName,
+        alertMessage: input.alertMessage,
+      }),
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: manager.id,
+        alertId: input.alertId,
+        channel: "EMAIL",
+        type: "KR_BLOCKED_ALERT",
+        subject,
+        body: `Alerte manuelle envoyée à ${manager.email} pour KR "${input.krTitle}"`,
+        isSent: result.success,
+        sentAt: result.success ? new Date() : null,
+      },
+    });
+
+    if (!result.success) {
+      logger.error("manual-alert email failed", {
+        email: manager.email,
+        managerId: manager.id,
+        alertId: input.alertId,
+        reason: result.error,
+      });
+    }
+  }
 }
 
 const resolveSchema = z.object({
