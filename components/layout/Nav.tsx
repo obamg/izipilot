@@ -148,6 +148,13 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
               <div className="px-4 py-1.5 text-xs text-izi-gray border-b border-[#deeaea]">
                 {userRole}
               </div>
+              <Link
+                href="/settings/notifications"
+                onClick={() => setShowMenu(false)}
+                className="block px-4 py-2.5 text-sm text-dark-md hover:bg-teal-lt transition-colors no-underline border-b border-[#deeaea]"
+              >
+                Pr&eacute;f&eacute;rences de notification
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="w-full text-left px-4 py-2.5 text-sm text-izi-red hover:bg-izi-red-lt transition-colors cursor-pointer border-none bg-transparent"

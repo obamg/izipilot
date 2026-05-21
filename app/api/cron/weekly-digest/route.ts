@@ -6,6 +6,7 @@ import { scoreToPercent } from "@/lib/score";
 import { getISOWeek } from "@/lib/date";
 import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
+import { filterRecipientsByPref } from "@/lib/notification-prefs";
 import WeeklyDigest from "@/emails/WeeklyDigest";
 import type { DigestKr, DigestDecision } from "@/emails/WeeklyDigest";
 
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
         }));
 
         // Send to Management and CEO
-        const managers = await prisma.user.findMany({
+        const allManagers = await prisma.user.findMany({
           where: {
             orgId: org.id,
             role: { in: ["CEO", "MANAGEMENT"] },
@@ -118,6 +119,11 @@ export async function GET(request: NextRequest) {
           },
           select: { id: true, name: true, email: true },
         });
+
+        const managers = await filterRecipientsByPref(
+          allManagers,
+          "weeklyDigest",
+        );
 
         for (const manager of managers) {
           const result = await sendEmail({

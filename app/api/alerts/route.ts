@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { scoreToPercent } from "@/lib/score";
 import { log } from "@/lib/log";
+import { filterRecipientsByPref } from "@/lib/notification-prefs";
 import AlertBlocked from "@/emails/AlertBlocked";
 
 const logger = log.child("api/alerts");
@@ -185,7 +186,7 @@ async function notifyManagersOfManualAlert(input: {
   entityName: string;
   alertMessage: string;
 }) {
-  const managers = await prisma.user.findMany({
+  const allManagers = await prisma.user.findMany({
     where: {
       orgId: input.orgId,
       role: { in: ["CEO", "MANAGEMENT"] },
@@ -193,6 +194,8 @@ async function notifyManagersOfManualAlert(input: {
     },
     select: { id: true, name: true, email: true },
   });
+
+  const managers = await filterRecipientsByPref(allManagers, "krBlockedManual");
 
   const subject = `ALERTE: ${input.krTitle} (${input.scorePercent}%)`;
 

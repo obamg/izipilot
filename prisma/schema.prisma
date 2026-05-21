@@ -190,6 +190,7 @@ model User {
   createdActions    Action[]           @relation("ActionCreator")
   actionComments    ActionComment[]    @relation("ActionCommentAuthor")
   departmentMembers DepartmentMember[]
+  notificationPrefs NotificationPreference?
 
   @@index([orgId])
   @@index([email])
@@ -555,6 +556,34 @@ model Notification {
   // whole notifications table on each cron run.
   @@index([alertId])
   @@map("notifications")
+}
+
+// ============================================================================
+// PRÉFÉRENCES DE NOTIFICATION (per-user, per-event email toggles)
+// ============================================================================
+// Defaults preserve the behavior that existed before this model was added:
+// the three events that actually email by default are ON, the two auto
+// alerts that intentionally do NOT email (post-f221182) stay OFF here so
+// flipping them on later is opt-in.
+
+model NotificationPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  orgId  String
+
+  weeklyReminder  Boolean @default(true) // Sunday 20h reminder to POs
+  weeklyDigest    Boolean @default(true) // Monday 10h digest to Mgmt/CEO
+  krBlockedManual Boolean @default(true) // Manual KR alert raised by a user
+  escalation48h   Boolean @default(false) // Auto — currently never emails
+  entryMissing    Boolean @default(false) // Auto — currently never emails
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("notification_preferences")
 }
 
 // ============================================================================

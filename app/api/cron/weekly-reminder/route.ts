@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { getISOWeek, getISOWeekStart } from "@/lib/date";
 import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
+import { filterRecipientsByPref } from "@/lib/notification-prefs";
 import WeeklyReminder from "@/emails/WeeklyReminder";
 
 const logger = log.child("cron/weekly-reminder");
@@ -38,10 +39,12 @@ export async function GET(request: NextRequest) {
     let totalFailed = 0;
 
     for (const org of organizations) {
-      const pos = await prisma.user.findMany({
+      const allPos = await prisma.user.findMany({
         where: { orgId: org.id, role: "PO", isActive: true },
         select: { id: true, name: true, email: true },
       });
+
+      const pos = await filterRecipientsByPref(allPos, "weeklyReminder");
 
       for (const po of pos) {
         // Idempotency: if a WEEKLY_REMINDER notification already exists for
