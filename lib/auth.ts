@@ -62,6 +62,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           role: user.role,
           orgId: user.orgId,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
@@ -78,6 +79,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.role = user.role;
         token.orgId = user.orgId;
+        token.mustChangePassword = user.mustChangePassword ?? false;
         token.lastValidated = Date.now();
         return token;
       }
@@ -91,7 +93,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const fresh = await prisma.user.findUnique({
         where: { id: token.sub },
-        select: { role: true, orgId: true, isActive: true },
+        select: { role: true, orgId: true, isActive: true, mustChangePassword: true },
       });
       // User deleted or deactivated since the JWT was issued → revoke the
       // session. Returning null forces NextAuth to treat the request as
@@ -100,6 +102,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       token.role = fresh.role;
       token.orgId = fresh.orgId;
+      token.mustChangePassword = fresh.mustChangePassword;
       token.lastValidated = Date.now();
       return token;
     },
