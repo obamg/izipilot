@@ -14,8 +14,8 @@ class AccountDeactivatedError extends CredentialsSignin {
 
 // How often we re-read role / orgId / isActive from the database while a
 // session is open. JWTs are stateless, so without this a CEO demoted to
-// VIEWER or a deactivated user would keep their old role until the 4h
-// session expired. 60s caps that drift to a minute.
+// VIEWER or a deactivated user would keep their old role until the
+// 30-day session expired. 60s caps that drift to a minute.
 const REVALIDATE_MS = 60 * 1000;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
