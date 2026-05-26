@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import * as React from "react";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { sendPushToUser } from "@/lib/push";
 import { getISOWeek, getISOWeekStart } from "@/lib/date";
 import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
@@ -98,6 +99,16 @@ export async function GET(request: NextRequest) {
             reason: result.error,
           });
         }
+
+        // Push notification to the same PO. Already filtered by role + pref
+        // (filterRecipientsByPref above); the function no-ops if the user
+        // has not opted into browser notifications.
+        await sendPushToUser(po.id, {
+          title: `Rappel OKR — Semaine ${weekNumber}`,
+          body: `Soumettez votre revue avant dimanche 23h59.`,
+          url: "/weekly",
+          tag: `weekly-reminder:${year}-${weekNumber}`,
+        });
       }
     }
 

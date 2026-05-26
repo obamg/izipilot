@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { sendPushToUsers } from "@/lib/push";
 import { scoreToPercent } from "@/lib/score";
 import { log } from "@/lib/log";
 import { filterRecipientsByPref } from "@/lib/notification-prefs";
@@ -234,6 +235,20 @@ async function notifyManagersOfManualAlert(input: {
       });
     }
   }
+
+  // Browser push to the same role-filtered, pref-filtered audience. Fire and
+  // forget on failure — email is the durable channel; push is a best-effort
+  // additional surface that only reaches users who explicitly opted in by
+  // granting browser permission.
+  await sendPushToUsers(
+    managers.map((m) => m.id),
+    {
+      title: subject,
+      body: `${input.entityName} — ${input.alertMessage}`.slice(0, 220),
+      url: `/alerts`,
+      tag: `alert:${input.alertId}`,
+    },
+  );
 }
 
 const resolveSchema = z.object({

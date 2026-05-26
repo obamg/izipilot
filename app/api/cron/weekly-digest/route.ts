@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import * as React from "react";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { sendPushToUser } from "@/lib/push";
 import { scoreToPercent } from "@/lib/score";
 import { getISOWeek } from "@/lib/date";
 import { log } from "@/lib/log";
@@ -164,6 +165,13 @@ export async function GET(request: NextRequest) {
               reason: result.error,
             });
           }
+
+          await sendPushToUser(manager.id, {
+            title: `Digest OKR — Semaine ${weekNumber}`,
+            body: `${onTrackCount}/${totalKrs} KRs en bonne voie · ${blockedCount} bloqués`,
+            url: "/dashboard",
+            tag: `digest:${year}-${weekNumber}`,
+          });
         }
       } catch (orgErr) {
         summary.failed++;
