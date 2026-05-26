@@ -8,7 +8,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 // revalidation callback).
 const { auth } = NextAuth(authConfig);
 
-const publicPaths = ["/login", "/api/auth", "/api/cron"];
+const publicPaths = ["/login", "/api/auth", "/api/cron", "/sw.js"];
 
 // Brute-force protection on the credentials sign-in endpoint. Behind
 // nginx/Cloudflare so the real client IP arrives via x-forwarded-for —
