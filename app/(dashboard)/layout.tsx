@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { PushPermissionModal } from "@/components/push/PushPermissionModal";
 import { getISOWeek } from "@/lib/date";
 
 export default async function DashboardLayout({
@@ -92,6 +93,8 @@ export default async function DashboardLayout({
     scorePercent: computeAvgScore(d.objectives),
   }));
 
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
   return (
     <DashboardShell
       userName={session.user.name}
@@ -104,6 +107,7 @@ export default async function DashboardLayout({
       departments={sidebarDepartments}
     >
       {children}
+      {vapidPublicKey && <PushPermissionModal vapidPublicKey={vapidPublicKey} />}
     </DashboardShell>
   );
 }
