@@ -7,6 +7,11 @@ interface Props {
 }
 
 const DISMISS_KEY = "izipilot:push-prompt-dismissed";
+// Re-prompt cadence: a user who clicked "Plus tard" gets nudged once a week.
+// The browser permission state still gates this — "denied" or "granted"
+// short-circuits before we ever read the timestamp, so the reminder only
+// reaches users who have not yet made a decision at the OS level.
+const DISMISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function urlBase64ToUint8Array(b64: string): Uint8Array {
   const padding = "=".repeat((4 - (b64.length % 4)) % 4);
@@ -22,11 +27,12 @@ function urlBase64ToUint8Array(b64: string): Uint8Array {
  * once. Shows only when:
  *   - the browser supports Web Push,
  *   - permission has never been answered (`Notification.permission === "default"`),
- *   - this device has not previously dismissed the modal,
+ *   - this device's last dismissal is older than DISMISS_TTL_MS (1 week),
  *   - VAPID is configured server-side (key non-empty).
- * The modal is opt-out per device (localStorage flag) so it never re-shows
- * after a user clicks "Plus tard". A user who later changes their mind can
- * always re-activate from /settings/notifications.
+ * Dismissals are stored per device as a timestamp and the modal re-appears
+ * after a week, giving us a gentle weekly reminder for users who keep
+ * clicking "Plus tard". A user who later changes their mind can also
+ * re-activate directly from /settings/notifications.
  */
 export function PushPermissionModal({ vapidPublicKey }: Props) {
   const [visible, setVisible] = useState(false);
@@ -38,7 +44,8 @@ export function PushPermissionModal({ vapidPublicKey }: Props) {
     if (!vapidPublicKey) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     if (Notification.permission !== "default") return;
-    if (window.localStorage.getItem(DISMISS_KEY)) return;
+    const dismissedAt = Number(window.localStorage.getItem(DISMISS_KEY) ?? 0);
+    if (dismissedAt && Date.now() - dismissedAt < DISMISS_TTL_MS) return;
 
     // Slight delay so the modal does not collide with the dashboard's
     // first paint — it appears once the layout has settled.
