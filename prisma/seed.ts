@@ -21,25 +21,25 @@ async function main() {
 
   // ── Users ─────────────────────────────────────────────────────
   const users = await Promise.all([
-    prisma.user.create({ data: { orgId: org.id, email: "direction@izichange.com", name: "Directeur Général", role: "CEO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "comitedirection@izichange.com", name: "Directeur Opérations", role: "MANAGEMENT", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "direction@izichange.com", name: "Directeur Général", role: "CEO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "comitedirection@izichange.com", name: "Directeur Opérations", role: "MANAGEMENT", passwordHash: defaultPassword, mustChangePassword: true } }),
     // POs Produits (P1–P7)
-    prisma.user.create({ data: { orgId: org.id, email: "geres@izichange.com", name: "PO Trading", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "abdoulouadoud.bouraima@izichange.com", name: "PO Wallet", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "romel@izichange.com", name: "PO Africapart", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "marius@izichange.com", name: "PO Collecte", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "pierremichel.agbla@izichange.com", name: "PO IziPay", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "serge.adounsi@izichange.com", name: "PO Carte", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "christian.ode@izichange.com", name: "PO IziLab", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "geres@izichange.com", name: "PO Trading", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "abdoulouadoud.bouraima@izichange.com", name: "PO Wallet", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "romel@izichange.com", name: "PO Africapart", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "marius@izichange.com", name: "PO Collecte", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "pierremichel.agbla@izichange.com", name: "PO IziPay", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "serge.adounsi@izichange.com", name: "PO Carte", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "christian.ode@izichange.com", name: "PO IziLab", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
     // POs Départements (D1–D8)
-    prisma.user.create({ data: { orgId: org.id, email: "johanes.quenum@izichange.com", name: "Resp. Marketing", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "aziz.sovimi@izichange.com", name: "Resp. IT", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "jerry.agossou@izichange.com", name: "Resp. Finance", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "jean-paul.doliveira@izichange.com", name: "Resp. Juridique", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "ulrich.atchade@izichange.com", name: "Resp. Support", role: "PO", passwordHash: defaultPassword } }),
-    prisma.user.create({ data: { orgId: org.id, email: "joas.vigan@izichange.com", name: "Resp. Stratégie", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "johanes.quenum@izichange.com", name: "Resp. Marketing", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "aziz.sovimi@izichange.com", name: "Resp. IT", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "jerry.agossou@izichange.com", name: "Resp. Finance", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "jean-paul.doliveira@izichange.com", name: "Resp. Juridique", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "ulrich.atchade@izichange.com", name: "Resp. Support", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
+    prisma.user.create({ data: { orgId: org.id, email: "joas.vigan@izichange.com", name: "Resp. Stratégie", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
     // Resp. Management (D7) — uses same person as Directeur Opérations (comitedirection), handled via mgmt1 reference
-    prisma.user.create({ data: { orgId: org.id, email: "menes.whannou@izichange.com", name: "Resp. RH", role: "PO", passwordHash: defaultPassword } }),
+    prisma.user.create({ data: { orgId: org.id, email: "menes.whannou@izichange.com", name: "Resp. RH", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
   ]);
 
   const [

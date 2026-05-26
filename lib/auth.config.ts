@@ -9,12 +9,14 @@ declare module "next-auth" {
       name: string;
       role: UserRole;
       orgId: string;
+      mustChangePassword: boolean;
     };
   }
 
   interface User {
     role: UserRole;
     orgId: string;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -22,6 +24,7 @@ declare module "@auth/core/jwt" {
   interface JWT {
     role: UserRole;
     orgId: string;
+    mustChangePassword?: boolean;
     lastValidated?: number;
   }
 }
@@ -41,6 +44,7 @@ export default {
       session.user.id = token.sub;
       session.user.role = token.role;
       session.user.orgId = token.orgId;
+      session.user.mustChangePassword = token.mustChangePassword ?? false;
       return session;
     },
   },

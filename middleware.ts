@@ -69,6 +69,21 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Force first-login password change. The flag is set on seeded accounts,
+  // newly created users (admin POST), and after an admin reset — it is
+  // cleared once the user submits /change-password. We let the page itself
+  // and its API route through so the user can actually update; everything
+  // else (UI + APIs) is blocked to avoid acting with a default password.
+  const mustChange = req.auth.user?.mustChangePassword;
+  if (
+    mustChange &&
+    !pathname.startsWith("/change-password") &&
+    !pathname.startsWith("/api/auth") &&
+    !pathname.startsWith("/api/account/change-password")
+  ) {
+    return NextResponse.redirect(new URL("/change-password", req.url));
+  }
+
   // PO submission-day redirect is handled inside app/(dashboard)/dashboard/page.tsx
   // (needs DB access to check whether the PO has already submitted — middleware
   // runs in the edge runtime and cannot query Prisma).
