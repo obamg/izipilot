@@ -7,6 +7,7 @@ import {
   getOrCreatePrefs,
 } from "@/lib/notification-prefs";
 import { NotificationPrefsForm } from "./NotificationPrefsForm";
+import { PushToggle } from "./PushToggle";
 
 export default async function NotificationSettingsPage() {
   const session = await auth();
@@ -22,18 +23,23 @@ export default async function NotificationSettingsPage() {
     ]),
   ) as Record<NotificationEvent, boolean>;
 
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
   return (
-    <div className="max-w-2xl">
-      <div className="mb-4">
+    <div className="max-w-2xl space-y-4">
+      <div>
         <h1 className="font-serif text-[20px] text-dark">
           Préférences de notification
         </h1>
         <p className="text-[11px] text-izi-gray mt-0.5">
-          Choisissez les événements pour lesquels vous souhaitez recevoir un email.
+          Choisissez les événements pour lesquels vous souhaitez recevoir
+          un email et/ou une notification navigateur.
         </p>
       </div>
 
       <NotificationPrefsForm initial={initial} />
+
+      {vapidPublicKey && <PushToggle vapidPublicKey={vapidPublicKey} />}
     </div>
   );
 }

@@ -187,6 +187,7 @@ model User {
   decisions         Decision[]         @relation("DecisionOwner")
   notifications     Notification[]
   sessions          Session[]
+  pushSubscriptions PushSubscription[]
   assignedActions   Action[]           @relation("ActionAssignee")
   createdActions    Action[]           @relation("ActionCreator")
   actionComments    ActionComment[]    @relation("ActionCommentAuthor")
@@ -557,6 +558,32 @@ model Notification {
   // whole notifications table on each cron run.
   @@index([alertId])
   @@map("notifications")
+}
+
+// ============================================================================
+// WEB PUSH SUBSCRIPTIONS (one row per device per user)
+// ============================================================================
+// Stored unencrypted because the keys are useless without the VAPID private
+// key held server-side. We dedup on endpoint — a browser may re-subscribe
+// with the same endpoint after refresh, and the unique index turns a re-POST
+// into an upsert without creating duplicate rows.
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  orgId     String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([orgId])
+  @@map("push_subscriptions")
 }
 
 // ============================================================================
