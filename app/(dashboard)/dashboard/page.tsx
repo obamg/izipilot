@@ -7,6 +7,7 @@ import { KrProgressBar } from "@/components/ui/KrProgressBar";
 import { AlertCard } from "@/components/ui/AlertCard";
 import { DashboardAlerts } from "./DashboardAlerts";
 import { DashboardWeekSelector } from "./DashboardWeekSelector";
+import { DashboardEntityFilter } from "./DashboardEntityFilter";
 import { ActionKpiWidget } from "@/components/ui/ActionKpiWidget";
 import { getISOWeek } from "@/lib/date";
 import type { KrStatus } from "@prisma/client";
@@ -14,7 +15,7 @@ import type { KrStatus } from "@prisma/client";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; year?: string }>;
+  searchParams: Promise<{ week?: string; year?: string; entity?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -28,10 +29,11 @@ export default async function DashboardPage({
   const weekNumber = params.week ? parseInt(params.week, 10) : currentWeek;
   const year = params.year ? parseInt(params.year, 10) : currentYear;
 
-  // For PO/MANAGEMENT, find their owned products/departments to filter the view
+  // PO is restricted to entities they own. MANAGEMENT/CEO/VIEWER see the full
+  // org and get a manual filter dropdown to drill in (handled below).
   let ownedProductIds: string[] = [];
   let ownedDepartmentIds: string[] = [];
-  const isRestrictedView = userRole === "PO" || userRole === "MANAGEMENT";
+  const isRestrictedView = userRole === "PO";
 
   if (isRestrictedView) {
     const [ownedProducts, ownedDepartments] = await Promise.all([
@@ -76,19 +78,49 @@ export default async function DashboardPage({
     }
   }
 
-  // Build KR filter: PO/MANAGEMENT see only their entities, CEO/VIEWER see all
-  const krWhereClause = isRestrictedView
+  // Manual entity filter (?entity=P1|D3) — only meaningful for users who see
+  // the full org, i.e. anyone except PO. We resolve the code → id once so we
+  // can reuse it in both the KR and the alert queries.
+  const entityParam = params.entity?.trim() || null;
+  let filterProductId: string | null = null;
+  let filterDepartmentId: string | null = null;
+  if (entityParam && !isRestrictedView) {
+    const [product, department] = await Promise.all([
+      prisma.product.findUnique({
+        where: { orgId_code: { orgId, code: entityParam } },
+        select: { id: true },
+      }),
+      prisma.department.findUnique({
+        where: { orgId_code: { orgId, code: entityParam } },
+        select: { id: true },
+      }),
+    ]);
+    filterProductId = product?.id ?? null;
+    filterDepartmentId = department?.id ?? null;
+  }
+  const hasEntityFilter = !!(filterProductId || filterDepartmentId);
+
+  // Build KR filter:
+  //  - PO sees only their owned entities (object-level restriction)
+  //  - everyone else sees the full org, optionally narrowed by ?entity
+  const objectiveFilter = isRestrictedView
     ? {
-        orgId,
-        isActive: true,
-        objective: {
-          OR: [
-            { productId: { in: ownedProductIds } },
-            { departmentId: { in: ownedDepartmentIds } },
-          ],
-        },
+        OR: [
+          { productId: { in: ownedProductIds } },
+          { departmentId: { in: ownedDepartmentIds } },
+        ],
       }
-    : { orgId, isActive: true };
+    : hasEntityFilter
+    ? filterProductId
+      ? { productId: filterProductId }
+      : { departmentId: filterDepartmentId! }
+    : undefined;
+
+  const krWhereClause = {
+    orgId,
+    isActive: true,
+    ...(objectiveFilter ? { objective: objectiveFilter } : {}),
+  };
 
   const isHistorical = weekNumber !== currentWeek || year !== currentYear;
 
@@ -107,7 +139,13 @@ export default async function DashboardPage({
       orderBy: { sortOrder: "asc" },
     }),
     prisma.alert.findMany({
-      where: { orgId, isResolved: false },
+      where: {
+        orgId,
+        isResolved: false,
+        ...(objectiveFilter
+          ? { keyResult: { objective: objectiveFilter } }
+          : {}),
+      },
       include: {
         keyResult: { select: { id: true, title: true, status: true } },
       },
@@ -162,6 +200,25 @@ export default async function DashboardPage({
   const poCount = await prisma.user.count({
     where: { orgId, role: "PO", isActive: true },
   });
+
+  // Options for the entity filter dropdown — only shown to non-PO roles.
+  const showEntityFilter = !isRestrictedView;
+  let filterProducts: { code: string; name: string }[] = [];
+  let filterDepartments: { code: string; name: string }[] = [];
+  if (showEntityFilter) {
+    [filterProducts, filterDepartments] = await Promise.all([
+      prisma.product.findMany({
+        where: { orgId },
+        select: { code: true, name: true },
+        orderBy: { code: "asc" },
+      }),
+      prisma.department.findMany({
+        where: { orgId },
+        select: { code: true, name: true },
+        orderBy: { code: "asc" },
+      }),
+    ]);
+  }
 
   // Helper to get score for a KR (historical or current)
   function getKrScore(kr: (typeof keyResults)[number]): number {
@@ -315,6 +372,15 @@ export default async function DashboardPage({
             Deadline dimanche 23h59 &middot;{" "}
             <span className="font-medium text-dark-md">{submittedCount.length}/{poCount}</span> revues soumises
           </p>
+          {showEntityFilter && (
+            <div className="mt-3">
+              <DashboardEntityFilter
+                products={filterProducts}
+                departments={filterDepartments}
+                selected={hasEntityFilter ? entityParam : null}
+              />
+            </div>
+          )}
         </div>
         <a
           href="/weekly"
