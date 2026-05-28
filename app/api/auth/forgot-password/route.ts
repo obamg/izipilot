@@ -20,15 +20,19 @@ const schema = z.object({
 const TOKEN_TTL_MINUTES = 60;
 const TOKEN_BYTES = 32; // 256 bits of entropy
 
-// Generic success response — we MUST return the same shape whether or not the
-// email matched a real account, to prevent account enumeration.
-const GENERIC_OK = NextResponse.json({
-  data: {
-    success: true,
-    message:
-      "Si un compte existe pour cette adresse, un email de réinitialisation vient d'être envoyé.",
-  },
-});
+// Generic success response — same shape whether or not the email matched a
+// real account, to prevent account enumeration. Built per-call: a shared
+// NextResponse object would have its body stream consumed after the first
+// request, leaving subsequent callers with an empty body.
+function genericOk() {
+  return NextResponse.json({
+    data: {
+      success: true,
+      message:
+        "Si un compte existe pour cette adresse, un email de réinitialisation vient d'être envoyé.",
+    },
+  });
+}
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -65,12 +69,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return GENERIC_OK;
+    return genericOk();
   }
 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return GENERIC_OK;
+    return genericOk();
   }
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
   // independent of the requester IP.
   const emailLimit = checkRateLimit(`forgot:email:${email}`, 5, 60 * 60 * 1000);
   if (!emailLimit.allowed) {
-    return GENERIC_OK;
+    return genericOk();
   }
 
   const user = await prisma.user.findUnique({
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
   if (!user || !user.isActive) {
     // Sleep a touch so timing doesn't reveal account existence.
     await new Promise((r) => setTimeout(r, 150));
-    return GENERIC_OK;
+    return genericOk();
   }
 
   const token = crypto.randomBytes(TOKEN_BYTES).toString("hex");
@@ -127,5 +131,5 @@ export async function POST(request: Request) {
     logger.info("reset email sent", { userId: user.id });
   }
 
-  return GENERIC_OK;
+  return genericOk();
 }
