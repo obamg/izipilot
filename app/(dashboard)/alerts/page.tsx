@@ -9,9 +9,53 @@ export default async function AlertsPage() {
   if (!session?.user) redirect("/login");
 
   const orgId = session.user.orgId;
+  const userId = session.user.id;
   const userRole = session.user.role;
 
   const isOwnerScoped = userRole === "PO";
+
+  // For PO, scope to KRs they own + KRs in departments / products they
+  // collaborate on (DepartmentMember) or own. A PO added as collaborator on
+  // D3 should see D3's alerts even when they don't personally own the KR.
+  let poScopeFilter: Record<string, unknown> | undefined;
+  if (isOwnerScoped) {
+    const [ownedProducts, ownedDepartments, memberDepartments] = await Promise.all([
+      prisma.product.findMany({
+        where: { orgId, ownerId: userId },
+        select: { id: true },
+      }),
+      prisma.department.findMany({
+        where: { orgId, ownerId: userId },
+        select: { id: true },
+      }),
+      prisma.departmentMember.findMany({
+        where: { userId, department: { orgId, isActive: true } },
+        select: { departmentId: true },
+      }),
+    ]);
+    const productIds = ownedProducts.map((p) => p.id);
+    const departmentIds = Array.from(
+      new Set([
+        ...ownedDepartments.map((d) => d.id),
+        ...memberDepartments.map((m) => m.departmentId),
+      ])
+    );
+    poScopeFilter = {
+      OR: [
+        { keyResult: { ownerId: userId } },
+        {
+          keyResult: {
+            objective: {
+              OR: [
+                { productId: { in: productIds } },
+                { departmentId: { in: departmentIds } },
+              ],
+            },
+          },
+        },
+      ],
+    };
+  }
 
   // Cap to the most recent ~150 alerts. Past that, the page lazy-loads
   // older resolved ones via a "load more" interaction (or the user can
@@ -20,9 +64,7 @@ export default async function AlertsPage() {
   const alerts = await prisma.alert.findMany({
     where: {
       orgId,
-      ...(isOwnerScoped && {
-        keyResult: { ownerId: session.user.id },
-      }),
+      ...(poScopeFilter ?? {}),
     },
     take: 150,
     include: {

@@ -29,14 +29,19 @@ export default async function DashboardPage({
   const weekNumber = params.week ? parseInt(params.week, 10) : currentWeek;
   const year = params.year ? parseInt(params.year, 10) : currentYear;
 
-  // PO is restricted to entities they own. MANAGEMENT/CEO/VIEWER see the full
-  // org and get a manual filter dropdown to drill in (handled below).
+  // PO is restricted to entities they own *or collaborate on*. MANAGEMENT/CEO/
+  // VIEWER see the full org and get a manual filter dropdown to drill in.
+  // ownedDepartmentIds stays ownership-only — it's reused by the Sunday
+  // redirect to /weekly, and a department member doesn't have to submit KRs
+  // they don't own. visibleDepartmentIds (= owned ∪ DepartmentMember) is what
+  // drives what the PO can READ on the dashboard.
   let ownedProductIds: string[] = [];
   let ownedDepartmentIds: string[] = [];
+  let visibleDepartmentIds: string[] = [];
   const isRestrictedView = userRole === "PO";
 
   if (isRestrictedView) {
-    const [ownedProducts, ownedDepartments] = await Promise.all([
+    const [ownedProducts, ownedDepartments, memberDepartments] = await Promise.all([
       prisma.product.findMany({
         where: { orgId, ownerId: userId },
         select: { id: true },
@@ -45,9 +50,16 @@ export default async function DashboardPage({
         where: { orgId, ownerId: userId },
         select: { id: true },
       }),
+      prisma.departmentMember.findMany({
+        where: { userId, department: { orgId, isActive: true } },
+        select: { departmentId: true },
+      }),
     ]);
     ownedProductIds = ownedProducts.map((p) => p.id);
     ownedDepartmentIds = ownedDepartments.map((d) => d.id);
+    visibleDepartmentIds = Array.from(
+      new Set([...ownedDepartmentIds, ...memberDepartments.map((m) => m.departmentId)])
+    );
   }
 
   // On Sunday (submission day), nudge a PO with unsubmitted KRs to /weekly.
@@ -101,13 +113,13 @@ export default async function DashboardPage({
   const hasEntityFilter = !!(filterProductId || filterDepartmentId);
 
   // Build KR filter:
-  //  - PO sees only their owned entities (object-level restriction)
+  //  - PO sees their owned entities + departments they collaborate on
   //  - everyone else sees the full org, optionally narrowed by ?entity
   const objectiveFilter = isRestrictedView
     ? {
         OR: [
           { productId: { in: ownedProductIds } },
-          { departmentId: { in: ownedDepartmentIds } },
+          { departmentId: { in: visibleDepartmentIds } },
         ],
       }
     : hasEntityFilter
