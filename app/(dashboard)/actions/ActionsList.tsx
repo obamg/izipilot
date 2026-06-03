@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { ActionEditModal, type EditableAction } from "@/components/ui/ActionEditModal";
+import { ActionsKanban, type KanbanAction } from "./ActionsKanban";
+
+type ViewMode = "list" | "kanban";
+const VIEW_STORAGE_KEY = "izipilot.actions.view";
+
+function subscribeViewPref(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+function getViewPref(): ViewMode {
+  if (typeof window === "undefined") return "list";
+  const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+  return stored === "kanban" || stored === "list" ? stored : "list";
+}
 
 interface ActionItem {
   id: string;
@@ -56,31 +71,112 @@ export function ActionsList({ actions, users, currentUserRole }: ActionsListProp
   const [priorityFilter, setPriorityFilter] = useState<ActionPriority | "ALL">("ALL");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
   const [editing, setEditing] = useState<EditableAction | null>(null);
+  // View pref is hydrated from localStorage via useSyncExternalStore so React
+  // renders the persisted choice on first client paint without a setState-in-
+  // effect cascade. SSR snapshot defaults to "list".
+  const view = useSyncExternalStore(subscribeViewPref, getViewPref, () => "list");
+  function updateView(next: ViewMode) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    window.dispatchEvent(new StorageEvent("storage", { key: VIEW_STORAGE_KEY }));
+  }
 
   const canEdit = currentUserRole !== "VIEWER";
   const canDelete = currentUserRole === "CEO" || currentUserRole === "MANAGEMENT";
 
   const filtered = actions.filter((a) => {
-    if (statusFilter !== "ALL" && a.status !== statusFilter) return false;
+    // In kanban view the status is encoded by column placement, so applying
+    // the status filter would hide every card except the matching column.
+    if (view === "list" && statusFilter !== "ALL" && a.status !== statusFilter) return false;
     if (priorityFilter !== "ALL" && a.priority !== priorityFilter) return false;
     if (assigneeFilter !== "ALL" && a.assigneeId !== assigneeFilter) return false;
     return true;
   });
 
+  const kanbanActions: KanbanAction[] = filtered.map((a) => ({
+    id: a.id,
+    krId: a.krId,
+    krTitle: a.krTitle,
+    entityCode: a.entityCode,
+    entityName: a.entityName,
+    title: a.title,
+    description: a.description,
+    assigneeId: a.assigneeId,
+    assigneeName: a.assigneeName,
+    status: a.status,
+    priority: a.priority,
+    dueDate: a.dueDate,
+    commentCount: a.commentCount,
+  }));
+
+  function openEditFromAction(action: { id: string; title: string; description: string | null; assigneeId: string; status: ActionStatus; priority: ActionPriority; dueDate: string | null }) {
+    if (!canEdit) return;
+    setEditing({
+      id: action.id,
+      title: action.title,
+      description: action.description,
+      assigneeId: action.assigneeId,
+      status: action.status,
+      priority: action.priority,
+      dueDate: action.dueDate,
+    });
+  }
+
   return (
     <div>
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as ActionStatus | "ALL")}
-          className="rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[11px] text-dark"
-          aria-label="Filtrer par statut"
+      {/* Filters + view toggle */}
+      <div className="flex flex-wrap gap-2 mb-3 items-center">
+        <div
+          role="tablist"
+          aria-label="Vue des actions"
+          className="inline-flex rounded-[7px] border border-[#deeaea] bg-white p-0.5"
         >
-          {STATUS_FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>{f.label}</option>
-          ))}
-        </select>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "list"}
+            onClick={() => updateView("list")}
+            className={`flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-[11px] font-medium transition-colors ${
+              view === "list" ? "bg-teal text-white" : "text-izi-gray hover:text-dark"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+            Liste
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "kanban"}
+            onClick={() => updateView("kanban")}
+            className={`flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-[11px] font-medium transition-colors ${
+              view === "kanban" ? "bg-teal text-white" : "text-izi-gray hover:text-dark"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3.5 h-3.5">
+              <rect x="3" y="4" width="5" height="16" rx="1" />
+              <rect x="10" y="4" width="5" height="11" rx="1" />
+              <rect x="17" y="4" width="4" height="8" rx="1" />
+            </svg>
+            Kanban
+          </button>
+        </div>
+
+        {view === "list" && (
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as ActionStatus | "ALL")}
+            className="rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[11px] text-dark"
+            aria-label="Filtrer par statut"
+          >
+            {STATUS_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+        )}
 
         <select
           value={priorityFilter}
@@ -110,7 +206,15 @@ export function ActionsList({ actions, users, currentUserRole }: ActionsListProp
         </span>
       </div>
 
-      {/* Table */}
+      {view === "kanban" && (
+        <ActionsKanban
+          actions={kanbanActions}
+          currentUserRole={currentUserRole}
+          onCardClick={canEdit ? openEditFromAction : undefined}
+        />
+      )}
+
+      {view === "list" && (
       <div className="bg-white rounded-[10px] border border-[#deeaea] overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-8 text-center text-[13px] text-izi-gray">
@@ -210,6 +314,7 @@ export function ActionsList({ actions, users, currentUserRole }: ActionsListProp
           </div>
         )}
       </div>
+      )}
 
       {editing && (
         <ActionEditModal
