@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 interface SidebarEntity {
   code: string;
@@ -94,6 +94,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/actions?assignee=me",
+    label: "Mes actions",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+  },
+  {
     href: "/customer-metrics",
     label: "CRM",
     icon: (
@@ -127,6 +137,25 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // /actions and /actions?assignee=me share a pathname — disambiguate by
+  // comparing the relevant query param so each nav item highlights only on
+  // its own URL.
+  const assigneeParam = searchParams.get("assignee");
+  function isNavActive(href: string): boolean {
+    const [hrefPath, hrefQuery] = href.split("?");
+    if (pathname !== hrefPath) return false;
+    if (!hrefQuery) {
+      // For plain hrefs (no query), require no special query on the URL.
+      // Otherwise "Actions" would light up on /actions?assignee=me too.
+      return !assigneeParam;
+    }
+    const want = new URLSearchParams(hrefQuery);
+    for (const [k, v] of want) {
+      if (searchParams.get(k) !== v) return false;
+    }
+    return true;
+  }
 
   return (
     <>
@@ -151,7 +180,7 @@ export function Sidebar({
             Navigation
           </div>
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isNavActive(item.href);
             return (
               <Link
                 key={item.href}

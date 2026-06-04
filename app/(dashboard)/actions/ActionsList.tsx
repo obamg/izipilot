@@ -46,6 +46,7 @@ interface ActionsListProps {
   actions: ActionItem[];
   users: { id: string; name: string }[];
   currentUserRole: UserRole;
+  defaultAssigneeId?: string | null;
 }
 
 const STATUS_FILTERS: { value: ActionStatus | "ALL"; label: string }[] = [
@@ -65,11 +66,11 @@ const PRIORITY_FILTERS: { value: ActionPriority | "ALL"; label: string }[] = [
   { value: "LOW", label: "Basse" },
 ];
 
-export function ActionsList({ actions, users, currentUserRole }: ActionsListProps) {
+export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId = null }: ActionsListProps) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<ActionStatus | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<ActionPriority | "ALL">("ALL");
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>(defaultAssigneeId ?? "ALL");
   const [editing, setEditing] = useState<EditableAction | null>(null);
   // View pref is hydrated from localStorage via useSyncExternalStore so React
   // renders the persisted choice on first client paint without a setState-in-

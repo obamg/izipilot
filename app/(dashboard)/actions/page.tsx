@@ -3,11 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ActionsList } from "./ActionsList";
 
-export default async function ActionsPage() {
+export default async function ActionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ assignee?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const orgId = session.user.orgId;
+  const params = await searchParams;
+  // ?assignee=me preselects the current user in the assignee filter (used by
+  // the "Mes actions" sidebar shortcut). Any other value is ignored so the
+  // dropdown stays fully user-controlled.
+  const defaultAssigneeId = params.assignee === "me" ? session.user.id : null;
 
   const [actions, orgUsers] = await Promise.all([
     prisma.action.findMany({
@@ -71,9 +80,11 @@ export default async function ActionsPage() {
       </div>
 
       <ActionsList
+        key={defaultAssigneeId ?? "all"}
         actions={actionsData}
         users={orgUsers}
         currentUserRole={session.user.role}
+        defaultAssigneeId={defaultAssigneeId}
       />
     </div>
   );
