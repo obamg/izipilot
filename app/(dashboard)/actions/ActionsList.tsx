@@ -17,9 +17,11 @@ function subscribeViewPref(callback: () => void): () => void {
   return () => window.removeEventListener("storage", callback);
 }
 function getViewPref(): ViewMode {
-  if (typeof window === "undefined") return "list";
+  // Default view is "kanban" for new visitors / cleared storage. Users who
+  // have explicitly switched to "list" keep their choice via localStorage.
+  if (typeof window === "undefined") return "kanban";
   const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-  return stored === "kanban" || stored === "list" ? stored : "list";
+  return stored === "kanban" || stored === "list" ? stored : "kanban";
 }
 
 interface ActionItem {
@@ -75,7 +77,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
   // View pref is hydrated from localStorage via useSyncExternalStore so React
   // renders the persisted choice on first client paint without a setState-in-
   // effect cascade. SSR snapshot defaults to "list".
-  const view = useSyncExternalStore(subscribeViewPref, getViewPref, () => "list");
+  const view = useSyncExternalStore(subscribeViewPref, getViewPref, () => "kanban");
   function updateView(next: ViewMode) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(VIEW_STORAGE_KEY, next);
