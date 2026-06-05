@@ -6,6 +6,7 @@ import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { ActionEditModal, type EditableAction } from "@/components/ui/ActionEditModal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { ActionsKanban, type KanbanAction } from "./ActionsKanban";
 
 type ViewMode = "list" | "kanban";
@@ -236,17 +237,14 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
           ))}
         </select>
 
-        <select
+        <SearchableSelect
           value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-          className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark"
-          aria-label="Filtrer par responsable"
-        >
-          <option value="ALL">Tous les responsables</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>{u.name}</option>
-          ))}
-        </select>
+          onChange={setAssigneeFilter}
+          ariaLabel="Filtrer par responsable"
+          allOption={{ value: "ALL", label: "Tous les responsables" }}
+          options={users.map((u) => ({ value: u.id, label: u.name }))}
+          className="min-w-[180px]"
+        />
 
         <select
           value={entityFilter}
@@ -262,26 +260,24 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
           ))}
         </select>
 
-        <select
+        <SearchableSelect
           value={krFilter}
-          onChange={(e) => setKrFilter(e.target.value)}
-          className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark max-w-[280px]"
-          aria-label="Filtrer par OKR (Key Result)"
-        >
-          <option value="ALL">Tous les OKR</option>
-          {krsByEntity.map((group) => (
-            <optgroup
-              key={group.entityCode || "none"}
-              label={`${group.entityCode} — ${group.entityName}`}
-            >
-              {group.krs.map((kr) => (
-                <option key={kr.krId} value={kr.krId}>
-                  {kr.krTitle}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          onChange={setKrFilter}
+          ariaLabel="Filtrer par OKR (Key Result)"
+          allOption={{ value: "ALL", label: "Tous les OKR" }}
+          options={krsByEntity.map((group) => ({
+            label: `${group.entityCode} — ${group.entityName}`,
+            options: group.krs.map((kr) => ({
+              value: kr.krId,
+              label: kr.krTitle,
+              // Make the entity code searchable too — typing "P3" surfaces
+              // every KR under Africapart even though the title doesn't
+              // contain the code.
+              searchHaystack: `${group.entityCode} ${group.entityName}`,
+            })),
+          }))}
+          className="min-w-[220px] max-w-[320px]"
+        />
 
         <span className="self-center text-[10px] text-izi-gray">
           {filtered.length} action{filtered.length > 1 ? "s" : ""}
