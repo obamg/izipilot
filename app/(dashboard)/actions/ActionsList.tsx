@@ -73,7 +73,20 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
   const [statusFilter, setStatusFilter] = useState<ActionStatus | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<ActionPriority | "ALL">("ALL");
   const [assigneeFilter, setAssigneeFilter] = useState<string>(defaultAssigneeId ?? "ALL");
+  const [entityFilter, setEntityFilter] = useState<string>("ALL");
   const [editing, setEditing] = useState<EditableAction | null>(null);
+
+  // Unique entities derived from the current action set so the dropdown only
+  // shows scopes that actually have actions today. Sorted by code (P1, P2…, D1…).
+  const entities = (() => {
+    const seen = new Map<string, { code: string; name: string }>();
+    for (const a of actions) {
+      if (a.entityCode && !seen.has(a.entityCode)) {
+        seen.set(a.entityCode, { code: a.entityCode, name: a.entityName });
+      }
+    }
+    return Array.from(seen.values()).sort((x, y) => x.code.localeCompare(y.code));
+  })();
   // View pref is hydrated from localStorage via useSyncExternalStore so React
   // renders the persisted choice on first client paint without a setState-in-
   // effect cascade. SSR snapshot defaults to "list".
@@ -93,6 +106,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
     if (view === "list" && statusFilter !== "ALL" && a.status !== statusFilter) return false;
     if (priorityFilter !== "ALL" && a.priority !== priorityFilter) return false;
     if (assigneeFilter !== "ALL" && a.assigneeId !== assigneeFilter) return false;
+    if (entityFilter !== "ALL" && a.entityCode !== entityFilter) return false;
     return true;
   });
 
@@ -172,7 +186,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as ActionStatus | "ALL")}
-            className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[11px] text-dark"
+            className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark"
             aria-label="Filtrer par statut"
           >
             {STATUS_FILTERS.map((f) => (
@@ -184,7 +198,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value as ActionPriority | "ALL")}
-          className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[11px] text-dark"
+          className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark"
           aria-label="Filtrer par priorite"
         >
           {PRIORITY_FILTERS.map((f) => (
@@ -195,12 +209,26 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
-          className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[11px] text-dark"
+          className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark"
           aria-label="Filtrer par responsable"
         >
           <option value="ALL">Tous les responsables</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+
+        <select
+          value={entityFilter}
+          onChange={(e) => setEntityFilter(e.target.value)}
+          className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark"
+          aria-label="Filtrer par OKR (produit ou département)"
+        >
+          <option value="ALL">Tous les OKR</option>
+          {entities.map((e) => (
+            <option key={e.code} value={e.code}>
+              {e.code} — {e.name}
+            </option>
           ))}
         </select>
 
