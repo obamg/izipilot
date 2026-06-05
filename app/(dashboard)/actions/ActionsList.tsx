@@ -74,6 +74,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
   const [priorityFilter, setPriorityFilter] = useState<ActionPriority | "ALL">("ALL");
   const [assigneeFilter, setAssigneeFilter] = useState<string>(defaultAssigneeId ?? "ALL");
   const [entityFilter, setEntityFilter] = useState<string>("ALL");
+  const [krFilter, setKrFilter] = useState<string>("ALL");
   const [editing, setEditing] = useState<EditableAction | null>(null);
 
   // Unique entities derived from the current action set so the dropdown only
@@ -86,6 +87,34 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
       }
     }
     return Array.from(seen.values()).sort((x, y) => x.code.localeCompare(y.code));
+  })();
+
+  // Unique KRs grouped by entity for the OKR filter dropdown. We only surface
+  // KRs that have at least one action, since the filter would otherwise
+  // expose options that yield 0 results.
+  const krsByEntity = (() => {
+    type KrInfo = { krId: string; krTitle: string };
+    const grouped = new Map<string, { entityCode: string; entityName: string; krs: KrInfo[] }>();
+    const seenKrs = new Set<string>();
+    for (const a of actions) {
+      if (seenKrs.has(a.krId)) continue;
+      seenKrs.add(a.krId);
+      const key = a.entityCode || "—";
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          entityCode: a.entityCode,
+          entityName: a.entityName,
+          krs: [],
+        });
+      }
+      grouped.get(key)!.krs.push({ krId: a.krId, krTitle: a.krTitle });
+    }
+    return Array.from(grouped.values())
+      .sort((x, y) => x.entityCode.localeCompare(y.entityCode))
+      .map((g) => ({
+        ...g,
+        krs: g.krs.sort((a, b) => a.krTitle.localeCompare(b.krTitle)),
+      }));
   })();
   // View pref is hydrated from localStorage via useSyncExternalStore so React
   // renders the persisted choice on first client paint without a setState-in-
@@ -107,6 +136,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
     if (priorityFilter !== "ALL" && a.priority !== priorityFilter) return false;
     if (assigneeFilter !== "ALL" && a.assigneeId !== assigneeFilter) return false;
     if (entityFilter !== "ALL" && a.entityCode !== entityFilter) return false;
+    if (krFilter !== "ALL" && a.krId !== krFilter) return false;
     return true;
   });
 
@@ -222,13 +252,34 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
           value={entityFilter}
           onChange={(e) => setEntityFilter(e.target.value)}
           className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark"
-          aria-label="Filtrer par OKR (produit ou département)"
+          aria-label="Filtrer par entité (produit ou département)"
         >
-          <option value="ALL">Tous les OKR</option>
+          <option value="ALL">Toutes les entités</option>
           {entities.map((e) => (
             <option key={e.code} value={e.code}>
               {e.code} — {e.name}
             </option>
+          ))}
+        </select>
+
+        <select
+          value={krFilter}
+          onChange={(e) => setKrFilter(e.target.value)}
+          className="izi-form-input rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-dark max-w-[280px]"
+          aria-label="Filtrer par OKR (Key Result)"
+        >
+          <option value="ALL">Tous les OKR</option>
+          {krsByEntity.map((group) => (
+            <optgroup
+              key={group.entityCode || "none"}
+              label={`${group.entityCode} — ${group.entityName}`}
+            >
+              {group.krs.map((kr) => (
+                <option key={kr.krId} value={kr.krId}>
+                  {kr.krTitle}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
 
