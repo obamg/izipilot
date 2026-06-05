@@ -128,7 +128,7 @@ export default async function NotificationsPage() {
       </div>
 
       {data.length === 0 ? (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">
             Aucune notification &mdash; tout est en ordre sur votre p&eacute;rim&egrave;tre.
           </p>
@@ -188,20 +188,33 @@ function NotificationCard({
   return (
     <Link
       href={`/kr/${alert.krId}`}
-      className={`block bg-white rounded-[10px] border border-[#deeaea] p-4 hover:border-teal-md transition-colors no-underline ${
+      className={`block bg-white rounded-[10px] border border-border-soft p-4 hover:border-teal-md transition-colors no-underline ${
         alert.isResolved ? "opacity-60" : ""
       }`}
     >
       <div className="flex items-start gap-3">
         <div
-          className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center shrink-0 text-xs mt-0.5"
+          className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center shrink-0 mt-0.5"
           style={{ backgroundColor: sev.text }}
+          aria-hidden="true"
         >
-          {alert.severity === "CRITICAL" || alert.severity === "HIGH"
-            ? "\uD83D\uDD34"
-            : alert.severity === "MEDIUM"
-            ? "\uD83D\uDFE1"
-            : "\u26AA"}
+          {alert.severity === "CRITICAL" || alert.severity === "HIGH" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </svg>
+          ) : alert.severity === "MEDIUM" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4" />
+              <path d="M12 16h.01" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="white" className="w-2.5 h-2.5">
+              <circle cx="12" cy="12" r="5" />
+            </svg>
+          )}
         </div>
 
         <div className="flex-1 min-w-0">

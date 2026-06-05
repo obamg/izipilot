@@ -29,7 +29,7 @@ export function KrHistoryChart({ data }: { data: DataPoint[] }) {
     <div className="h-[220px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#deeaea" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
           <XAxis
             dataKey="week"
             tick={{ fontSize: 10, fill: "#5f6e7a" }}
@@ -44,7 +44,7 @@ export function KrHistoryChart({ data }: { data: DataPoint[] }) {
             contentStyle={{
               fontSize: 12,
               borderRadius: 8,
-              border: "1px solid #deeaea",
+              border: "1px solid var(--border-soft)",
             }}
             formatter={(v) => [`${v}%`, "Score"]}
           />

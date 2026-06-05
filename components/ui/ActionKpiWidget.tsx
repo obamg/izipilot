@@ -10,7 +10,7 @@ export function ActionKpiWidget({ todo, inProgress, blocked, done, total }: Acti
   const donePercent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div className="rounded-[10px] border border-[#deeaea] bg-white px-4 py-[14px]">
+    <div className="rounded-[10px] border border-border-soft bg-white px-4 py-[14px]">
       <div className="text-[10px] text-izi-gray font-medium uppercase tracking-wide mb-1">
         Actions
       </div>
@@ -22,7 +22,7 @@ export function ActionKpiWidget({ todo, inProgress, blocked, done, total }: Acti
       {/* Mini breakdown */}
       <div className="flex gap-3 mt-2 text-[10px]">
         <span style={{ color: "var(--gray)" }}>{todo} à faire</span>
-        <span style={{ color: "#185FA5" }}>{inProgress} en cours</span>
+        <span style={{ color: "var(--teal)" }}>{inProgress} en cours</span>
         {blocked > 0 && (
           <span style={{ color: "var(--red)" }}>{blocked} bloquées</span>
         )}
@@ -37,7 +37,7 @@ export function ActionKpiWidget({ todo, inProgress, blocked, done, total }: Acti
           />
           <div
             className="h-full"
-            style={{ width: `${(inProgress / total) * 100}%`, backgroundColor: "#185FA5" }}
+            style={{ width: `${(inProgress / total) * 100}%`, backgroundColor: "var(--teal)" }}
           />
           <div
             className="h-full"

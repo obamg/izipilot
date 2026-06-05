@@ -209,7 +209,7 @@ export default async function SynthesisPage() {
       </div>
 
       {!canView ? (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">
             Cette vue est r&eacute;serv&eacute;e au Management et au CEO.
           </p>
@@ -218,11 +218,11 @@ export default async function SynthesisPage() {
         <>
           {/* Company Strategic OKRs */}
           {companyData.length > 0 && (
-            <div className="bg-white rounded-[10px] border border-[#deeaea] p-4 mb-3">
+            <div className="bg-white rounded-[10px] border border-border-soft p-4 mb-3">
               <div className="text-xs font-semibold text-dark mb-3">Objectifs Strat&eacute;giques</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {companyData.map((obj, i) => (
-                  <div key={i} className="border border-[#deeaea] rounded-lg p-3">
+                  <div key={i} className="border border-border-soft rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] font-medium text-dark flex-1">{obj.title}</span>
                       <span
@@ -234,7 +234,7 @@ export default async function SynthesisPage() {
                     </div>
                     <StatusBadge status={getStatusFromScore(obj.avgScore)} />
                     {obj.children.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-[#deeaea] space-y-1">
+                      <div className="mt-2 pt-2 border-t border-border-soft space-y-1">
                         <div className="text-[8px] font-semibold uppercase tracking-wider text-izi-gray mb-1">
                           Objectifs align&eacute;s
                         </div>
@@ -297,7 +297,7 @@ function SynthesisTable({
   rows: EntityRow[];
 }) {
   return (
-    <div className="bg-white rounded-[10px] border border-[#deeaea] p-4 mb-3">
+    <div className="bg-white rounded-[10px] border border-border-soft p-4 mb-3">
       <div className="text-xs font-semibold text-dark mb-3">{title}</div>
 
       {/* Desktop table */}
@@ -428,24 +428,26 @@ function SynthesisTable({
                 {row.overallScore}%
               </span>
             </div>
-            <div className="flex gap-2">
+            <ul className="flex gap-2" aria-label="Objectifs">
               {row.objectives.map((obj, i) => (
-                <div
+                <li
                   key={obj.id}
-                  className="flex-1 bg-izi-gray-lt rounded px-2 py-1 text-center"
+                  className="flex-1 bg-izi-gray-lt rounded px-2 py-1.5 text-center"
+                  title={`Objectif ${i + 1} — ${obj.title} · ${obj.avgScore}%`}
+                  aria-label={`Objectif ${i + 1} : ${obj.title}. Score ${obj.avgScore}%`}
                 >
                   <div
-                    className="font-mono text-[10px] font-semibold"
+                    className="font-mono text-[11px] font-semibold leading-none"
                     style={{ color: getScoreColor(obj.avgScore) }}
                   >
                     {obj.avgScore}%
                   </div>
-                  <div className="text-[8px] text-izi-gray truncate">
-                    O{i + 1}
+                  <div className="mt-1 text-[10px] text-izi-gray truncate" aria-hidden="true">
+                    {obj.title}
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
             {row.actionsTotal > 0 && (
               <div className="mt-2 pt-2 border-t border-izi-gray-lt flex items-center justify-between">
                 <span className="text-[9px] uppercase tracking-wide text-izi-gray">

@@ -194,7 +194,7 @@ export default async function CustomerMetricsPage() {
 
       {/* Org-wide KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             Tickets ouverts
           </div>
@@ -209,7 +209,7 @@ export default async function CustomerMetricsPage() {
             tous projets connect&eacute;s
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             R&eacute;solution moyenne
           </div>
@@ -225,7 +225,7 @@ export default async function CustomerMetricsPage() {
             agents du workspace partag&eacute;
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             Agents actifs
           </div>
@@ -237,7 +237,7 @@ export default async function CustomerMetricsPage() {
           </div>
         </div>
         <div
-          className="bg-white rounded-xl border border-[#deeaea] px-5 py-4"
+          className="bg-white rounded-xl border border-border-soft px-5 py-4"
           title="Nombre de tickets en breach SLA dans l'échantillon des derniers tickets fournis par Gleap. Borne basse — peut sous-estimer le total réel sur un gros backlog."
         >
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
@@ -262,7 +262,7 @@ export default async function CustomerMetricsPage() {
       </div>
 
       {/* Per-product cards */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5">
+      <div className="bg-white rounded-xl border border-border-soft p-5">
         <h2 className="text-base font-semibold text-dark mb-4">Par produit</h2>
 
         {products.length === 0 ? (
@@ -286,7 +286,7 @@ export default async function CustomerMetricsPage() {
                 <Link
                   key={p.code}
                   href={`/products/${p.code}`}
-                  className="block bg-white rounded-[10px] border border-[#deeaea] p-4 hover:border-teal-md transition-colors no-underline"
+                  className="block bg-white rounded-[10px] border border-border-soft p-4 hover:border-teal-md transition-colors no-underline"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <span
@@ -344,7 +344,7 @@ export default async function CustomerMetricsPage() {
       </div>
 
       {/* Weekly agent totals from persisted snapshots */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mt-4">
+      <div className="bg-white rounded-xl border border-border-soft p-5 mt-4">
         <div className="flex items-baseline justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-dark">
@@ -366,7 +366,7 @@ export default async function CustomerMetricsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="text-[9px] uppercase tracking-wide text-izi-gray font-semibold border-b border-[#deeaea]">
+                <tr className="text-[9px] uppercase tracking-wide text-izi-gray font-semibold border-b border-border-soft">
                   <th className="py-2 pr-3 w-8">#</th>
                   <th className="py-2 pr-3">Agent</th>
                   <th className="py-2 pr-3 text-right">Tickets 7j</th>
@@ -379,7 +379,7 @@ export default async function CustomerMetricsPage() {
                 {weekTotals.agents.map((a, idx) => (
                   <tr
                     key={a.agentId}
-                    className="border-b border-[#deeaea] last:border-0"
+                    className="border-b border-border-soft last:border-0"
                   >
                     <td className="py-2.5 pr-3 font-mono text-[11px] text-izi-gray">
                       {idx + 1}

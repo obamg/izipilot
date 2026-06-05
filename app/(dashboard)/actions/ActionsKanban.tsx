@@ -196,10 +196,10 @@ function KanbanColumn({ id, label, accent, cards, canDrag, onCardClick }: Kanban
     <div
       ref={setNodeRef}
       className={`flex flex-col rounded-[10px] border bg-izi-gray-lt/40 transition-colors ${
-        isOver ? "border-teal bg-teal-lt/60" : "border-[#deeaea]"
+        isOver ? "border-teal bg-teal-lt/60" : "border-border-soft"
       }`}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#deeaea]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border-soft">
         <div className="flex items-center gap-2">
           <span
             className="h-2 w-2 rounded-full"
@@ -271,7 +271,7 @@ function CardSurface({ action, dragging = false }: CardSurfaceProps) {
   const isDone = action.status === "DONE";
   return (
     <div
-      className={`rounded-[8px] border border-[#deeaea] bg-white p-2.5 shadow-sm hover:shadow transition-shadow ${
+      className={`rounded-[8px] border border-border-soft bg-white p-2.5 shadow-sm hover:shadow transition-shadow ${
         dragging ? "shadow-md ring-1 ring-teal/50" : ""
       }`}
     >

@@ -80,7 +80,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-white rounded-[10px] border border-[#deeaea] p-3 text-center"
+            className="bg-white rounded-[10px] border border-border-soft p-3 text-center"
           >
             <p className="font-mono text-[20px] font-semibold text-teal">{s.value}</p>
             <p className="text-[9px] text-izi-gray uppercase tracking-wider">{s.label}</p>
@@ -89,7 +89,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
       </div>
 
       {/* Settings form */}
-      <div className="bg-white rounded-[10px] border border-[#deeaea] p-5">
+      <div className="bg-white rounded-[10px] border border-border-soft p-5">
         <h3 className="font-serif text-[14px] text-dark mb-4">
           Param&egrave;tres de l&apos;organisation
         </h3>
@@ -103,7 +103,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
               name="name"
               required
               defaultValue={org.name}
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
             />
           </div>
 
@@ -114,7 +114,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
             <input
               value={org.slug}
               disabled
-              className="w-full px-[9px] py-[7px] border border-[#deeaea] rounded-[7px] text-[11px] text-izi-gray bg-izi-gray-lt font-sans cursor-not-allowed"
+              className="w-full px-[9px] py-[7px] border border-border-soft rounded-[7px] text-[11px] text-izi-gray bg-izi-gray-lt font-sans cursor-not-allowed"
             />
           </div>
 
@@ -137,7 +137,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
             <input
               value={PLAN_LABELS[org.plan] ?? org.plan}
               disabled
-              className="w-full px-[9px] py-[7px] border border-[#deeaea] rounded-[7px] text-[11px] text-izi-gray bg-izi-gray-lt font-sans cursor-not-allowed"
+              className="w-full px-[9px] py-[7px] border border-border-soft rounded-[7px] text-[11px] text-izi-gray bg-izi-gray-lt font-sans cursor-not-allowed"
             />
           </div>
 
@@ -148,7 +148,7 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
             <input
               value={new Date(org.createdAt).toLocaleDateString("fr-FR")}
               disabled
-              className="w-full px-[9px] py-[7px] border border-[#deeaea] rounded-[7px] text-[11px] text-izi-gray bg-izi-gray-lt font-sans cursor-not-allowed"
+              className="w-full px-[9px] py-[7px] border border-border-soft rounded-[7px] text-[11px] text-izi-gray bg-izi-gray-lt font-sans cursor-not-allowed"
             />
           </div>
 

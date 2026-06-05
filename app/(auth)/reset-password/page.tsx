@@ -4,12 +4,31 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+function Check({ ok }: { ok: boolean }) {
+  return ok ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+      <polyline points="5 12 10 17 19 8" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="var(--gray)" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+
+  const rules = {
+    minLength: newPwd.length >= 8,
+    matches: confirmPwd.length > 0 && newPwd === confirmPwd,
+  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -118,9 +137,16 @@ function ResetPasswordForm() {
             required
             minLength={8}
             autoComplete="new-password"
-            className="mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+            aria-describedby="newPassword-rules"
+            className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
           />
-          <p className="mt-1 text-xs text-izi-gray">8 caractères minimum.</p>
+          <ul id="newPassword-rules" className="mt-2 space-y-1 text-xs text-izi-gray">
+            <li className={`flex items-center gap-1.5 ${rules.minLength ? "text-izi-green" : ""}`}>
+              <Check ok={rules.minLength} /> Au moins 8 caractères
+            </li>
+          </ul>
         </div>
 
         <div>
@@ -134,8 +160,16 @@ function ResetPasswordForm() {
             required
             minLength={8}
             autoComplete="new-password"
-            className="mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
+            value={confirmPwd}
+            onChange={(e) => setConfirmPwd(e.target.value)}
+            aria-describedby="confirmPassword-rules"
+            className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
           />
+          <ul id="confirmPassword-rules" className="mt-2 space-y-1 text-xs text-izi-gray">
+            <li className={`flex items-center gap-1.5 ${rules.matches ? "text-izi-green" : ""}`}>
+              <Check ok={rules.matches} /> La confirmation correspond
+            </li>
+          </ul>
         </div>
 
         {error && (

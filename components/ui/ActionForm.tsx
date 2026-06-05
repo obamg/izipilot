@@ -59,7 +59,7 @@ export function ActionForm({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Titre de l'action..."
-        className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[13px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal"
+        className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal"
         required
         minLength={2}
         maxLength={200}
@@ -73,7 +73,7 @@ export function ActionForm({
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optionnel)"
         rows={2}
-        className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[13px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal resize-none"
+        className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal resize-none"
         maxLength={500}
         aria-label="Description"
       />
@@ -83,7 +83,7 @@ export function ActionForm({
         <select
           value={assigneeId}
           onChange={(e) => setAssigneeId(e.target.value)}
-          className="flex-1 min-w-[120px] rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+          className="flex-1 min-w-[120px] rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
           aria-label="Responsable"
         >
           {allUsers && allUsers !== users ? (
@@ -111,7 +111,7 @@ export function ActionForm({
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as ActionPriority)}
-          className="rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+          className="rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
           aria-label="Priorité"
         >
           <option value="LOW">Basse</option>
@@ -124,7 +124,7 @@ export function ActionForm({
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          className="rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+          className="rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
           aria-label="Date limite"
         />
       </div>
@@ -134,7 +134,7 @@ export function ActionForm({
         <button
           type="button"
           onClick={onCancel}
-          className="px-3 py-1 rounded-[7px] text-[12px] font-medium text-izi-gray border border-[#deeaea] bg-white hover:bg-gray-lt transition-colors"
+          className="px-3 py-1 rounded-[7px] text-[12px] font-medium text-izi-gray border border-border-soft bg-white hover:bg-gray-lt transition-colors"
         >
           Annuler
         </button>

@@ -118,7 +118,7 @@ export function ActionEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -142,7 +142,7 @@ export function ActionEditModal({
             required
             minLength={2}
             maxLength={200}
-            className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal"
+            className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal"
           />
         </div>
 
@@ -155,7 +155,7 @@ export function ActionEditModal({
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             maxLength={500}
-            className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal resize-none"
+            className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal resize-none"
           />
         </div>
 
@@ -167,7 +167,7 @@ export function ActionEditModal({
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+              className="w-full rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
             >
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
@@ -182,7 +182,7 @@ export function ActionEditModal({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ActionStatus)}
-              className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+              className="w-full rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
             >
               {STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -197,7 +197,7 @@ export function ActionEditModal({
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as ActionPriority)}
-              className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+              className="w-full rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
             >
               {PRIORITY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -213,7 +213,7 @@ export function ActionEditModal({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-[7px] border border-[#deeaea] bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+              className="w-full rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
             />
           </div>
         </div>
@@ -240,7 +240,7 @@ export function ActionEditModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-[7px] text-[12px] font-medium text-izi-gray border border-[#deeaea] bg-white hover:bg-gray-lt transition-colors"
+              className="px-3 py-1.5 rounded-[7px] text-[12px] font-medium text-izi-gray border border-border-soft bg-white hover:bg-gray-lt transition-colors"
             >
               Annuler
             </button>

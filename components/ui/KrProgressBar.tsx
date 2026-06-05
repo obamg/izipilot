@@ -45,12 +45,13 @@ export function KrProgressBar({
       )}
       {delta !== undefined && delta !== 0 && (
         <span
-          className={`text-[11px] font-medium shrink-0 ${
+          className={`font-mono text-[11px] font-medium shrink-0 ${
             delta > 0 ? "text-izi-green" : "text-izi-red"
           }`}
+          aria-label={`Variation ${delta > 0 ? "positive" : "négative"} de ${Math.abs(Math.round(delta))} points`}
         >
           {delta > 0 ? "+" : ""}
-          {Math.round(delta)}
+          {Math.round(delta)}%
         </span>
       )}
     </div>

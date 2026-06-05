@@ -25,6 +25,10 @@
 *.pem
 .mcp.json
 
+# local Claude Code tooling (skills, settings, personal config)
+.claude/skills/
+.claude/settings.local.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

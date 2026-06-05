@@ -69,7 +69,7 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
       </div>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mb-4">
+      <div className="bg-white rounded-xl border border-border-soft p-5 mb-4">
         <div className="flex items-center gap-3">
           <span
             className="font-mono text-sm font-semibold px-2.5 py-1 rounded"
@@ -93,7 +93,7 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
       </div>
 
       {/* Objectives + KRs */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mb-4">
+      <div className="bg-white rounded-xl border border-border-soft p-5 mb-4">
         <h2 className="text-base font-semibold text-dark mb-4">Objectifs &amp; KRs</h2>
         {entity.objectives.length === 0 && (
           <p className="text-sm text-izi-gray py-4">Aucun objectif d&eacute;fini.</p>
@@ -150,7 +150,7 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
       </div>
 
       {/* Actions */}
-      <div id="actions" className="bg-white rounded-xl border border-[#deeaea] p-5 scroll-mt-20">
+      <div id="actions" className="bg-white rounded-xl border border-border-soft p-5 scroll-mt-20">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-dark">Actions</h2>

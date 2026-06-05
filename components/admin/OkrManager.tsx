@@ -135,7 +135,7 @@ export function OkrManager({
         <select
           value={filterQuarter}
           onChange={(e) => setFilterQuarter(e.target.value)}
-          className="px-[9px] py-[6px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white"
+          className="izi-form-input px-[9px] py-[6px] border border-teal-md rounded-[7px] text-dark bg-white"
         >
           <option value="all">Tous les trimestres</option>
           <option value="Q1">Q1</option>
@@ -147,7 +147,7 @@ export function OkrManager({
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="px-[9px] py-[6px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white"
+          className="izi-form-input px-[9px] py-[6px] border border-teal-md rounded-[7px] text-dark bg-white"
         >
           <option value="all">Tous les types</option>
           <option value="DEPARTMENT">D&eacute;partements</option>
@@ -169,12 +169,12 @@ export function OkrManager({
         {filtered.map((o) => (
           <div
             key={o.id}
-            className={`bg-white rounded-[10px] border border-[#deeaea] overflow-hidden ${
+            className={`bg-white rounded-[10px] border border-border-soft overflow-hidden ${
               !o.isActive ? "opacity-50" : ""
             }`}
           >
             {/* Objective header */}
-            <div className="px-4 py-3 border-b border-[#deeaea] flex items-center gap-2">
+            <div className="px-4 py-3 border-b border-border-soft flex items-center gap-2">
               {getEntityBadge(o)}
               <span className="text-[11px] font-medium text-dark flex-1 truncate">
                 {o.title}
@@ -204,7 +204,7 @@ export function OkrManager({
             )}
 
             {/* Key Results */}
-            <div className="divide-y divide-[#deeaea]">
+            <div className="divide-y divide-border-soft">
               {o.keyResults.map((kr) => {
                 const scoreNum = Math.round(Number(kr.score) * 100);
                 const st = STATUS_LABELS[kr.status] || STATUS_LABELS.NOT_STARTED;
@@ -263,7 +263,7 @@ export function OkrManager({
 
             {/* Add KR button */}
             {o.isActive && (
-              <div className="px-4 py-2 border-t border-[#deeaea]">
+              <div className="px-4 py-2 border-t border-border-soft">
                 <button
                   onClick={() => setAddKrForObj(o.id)}
                   className="text-[10px] font-medium text-teal hover:underline"
@@ -277,7 +277,7 @@ export function OkrManager({
       </div>
 
       {filtered.length === 0 && (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">Aucun objectif trouv&eacute;.</p>
         </div>
       )}

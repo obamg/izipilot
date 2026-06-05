@@ -16,6 +16,20 @@
   --green-lt: #e1f5ee;
   --gray: #5f6e7a;
   --gray-lt: #f2f6f7;
+  --border-soft: #deeaea; /* Standard 1px card/divider border */
+
+  /* Z-index scale — keep these in lockstep across the app.
+     Modals must always be above the sticky nav; the overlay (90) sits
+     just below the modal body (100) but above everything else. */
+  --z-sticky: 10;
+  --z-overlay: 40;        /* sidebar backdrop (mobile) */
+  --z-drawer: 50;         /* sidebar drawer (mobile) */
+  --z-fab: 60;            /* floating action button */
+  --z-nav: 70;            /* top nav bar */
+  --z-dropdown: 80;       /* nav menu / popovers anchored to nav */
+  --z-modal-backdrop: 90;
+  --z-modal: 100;
+  --z-toast: 110;
 
   --background: var(--gray-lt);
   --foreground: var(--dark-md);
@@ -40,19 +54,31 @@
   --color-izi-green-lt: var(--green-lt);
   --color-izi-gray: var(--gray);
   --color-izi-gray-lt: var(--gray-lt);
+  --color-border-soft: var(--border-soft);
 
   /* Fonts */
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "DM Serif Display", ui-serif, Georgia, serif;
   --font-mono: "DM Mono", ui-monospace, monospace;
 
-  /* Type scale */
-  --text-xs: 0.8125rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.625rem;
-  --text-2xl: 2.25rem;
+  /* Type scale (IziPilot spec: 11/13/15/18/24/32px) */
+  --text-xs: 0.6875rem;   /* 11px — labels, metadata */
+  --text-sm: 0.8125rem;   /* 13px — secondary, légendes */
+  --text-base: 0.9375rem; /* 15px — body, formulaires */
+  --text-lg: 1.125rem;    /* 18px — sous-titres, noms produits */
+  --text-xl: 1.5rem;      /* 24px — titres de page */
+  --text-2xl: 2rem;       /* 32px — KPI scores, métriques clés */
+}
+
+/* Form inputs must be ≥16px on mobile to prevent iOS Safari auto-zoom-on-focus.
+   Applied via .izi-form-input utility — pair with text-* on md+ for desktop sizing. */
+.izi-form-input {
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  .izi-form-input {
+    font-size: var(--text-xs);
+  }
 }
 
 body {

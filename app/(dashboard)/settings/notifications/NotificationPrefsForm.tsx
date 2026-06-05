@@ -40,7 +40,7 @@ export function NotificationPrefsForm({ initial }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <div className="bg-white rounded-[10px] border border-[#deeaea] divide-y divide-[#eef2f3]">
+      <div className="bg-white rounded-[10px] border border-border-soft divide-y divide-[#eef2f3]">
         {NOTIFICATION_EVENTS.map((evt) => {
           const checked = values[evt.key];
           return (

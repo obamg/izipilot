@@ -49,7 +49,7 @@ export function DashboardShell({
         {/* Mobile menu button */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="fixed bottom-4 left-4 z-[60] lg:hidden w-10 h-10 bg-teal text-white rounded-full flex items-center justify-center shadow-lg"
+          className="fixed bottom-4 left-4 z-[var(--z-fab)] lg:hidden w-11 h-11 bg-teal text-white rounded-full flex items-center justify-center shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2"
           aria-label="Menu"
         >
           <svg

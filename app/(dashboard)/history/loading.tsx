@@ -1,9 +1,27 @@
+import { Skeleton } from "@/components/ui/Skeleton";
+
 export default function Loading() {
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-3 border-teal border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs text-izi-gray">Chargement de l&apos;historique...</span>
+    <div>
+      <div className="mb-4">
+        <Skeleton className="h-6 w-44 mb-2" />
+        <Skeleton className="h-3 w-72" />
+      </div>
+
+      {/* Entity selector */}
+      <div className="bg-white rounded-[10px] border border-border-soft p-4 mb-3">
+        <Skeleton className="h-2 w-32 mb-3" />
+        <div className="flex flex-wrap gap-1.5">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <Skeleton key={i} className="h-9 w-32" />
+          ))}
+        </div>
+      </div>
+
+      {/* Chart area */}
+      <div className="bg-white rounded-[10px] border border-border-soft p-4">
+        <Skeleton className="h-4 w-48 mb-3" />
+        <Skeleton className="h-[280px] w-full" />
       </div>
     </div>
   );

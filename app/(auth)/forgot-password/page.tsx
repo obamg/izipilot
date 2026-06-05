@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
             type="email"
             required
             autoComplete="email"
-            className="mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
+            className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
             placeholder="vous@izichange.com"
           />
         </div>

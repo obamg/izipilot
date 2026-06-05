@@ -75,7 +75,7 @@ export function ResetPasswordModal({
             type="password"
             required
             minLength={8}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
         <div>
@@ -87,7 +87,7 @@ export function ResetPasswordModal({
             type="password"
             required
             minLength={8}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
 

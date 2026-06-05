@@ -79,12 +79,12 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher..."
-          className="px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans w-[200px]"
+          className="izi-form-input px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans w-full sm:w-[200px]"
         />
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+          className="izi-form-input px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
         >
           <option value="ALL">Tous les r&ocirc;les</option>
           <option value="CEO">CEO</option>
@@ -101,7 +101,7 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
       </div>
 
       {/* Desktop table */}
-      <div className="bg-white rounded-[10px] border border-[#deeaea] overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-border-soft overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
@@ -164,20 +164,20 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
                       <div className="flex justify-end gap-1">
                         <button
                           onClick={() => setEditUser(user)}
-                          className="px-2 py-1 rounded text-[9px] font-medium text-teal hover:bg-teal-lt transition-colors"
+                          className="px-2 py-1 rounded text-[9px] font-medium text-teal hover:bg-teal-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors"
                         >
                           Modifier
                         </button>
                         <button
                           onClick={() => setResetUser(user)}
-                          className="px-2 py-1 rounded text-[9px] font-medium text-izi-gray hover:bg-izi-gray-lt transition-colors"
+                          className="px-2 py-1 rounded text-[9px] font-medium text-izi-gray hover:bg-izi-gray-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors"
                         >
                           MdP
                         </button>
                         {user.id !== currentUserId && user.isActive && (
                           <button
                             onClick={() => setDeactivateUser(user)}
-                            className="px-2 py-1 rounded text-[9px] font-medium text-izi-red hover:bg-izi-red-lt transition-colors"
+                            className="px-2 py-1 rounded text-[9px] font-medium text-izi-red hover:bg-izi-red-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-izi-red focus-visible:ring-offset-1 transition-colors"
                           >
                             D&eacute;sactiver
                           </button>
@@ -211,19 +211,27 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
                 <div className="text-[10px] text-izi-gray mb-2">
                   {user.email}
                 </div>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setEditUser(user)}
-                    className="px-2 py-1 rounded text-[9px] font-medium text-teal border border-teal-md hover:bg-teal-lt transition-colors"
+                    className="min-h-[44px] px-3 py-2 rounded-md text-xs font-medium text-teal border border-teal-md hover:bg-teal-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors"
                   >
                     Modifier
                   </button>
                   <button
                     onClick={() => setResetUser(user)}
-                    className="px-2 py-1 rounded text-[9px] font-medium text-izi-gray border border-izi-gray-lt hover:bg-izi-gray-lt transition-colors"
+                    className="min-h-[44px] px-3 py-2 rounded-md text-xs font-medium text-izi-gray border border-izi-gray-lt hover:bg-izi-gray-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors"
                   >
                     MdP
                   </button>
+                  {user.id !== currentUserId && user.isActive && (
+                    <button
+                      onClick={() => setDeactivateUser(user)}
+                      className="min-h-[44px] px-3 py-2 rounded-md text-xs font-medium text-izi-red border border-izi-red-lt hover:bg-izi-red-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-izi-red focus-visible:ring-offset-1 transition-colors"
+                    >
+                      Désactiver
+                    </button>
+                  )}
                 </div>
               </div>
             );

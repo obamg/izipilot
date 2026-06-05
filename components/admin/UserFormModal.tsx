@@ -80,7 +80,7 @@ export function UserFormModal({ open, onClose, user }: UserFormModalProps) {
             type="text"
             required
             defaultValue={user?.name ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
 
@@ -93,7 +93,7 @@ export function UserFormModal({ open, onClose, user }: UserFormModalProps) {
               name="email"
               type="email"
               required
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
               placeholder="utilisateur@izipilote.com"
             />
           </div>
@@ -107,7 +107,7 @@ export function UserFormModal({ open, onClose, user }: UserFormModalProps) {
             name="role"
             required
             defaultValue={user?.role ?? "PO"}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
           >
             {ROLES.map((r) => (
               <option key={r.value} value={r.value}>
@@ -127,7 +127,7 @@ export function UserFormModal({ open, onClose, user }: UserFormModalProps) {
               type="password"
               required
               minLength={8}
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
               placeholder="Min. 8 caract\u00e8res"
             />
           </div>

@@ -46,7 +46,7 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
   }, [showMenu]);
 
   return (
-    <nav className="bg-dark h-[56px] flex items-center justify-between px-6 sticky top-0 z-[100] border-b border-white/[0.08]">
+    <nav className="bg-dark h-[56px] flex items-center justify-between px-6 sticky top-0 z-[var(--z-nav)] border-b border-white/[0.08]">
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-3 no-underline group">
         <div className="w-[34px] h-[34px] bg-teal rounded-lg flex items-center justify-center shadow-sm shadow-teal/20">
@@ -75,7 +75,7 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
             <Link
               key={tab.href}
               href={tab.href}
-              className={`px-3.5 py-[7px] text-sm font-medium rounded-md transition-all no-underline ${
+              className={`px-3.5 py-[7px] text-sm font-medium rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                 isActive
                   ? "bg-teal text-white shadow-sm shadow-teal/25"
                   : "text-white/65 hover:bg-white/[0.08] hover:text-white"
@@ -88,7 +88,7 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
         {userRole === "CEO" && (
           <Link
             href="/admin"
-            className={`px-3.5 py-[7px] text-sm font-medium rounded-md transition-all no-underline ${
+            className={`px-3.5 py-[7px] text-sm font-medium rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
               pathname.startsWith("/admin")
                 ? "bg-teal text-white shadow-sm shadow-teal/25"
                 : "text-white/65 hover:bg-white/[0.08] hover:text-white"
@@ -105,19 +105,21 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
           S{String(weekNumber).padStart(2, "0")} &middot; {year}
         </span>
 
-        {/* Bell */}
+        {/* Bell — alert presence uses gold (attention), not red.
+            Red is reserved for status<40% per design system. */}
         <Link
           href="/alerts"
-          className="w-[34px] h-[34px] rounded-lg flex items-center justify-center cursor-pointer relative no-underline transition-colors hover:bg-white/[0.1]"
+          aria-label={alertCount > 0 ? `${alertCount} alerte${alertCount > 1 ? "s" : ""}` : "Alertes"}
+          className="w-11 h-11 md:w-[34px] md:h-[34px] rounded-lg flex items-center justify-center cursor-pointer relative no-underline transition-colors hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
           style={{
-            background: alertCount > 0 ? "rgba(226,60,74,.15)" : "rgba(255,255,255,.06)",
-            border: alertCount > 0 ? "1px solid rgba(226,60,74,.3)" : "1px solid rgba(255,255,255,.06)",
+            background: alertCount > 0 ? "rgba(244,169,0,.15)" : "rgba(255,255,255,.06)",
+            border: alertCount > 0 ? "1px solid rgba(244,169,0,.35)" : "1px solid rgba(255,255,255,.06)",
           }}
         >
           <svg
             viewBox="0 0 24 24"
             fill="none"
-            stroke={alertCount > 0 ? "#ff8090" : "rgba(255,255,255,.45)"}
+            stroke={alertCount > 0 ? "var(--gold)" : "rgba(255,255,255,.45)"}
             strokeWidth="2"
             strokeLinecap="round"
             className="w-4 h-4"
@@ -126,7 +128,7 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
             <path d="M13.73 21a2 2 0 01-3.46 0" />
           </svg>
           {alertCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-izi-red rounded-full border-2 border-dark flex items-center justify-center text-[10px] font-bold text-white">
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-gold rounded-full border-2 border-dark flex items-center justify-center text-[10px] font-bold text-dark px-1">
               {alertCount}
             </span>
           )}
@@ -136,28 +138,30 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="w-[34px] h-[34px] bg-teal rounded-full flex items-center justify-center text-xs font-semibold text-white cursor-pointer border-2 border-teal-dk/30 hover:border-teal-md/50 transition-colors"
+            aria-label="Menu utilisateur"
+            aria-expanded={showMenu}
+            className="w-11 h-11 md:w-[34px] md:h-[34px] bg-teal rounded-full flex items-center justify-center text-xs font-semibold text-white cursor-pointer border-2 border-teal-dk/30 hover:border-teal-md/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-colors"
           >
             {initials}
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-[44px] bg-white rounded-xl shadow-xl border border-[#deeaea] py-1.5 min-w-[180px] z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-              <div className="px-4 py-2.5 text-sm text-dark-md font-medium border-b border-[#deeaea]">
+            <div className="absolute right-0 top-[44px] bg-white rounded-xl shadow-xl border border-border-soft py-1.5 min-w-[180px] z-[var(--z-dropdown)] animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="px-4 py-2.5 text-sm text-dark-md font-medium border-b border-border-soft">
                 {userName}
               </div>
-              <div className="px-4 py-1.5 text-xs text-izi-gray border-b border-[#deeaea]">
+              <div className="px-4 py-1.5 text-xs text-izi-gray border-b border-border-soft">
                 {userRole}
               </div>
               <Link
                 href="/settings/notifications"
                 onClick={() => setShowMenu(false)}
-                className="block px-4 py-2.5 text-sm text-dark-md hover:bg-teal-lt transition-colors no-underline border-b border-[#deeaea]"
+                className="block px-4 py-2.5 text-sm text-dark-md hover:bg-teal-lt focus-visible:outline-none focus-visible:bg-teal-lt transition-colors no-underline border-b border-border-soft"
               >
                 Pr&eacute;f&eacute;rences de notification
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="w-full text-left px-4 py-2.5 text-sm text-izi-red hover:bg-izi-red-lt transition-colors cursor-pointer border-none bg-transparent"
+                className="w-full text-left px-4 py-2.5 text-sm text-izi-red hover:bg-izi-red-lt focus-visible:outline-none focus-visible:bg-izi-red-lt transition-colors cursor-pointer border-none bg-transparent"
               >
                 Se d&eacute;connecter
               </button>

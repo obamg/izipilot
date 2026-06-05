@@ -88,7 +88,7 @@ export function HistoryChart({ entities, keyResults, defaultEntityCode }: Histor
   return (
     <div className="space-y-3">
       {/* Entity selector */}
-      <div className="bg-white rounded-[10px] border border-[#deeaea] p-4">
+      <div className="bg-white rounded-[10px] border border-border-soft p-4">
         <label className="text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-2 block">
           S&eacute;lectionner une entit&eacute;
         </label>
@@ -97,7 +97,8 @@ export function HistoryChart({ entities, keyResults, defaultEntityCode }: Histor
             <button
               key={entity.id}
               onClick={() => setSelectedEntityId(entity.id)}
-              className={`flex items-center gap-[6px] px-3 py-[5px] rounded-md text-[11px] transition-all border ${
+              aria-pressed={selectedEntityId === entity.id}
+              className={`flex items-center gap-[6px] min-h-[44px] md:min-h-0 px-3 py-2 md:py-[5px] rounded-md text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-all border ${
                 selectedEntityId === entity.id
                   ? "border-teal bg-teal-lt text-dark font-medium"
                   : "border-transparent bg-izi-gray-lt text-izi-gray hover:bg-teal-lt"
@@ -114,7 +115,7 @@ export function HistoryChart({ entities, keyResults, defaultEntityCode }: Histor
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-[10px] border border-[#deeaea] p-4">
+      <div className="bg-white rounded-[10px] border border-border-soft p-4">
         <div className="mb-3">
           <div className="text-xs font-semibold text-dark">
             Progression &mdash; {selectedEntity?.code} {selectedEntity?.name}

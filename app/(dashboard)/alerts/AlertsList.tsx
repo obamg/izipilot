@@ -102,12 +102,12 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
     <div>
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-3">
-        <div className="flex gap-0.5 bg-white rounded-lg border border-[#deeaea] p-0.5">
+        <div className="flex gap-0.5 bg-white rounded-lg border border-border-soft p-0.5">
           {(["active", "all", "resolved"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
+              className={`min-h-[44px] md:min-h-0 px-3 py-2 md:py-1.5 rounded-md text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal transition-colors ${
                 filter === f
                   ? "bg-teal text-white"
                   : "text-izi-gray hover:bg-izi-gray-lt"
@@ -118,7 +118,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
           ))}
         </div>
 
-        <div className="flex gap-0.5 bg-white rounded-lg border border-[#deeaea] p-0.5">
+        <div className="flex gap-0.5 bg-white rounded-lg border border-border-soft p-0.5">
           {(
             [
               { v: "ALL", label: "Toutes sources" },
@@ -129,7 +129,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
             <button
               key={opt.v}
               onClick={() => setSourceFilter(opt.v as AlertSource | "ALL")}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
+              className={`min-h-[44px] md:min-h-0 px-3 py-2 md:py-1.5 rounded-md text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal transition-colors ${
                 sourceFilter === opt.v
                   ? "bg-teal text-white"
                   : "text-izi-gray hover:bg-izi-gray-lt"
@@ -143,7 +143,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as AlertType | "ALL")}
-          className="px-3 py-1.5 rounded-lg border border-[#deeaea] bg-white text-[11px] text-dark font-sans"
+          className="izi-form-input min-h-[44px] md:min-h-0 px-3 py-2 md:py-1.5 rounded-lg border border-border-soft bg-white text-dark font-sans"
         >
           <option value="ALL">Tous les types</option>
           {Object.entries(TYPE_LABELS).map(([value, label]) => (
@@ -157,7 +157,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
       {/* Alert cards */}
       <div className="space-y-2">
         {filtered.length === 0 && (
-          <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+          <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
             <p className="text-sm text-izi-gray">Aucune alerte trouv&eacute;e.</p>
           </div>
         )}
@@ -169,21 +169,34 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
           return (
             <div
               key={alert.id}
-              className={`bg-white rounded-[10px] border border-[#deeaea] p-4 ${
+              className={`bg-white rounded-[10px] border border-border-soft p-4 ${
                 alert.isResolved ? "opacity-60" : ""
               }`}
             >
               <div className="flex items-start gap-3">
-                {/* Severity indicator */}
+                {/* Severity indicator \u2014 SVG glyph on colored chip */}
                 <div
-                  className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center shrink-0 text-xs mt-0.5"
+                  className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center shrink-0 mt-0.5"
                   style={{ backgroundColor: sevConfig.text }}
+                  aria-hidden="true"
                 >
-                  {alert.severity === "CRITICAL" || alert.severity === "HIGH"
-                    ? "\uD83D\uDD34"
-                    : alert.severity === "MEDIUM"
-                    ? "\uD83D\uDFE1"
-                    : "\u26AA"}
+                  {alert.severity === "CRITICAL" || alert.severity === "HIGH" ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                  ) : alert.severity === "MEDIUM" ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 8v4" />
+                      <path d="M12 16h.01" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="white" className="w-2.5 h-2.5">
+                      <circle cx="12" cy="12" r="5" />
+                    </svg>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -288,13 +301,13 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
                         value={resolution}
                         onChange={(e) => setResolution(e.target.value)}
                         placeholder="D&eacute;crivez la r&eacute;solution / d&eacute;cision prise..."
-                        className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[60px] leading-relaxed"
+                        className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans resize-none min-h-[60px] leading-relaxed"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleResolve(alert.id)}
                           disabled={!resolution.trim() || isPending}
-                          className="px-3 py-1.5 rounded-md text-[11px] font-medium bg-teal text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
+                          className="min-h-[44px] md:min-h-0 px-3 py-2 md:py-1.5 rounded-md text-[11px] font-medium bg-teal text-white hover:bg-teal-dk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors disabled:opacity-50"
                         >
                           Confirmer
                         </button>
@@ -303,7 +316,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
                             setResolvingId(null);
                             setResolution("");
                           }}
-                          className="px-3 py-1.5 rounded-md text-[11px] font-medium text-izi-gray hover:bg-izi-gray-lt transition-colors"
+                          className="min-h-[44px] md:min-h-0 px-3 py-2 md:py-1.5 rounded-md text-[11px] font-medium text-izi-gray hover:bg-izi-gray-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors"
                         >
                           Annuler
                         </button>

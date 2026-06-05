@@ -162,14 +162,14 @@ export function Sidebar({
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-[var(--z-overlay)] lg:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
         className={`bg-dark border-r border-white/[0.06] py-4 overflow-y-auto w-[250px] shrink-0
-          fixed lg:static inset-y-0 left-0 z-50 top-[56px]
+          fixed lg:static inset-y-0 left-0 z-[var(--z-drawer)] top-[56px]
           transition-transform duration-200
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
@@ -186,7 +186,7 @@ export function Sidebar({
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px transition-all no-underline ${
+                className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                   isActive
                     ? "bg-teal/[0.18] text-[#7dd8d8]"
                     : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
@@ -199,18 +199,18 @@ export function Sidebar({
                   // Submission day = Sunday; deadline is Sunday 23:59.
                   const isBeforeDeadline = now.getDay() === 0;
                   return isBeforeDeadline ? (
-                    <span className="ml-auto bg-[rgba(226,60,74,0.28)] text-[#ff8090] text-sm font-semibold px-[5px] py-px rounded-md">
+                    <span className="ml-auto bg-[rgba(244,169,0,0.22)] text-[#f4a900] text-sm font-semibold px-[5px] py-px rounded-md">
                       Due
                     </span>
                   ) : null;
                 })()}
                 {item.href === "/notifications" && notificationCount > 0 && (
-                  <span className="ml-auto bg-[rgba(226,60,74,0.28)] text-[#ff8090] text-sm font-semibold px-[5px] py-px rounded-md">
+                  <span className="ml-auto bg-[rgba(244,169,0,0.22)] text-[#f4a900] text-sm font-semibold px-[5px] py-px rounded-md">
                     {notificationCount}
                   </span>
                 )}
                 {item.href === "/alerts" && alertCount > 0 && (
-                  <span className="ml-auto bg-[rgba(226,60,74,0.28)] text-[#ff8090] text-sm font-semibold px-[5px] py-px rounded-md">
+                  <span className="ml-auto bg-[rgba(244,169,0,0.22)] text-[#f4a900] text-sm font-semibold px-[5px] py-px rounded-md">
                     {alertCount}
                   </span>
                 )}
@@ -234,7 +234,7 @@ export function Sidebar({
                     key={item.href}
                     href={item.href}
                     onClick={onClose}
-                    className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px transition-all no-underline ${
+                    className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                       isActive
                         ? "bg-teal/[0.18] text-[#7dd8d8]"
                         : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"

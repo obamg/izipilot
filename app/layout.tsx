@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, DM_Serif_Display, DM_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -23,6 +23,13 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "IziPilot — Pilotage OKR",
   description: "L'exécution au rythme de vos ambitions",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#008081",
 };
 
 export default function RootLayout({

@@ -116,7 +116,7 @@ export default async function KrDetailPage({
       </div>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mb-4">
+      <div className="bg-white rounded-xl border border-border-soft p-5 mb-4">
         <div className="text-[11px] text-izi-gray mb-1">
           Objectif: {kr.objective.title}
         </div>
@@ -208,7 +208,7 @@ export default async function KrDetailPage({
       )}
 
       {/* History chart */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5 mb-4">
+      <div className="bg-white rounded-xl border border-border-soft p-5 mb-4">
         <h2 className="text-base font-semibold text-dark mb-3">
           Progression (13 derni&egrave;res semaines)
         </h2>
@@ -221,7 +221,7 @@ export default async function KrDetailPage({
           latestEntry.proposedSolution ||
           latestEntry.actionNeeded ||
           latestEntry.comment) && (
-          <div className="bg-white rounded-xl border border-[#deeaea] p-5 mb-4">
+          <div className="bg-white rounded-xl border border-border-soft p-5 mb-4">
             <h2 className="text-base font-semibold text-dark mb-1">
               Derni&egrave;re note du PO
             </h2>
@@ -260,7 +260,7 @@ export default async function KrDetailPage({
         )}
 
       {/* Actions */}
-      <div className="bg-white rounded-xl border border-[#deeaea] p-5">
+      <div className="bg-white rounded-xl border border-border-soft p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-dark">Actions</h2>

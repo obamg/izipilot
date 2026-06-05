@@ -81,7 +81,7 @@ export function ActionCard({
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       className={`group relative overflow-hidden rounded-2xl border bg-white p-4 transition-all ${
-        isOverdue ? "border-[var(--red-lt)]" : "border-[#deeaea]"
+        isOverdue ? "border-[var(--red-lt)]" : "border-border-soft"
       } ${
         interactive
           ? "cursor-pointer hover:border-teal-md hover:shadow-[0_6px_20px_-10px_rgba(28,58,74,0.22)] focus:outline-none focus-visible:border-teal focus-visible:shadow-[0_6px_20px_-10px_rgba(28,58,74,0.22)]"

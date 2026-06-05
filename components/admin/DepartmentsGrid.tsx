@@ -126,7 +126,7 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
         {departments.map((d) => (
           <div
             key={d.id}
-            className={`bg-white rounded-[10px] border border-[#deeaea] p-4 ${
+            className={`bg-white rounded-[10px] border border-border-soft p-4 ${
               !d.isActive ? "opacity-50" : ""
             }`}
           >
@@ -153,7 +153,7 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
             </div>
 
             {/* Members section */}
-            <div className="border-t border-[#deeaea] pt-3 mb-3">
+            <div className="border-t border-border-soft pt-3 mb-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-izi-gray">
                   Membres ({d.members.length})
@@ -267,7 +267,7 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
       </div>
 
       {departments.length === 0 && (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">Aucun d&eacute;partement.</p>
         </div>
       )}

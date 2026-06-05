@@ -104,7 +104,7 @@ export function ObjectiveFormModal({
             name="title"
             required
             defaultValue={objective?.title ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
 
@@ -115,7 +115,7 @@ export function ObjectiveFormModal({
           <textarea
             name="why"
             defaultValue={objective?.why ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[52px]"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans resize-none h-[52px]"
           />
         </div>
 
@@ -159,7 +159,7 @@ export function ObjectiveFormModal({
                 name="entityId"
                 required
                 defaultValue={defaultEntityId ?? ""}
-                className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+                className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
               >
                 <option value="">S&eacute;lectionner...</option>
                 {entities.map((e) => (
@@ -181,7 +181,7 @@ export function ObjectiveFormModal({
               name="quarter"
               required
               defaultValue={objective?.quarter ?? "Q1"}
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
             >
               <option value="Q1">Q1</option>
               <option value="Q2">Q2</option>
@@ -200,7 +200,7 @@ export function ObjectiveFormModal({
               min={2024}
               max={2030}
               defaultValue={objective?.year ?? 2026}
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
             />
           </div>
         </div>

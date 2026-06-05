@@ -10,7 +10,7 @@ export default function ActionsLoading() {
           <div key={i} className="h-8 w-32 bg-izi-gray-lt rounded-[7px] animate-pulse" />
         ))}
       </div>
-      <div className="bg-white rounded-[10px] border border-[#deeaea] p-4 space-y-3">
+      <div className="bg-white rounded-[10px] border border-border-soft p-4 space-y-3">
         {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex gap-3 items-center">
             <div className="h-4 flex-1 bg-izi-gray-lt rounded animate-pulse" />

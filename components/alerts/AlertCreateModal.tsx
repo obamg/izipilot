@@ -71,11 +71,11 @@ export function AlertCreateModal({ krId, krTitle, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl border border-[#deeaea] p-5 w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl border border-border-soft p-5 w-full max-w-md max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-serif text-lg text-dark mb-1">Soulever une alerte</h2>
@@ -91,7 +91,7 @@ export function AlertCreateModal({ krId, krTitle, onClose }: Props) {
             <select
               value={type}
               onChange={(e) => setType(e.target.value as AlertType)}
-              className="w-full px-[9px] py-[7px] border border-[#deeaea] rounded-[7px] text-[12px] text-dark font-sans bg-white"
+              className="w-full px-[9px] py-[7px] border border-border-soft rounded-[7px] text-[12px] text-dark font-sans bg-white"
             >
               {TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -108,7 +108,7 @@ export function AlertCreateModal({ krId, krTitle, onClose }: Props) {
             <select
               value={severity}
               onChange={(e) => setSeverity(e.target.value as AlertSeverity)}
-              className="w-full px-[9px] py-[7px] border border-[#deeaea] rounded-[7px] text-[12px] text-dark font-sans bg-white"
+              className="w-full px-[9px] py-[7px] border border-border-soft rounded-[7px] text-[12px] text-dark font-sans bg-white"
             >
               {SEVERITIES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -129,7 +129,7 @@ export function AlertCreateModal({ krId, krTitle, onClose }: Props) {
               required
               minLength={3}
               maxLength={500}
-              className="w-full px-[9px] py-[7px] border border-[#deeaea] rounded-[7px] text-[12px] text-dark font-sans resize-none h-[90px] leading-relaxed"
+              className="w-full px-[9px] py-[7px] border border-border-soft rounded-[7px] text-[12px] text-dark font-sans resize-none h-[90px] leading-relaxed"
             />
           </div>
 

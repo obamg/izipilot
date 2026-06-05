@@ -66,6 +66,18 @@ interface EntryState {
   comment: string;
 }
 
+interface RecapItem {
+  krId: string;
+  title: string;
+  entityCode: string;
+  entityName: string;
+  objectiveTitle: string;
+  oldScore: number;
+  newScore: number;
+  oldStatus: KrStatus;
+  newStatus: KrStatus;
+}
+
 const STATUS_OPTIONS: { value: KrStatus; label: string }[] = [
   { value: "ON_TRACK", label: "En bonne voie" },
   { value: "AT_RISK", label: "Attention" },
@@ -101,6 +113,7 @@ export function WeeklyEntryForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [recap, setRecap] = useState<RecapItem[] | null>(null);
   const submitBlocked = isPending || isSubmitting;
 
   const draftKey = `izipilot-draft-S${weekNumber}-${year}`;
@@ -301,6 +314,22 @@ export function WeeklyEntryForm({
       } catch {
         // ignore
       }
+      // Snapshot before → after for the confirmation recap. Captured here
+      // (not in render) so it reflects the moment of submission, not the
+      // post-router.refresh server state.
+      setRecap(
+        keyResults.map((kr) => ({
+          krId: kr.id,
+          title: kr.title,
+          entityCode: kr.entityCode,
+          entityName: kr.entityName,
+          objectiveTitle: kr.objectiveTitle,
+          oldScore: Math.round(kr.score),
+          newScore: Math.round(entries[kr.id].progress),
+          oldStatus: kr.status,
+          newStatus: entries[kr.id].status,
+        }))
+      );
       setSubmitSuccess(true);
       startTransition(() => {
         router.refresh();
@@ -320,6 +349,136 @@ export function WeeklyEntryForm({
     grouped.get(key)!.push(kr);
   }
 
+  // Post-submit confirmation screen — replaces the form with a recap of
+  // submitted scores. Per spec: "Après soumission → écran de confirmation
+  // avec récap des scores".
+  if (submitSuccess && recap) {
+    const grouped = new Map<string, RecapItem[]>();
+    for (const item of recap) {
+      const key = `${item.entityCode}|${item.entityName}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(item);
+    }
+    return (
+      <div>
+        <div className="bg-white rounded-[10px] border border-teal-md p-5 mb-3">
+          <div className="flex items-center gap-3 mb-1">
+            <div
+              className="size-9 rounded-full bg-izi-green-lt flex items-center justify-center shrink-0"
+              aria-hidden="true"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--green)"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-5"
+              >
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-serif text-lg text-dark leading-tight">
+                Revue soumise &mdash; S{String(weekNumber).padStart(2, "0")} &middot; {year}
+              </h2>
+              <p className="text-xs text-izi-gray mt-0.5">
+                {recap.length} Key Result{recap.length > 1 ? "s" : ""} enregistré
+                {recap.length > 1 ? "s" : ""}.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {Array.from(grouped.entries()).map(([key, items]) => {
+          const [entityCode, entityName] = key.split("|");
+          return (
+            <div
+              key={key}
+              className="bg-white rounded-[10px] border border-border-soft p-4 mb-3"
+            >
+              <div className="text-xs font-semibold text-dark mb-3">
+                {entityCode} {entityName}
+              </div>
+              <div className="divide-y divide-border-soft">
+                {items.map((item) => {
+                  const delta = item.newScore - item.oldScore;
+                  const deltaColor =
+                    delta > 0
+                      ? "var(--green)"
+                      : delta < 0
+                        ? "var(--red)"
+                        : "var(--gray)";
+                  const scoreColor =
+                    item.newStatus === "NOT_STARTED"
+                      ? "var(--gray)"
+                      : item.newScore >= 70
+                        ? "var(--green)"
+                        : item.newScore >= 40
+                          ? "var(--gold)"
+                          : "var(--red)";
+                  return (
+                    <div
+                      key={item.krId}
+                      className="py-3 first:pt-0 last:pb-0 flex items-center gap-3"
+                    >
+                      <ScoreDonutFilled score={item.newScore} size={36} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium text-dark truncate">
+                          {item.title}
+                        </div>
+                        <div className="text-[11px] text-izi-gray truncate">
+                          {item.objectiveTitle}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div
+                          className="font-mono text-base font-semibold leading-none"
+                          style={{ color: scoreColor }}
+                        >
+                          {item.newScore}%
+                        </div>
+                        <div
+                          className="font-mono text-[10px] mt-1"
+                          style={{ color: deltaColor }}
+                        >
+                          {delta > 0 ? "+" : ""}
+                          {delta}% vs précédent
+                        </div>
+                      </div>
+                      <StatusBadge status={item.newStatus} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              setSubmitSuccess(false);
+              setRecap(null);
+            }}
+            className="min-h-[44px] px-4 py-2 rounded-[7px] text-sm font-medium border border-teal-md text-teal hover:bg-teal-lt transition-colors"
+          >
+            Modifier ma saisie
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="min-h-[44px] px-4 py-2 rounded-[7px] text-sm font-medium bg-teal text-white hover:bg-teal-dk transition-colors"
+          >
+            Retour au tableau de bord
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {draftRestored && (
@@ -333,7 +492,7 @@ export function WeeklyEntryForm({
         return (
           <div
             key={entityCode}
-            className="bg-white rounded-[10px] border border-[#deeaea] p-4 mb-3"
+            className="bg-white rounded-[10px] border border-border-soft p-4 mb-3"
           >
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -376,7 +535,7 @@ export function WeeklyEntryForm({
                 return (
                   <div
                     key={kr.id}
-                    className="rounded-[10px] border border-[#deeaea] overflow-hidden"
+                    className="rounded-[10px] border border-border-soft overflow-hidden"
                   >
                     {/* ── KR Header ── colored top bar */}
                     <div
@@ -388,8 +547,12 @@ export function WeeklyEntryForm({
                         <div className="text-[13px] font-semibold text-dark leading-tight">
                           {kr.title}
                         </div>
-                        <div className="text-[10px] text-izi-gray mt-0.5">
-                          {kr.currentValue} {kr.targetUnit ?? ""} / {kr.target ?? "N/A"} {kr.targetUnit ?? ""}
+                        <div className="text-[10px] text-izi-gray mt-0.5 font-mono">
+                          {kr.krType === "DATE"
+                            ? "Avancement manuel — échéance jalon"
+                            : kr.krType === "BINARY"
+                              ? "Atteinte binaire"
+                              : `${kr.currentValue} ${kr.targetUnit ?? ""} / ${kr.target ?? "N/A"} ${kr.targetUnit ?? ""}`}
                         </div>
                       </div>
                       <StatusBadge status={entry.status} />
@@ -407,7 +570,11 @@ export function WeeklyEntryForm({
                       {/* Progress input — toggle for BINARY, slider otherwise */}
                       <div>
                         <label className="text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-1 block">
-                          {kr.krType === "BINARY" ? "Atteint ?" : "Avancement"}
+                          {kr.krType === "BINARY"
+                            ? "Atteint ?"
+                            : kr.krType === "DATE"
+                              ? "Avancement jalon (%)"
+                              : "Avancement (%)"}
                         </label>
                         {kr.krType === "BINARY" ? (
                           <div className="flex items-center gap-2" role="radiogroup" aria-label="Atteint">
@@ -428,7 +595,7 @@ export function WeeklyEntryForm({
                                     updateEntry(kr.id, "progress", opt.value)
                                   }
                                   disabled={isReadOnly}
-                                  className={`flex-1 px-3 py-2 rounded-[7px] text-[11px] font-medium border transition-colors ${
+                                  className={`flex-1 min-h-[44px] px-3 py-2 rounded-[7px] text-sm font-medium border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors ${
                                     selected
                                       ? "bg-teal text-white border-teal"
                                       : "bg-white text-dark border-teal-md hover:bg-teal-lt"
@@ -475,7 +642,7 @@ export function WeeklyEntryForm({
                               updateEntry(kr.id, "status", e.target.value)
                             }
                             disabled={isReadOnly}
-                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             {STATUS_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>
@@ -494,7 +661,7 @@ export function WeeklyEntryForm({
                               updateEntry(kr.id, "comment", e.target.value)
                             }
                             readOnly={isReadOnly}
-                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[38px] leading-relaxed read-only:bg-izi-gray-lt/40 read-only:opacity-80"
+                            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans resize-none min-h-[44px] md:h-[38px] leading-relaxed read-only:bg-izi-gray-lt/40 read-only:opacity-80"
                             placeholder="Commentaire libre..."
                           />
                         </div>
@@ -512,7 +679,7 @@ export function WeeklyEntryForm({
                               updateEntry(kr.id, "blocker", e.target.value)
                             }
                             readOnly={isReadOnly}
-                            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed read-only:bg-izi-gray-lt/40 read-only:opacity-80"
+                            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans resize-none min-h-[48px] md:h-[42px] leading-relaxed read-only:bg-izi-gray-lt/40 read-only:opacity-80"
                             placeholder="D\u00e9crivez le blocage..."
                           />
                         </div>
@@ -530,7 +697,7 @@ export function WeeklyEntryForm({
                               updateEntry(kr.id, "proposedSolution", e.target.value)
                             }
                             readOnly={isReadOnly}
-                            className="w-full px-[9px] py-[7px] border border-[#e6d28a] bg-[var(--gold-lt)] rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed read-only:opacity-80"
+                            className="izi-form-input w-full px-[9px] py-[7px] border border-[#e6d28a] bg-[var(--gold-lt)] rounded-[7px] text-dark font-sans resize-none min-h-[48px] md:h-[42px] leading-relaxed read-only:opacity-80"
                             placeholder="D&eacute;crivez votre approche pour r&eacute;soudre ce point..."
                           />
                         </div>
@@ -550,7 +717,7 @@ export function WeeklyEntryForm({
                               updateEntry(kr.id, "actionNeeded", e.target.value)
                             }
                             readOnly={isReadOnly}
-                            className={`w-full px-[9px] py-[7px] border rounded-[7px] text-[11px] text-dark font-sans resize-none h-[42px] leading-relaxed read-only:opacity-80 ${
+                            className={`izi-form-input w-full px-[9px] py-[7px] border rounded-[7px] text-dark font-sans resize-none min-h-[48px] md:h-[42px] leading-relaxed read-only:opacity-80 ${
                               entry.status === "BLOCKED"
                                 ? "bg-izi-red-lt border-[#f0b0b0]"
                                 : "border-teal-md"
@@ -562,7 +729,7 @@ export function WeeklyEntryForm({
                     </div>
 
                     {/* ── Actions Section ── visually separated */}
-                    <div className="bg-[var(--gray-lt)] border-t border-[#deeaea] px-4 py-3">
+                    <div className="bg-[var(--gray-lt)] border-t border-border-soft px-4 py-3">
                       {/* Actions header */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -574,7 +741,7 @@ export function WeeklyEntryForm({
                             Actions
                           </span>
                           {actionsCount > 0 && (
-                            <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-white border border-[#deeaea] text-izi-gray">
+                            <span className="text-[9px] font-mono px-1.5 py-px rounded-full bg-white border border-border-soft text-izi-gray">
                               {actionsDone}/{actionsCount}
                             </span>
                           )}
@@ -605,7 +772,7 @@ export function WeeklyEntryForm({
 
                       {/* Action list */}
                       {actionsCount > 0 && (
-                        <div className="bg-white rounded-[8px] border border-[#deeaea] divide-y divide-[#deeaea]">
+                        <div className="bg-white rounded-[8px] border border-border-soft divide-y divide-border-soft">
                           {kr.actions.map((action) => {
                             const currentStatus = actionUpdates[action.id] ?? action.status;
                             const isDone = currentStatus === "DONE";
@@ -629,9 +796,12 @@ export function WeeklyEntryForm({
                                 }
                                 className={`flex items-center gap-2.5 px-3 py-2 ${isDone ? "opacity-60" : ""} ${canEditAction ? "cursor-pointer hover:bg-gray-lt/40" : ""}`}
                               >
-                                {/* Status dot/checkbox */}
+                                {/* Status dot/checkbox — 44×44 hit area on mobile, dot centered.
+                                    A real <select> backs the picker so screen readers
+                                    announce options natively; the wrapper picks up
+                                    keyboard focus via focus-within. */}
                                 <div
-                                  className="relative shrink-0"
+                                  className="relative shrink-0 size-11 md:size-7 flex items-center justify-center rounded-full focus-within:outline-none focus-within:ring-2 focus-within:ring-teal focus-within:ring-offset-1"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <select
@@ -639,7 +809,9 @@ export function WeeklyEntryForm({
                                     onChange={(e) => handleActionStatusChange(action.id, e.target.value as ActionStatus)}
                                     disabled={isReadOnly}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                                    aria-label={`Statut: ${action.title}`}
+                                    aria-label={`Statut de l'action « ${action.title} » : ${
+                                      ACTION_STATUS_OPTIONS.find((o) => o.value === currentStatus)?.label ?? currentStatus
+                                    }. Choisir un nouveau statut.`}
                                   >
                                     {ACTION_STATUS_OPTIONS.map((o) => (
                                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -726,7 +898,12 @@ export function WeeklyEntryForm({
 
       {/* Submit bar */}
       {!isReadOnly && (
-        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-[#deeaea] px-4 py-3 flex justify-end gap-2 -mx-5 mt-4">
+        <div
+          className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-border-soft px-4 pt-3 flex flex-wrap justify-end gap-2 -mx-5 mt-4"
+          style={{
+            paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
+          }}
+        >
           {submitError && (
             <span className="text-xs text-izi-red self-center mr-auto">
               {submitError}
@@ -740,14 +917,14 @@ export function WeeklyEntryForm({
           <button
             onClick={() => handleSubmit(true)}
             disabled={submitBlocked}
-            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal hover:bg-teal-lt transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-[44px] px-4 py-2 rounded-[7px] text-sm font-medium bg-transparent border border-teal-md text-teal hover:bg-teal-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Enregistrer brouillon
           </button>
           <button
             onClick={() => handleSubmit(false)}
             disabled={submitBlocked}
-            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-teal text-white hover:bg-teal-dk transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-[44px] px-4 py-2 rounded-[7px] text-sm font-semibold bg-teal text-white hover:bg-teal-dk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitBlocked ? "Envoi..." : "Soumettre la revue \u2192"}
           </button>

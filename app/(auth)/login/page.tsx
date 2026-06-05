@@ -45,17 +45,25 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
-      <div className="mb-6 text-center">
-        <h1 className="font-serif text-2xl text-dark">
+    <div className="w-full max-w-sm rounded-2xl bg-white p-7 sm:p-8 shadow-[0_8px_32px_rgba(0,128,129,0.12)] border border-white">
+      <div className="mb-7 flex flex-col items-center text-center">
+        {/* Brand mark — same clock motif as the Nav logo */}
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal shadow-[0_6px_18px_rgba(0,128,129,0.35)]">
+          <svg viewBox="0 0 28 28" fill="none" className="h-7 w-7" aria-hidden="true">
+            <circle cx="14" cy="14" r="10" stroke="white" strokeWidth="2" />
+            <path d="M14 8L14 14L18 17" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="14" cy="14" r="2.5" fill="white" />
+          </svg>
+        </div>
+        <h1 className="font-serif text-3xl text-dark leading-none">
           Izi<span className="text-teal">Pilot</span>
         </h1>
-        <p className="mt-1 font-serif text-sm italic text-izi-gray">
+        <p className="mt-2 font-serif text-sm italic text-izi-gray">
           L&apos;exécution au rythme de vos ambitions
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-dark-md">
             Email
@@ -65,8 +73,11 @@ function LoginForm() {
             name="email"
             type="email"
             required
-            className="mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
-            placeholder="vous@izipilote.com"
+            autoComplete="email"
+            aria-describedby={error ? "login-error" : undefined}
+            aria-invalid={!!error}
+            className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2.5 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
+            placeholder="vous@izichange.com"
           />
         </div>
 
@@ -79,13 +90,20 @@ function LoginForm() {
             name="password"
             type="password"
             required
-            className="mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 text-sm focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
+            autoComplete="current-password"
+            aria-describedby={error ? "login-error" : undefined}
+            aria-invalid={!!error}
+            className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2.5 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
             placeholder="••••••••"
           />
         </div>
 
         {error && (
-          <p className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-izi-red">
+          <p
+            id="login-error"
+            role="alert"
+            className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-izi-red"
+          >
             {error}
           </p>
         )}
@@ -93,7 +111,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-teal px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-dk disabled:opacity-50"
+          className="min-h-[44px] w-full rounded-lg bg-teal px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal/25 transition-colors hover:bg-teal-dk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:opacity-50"
         >
           {loading ? "Connexion..." : "Se connecter"}
         </button>
@@ -101,7 +119,7 @@ function LoginForm() {
         <div className="text-center text-sm">
           <Link
             href="/forgot-password"
-            className="text-teal hover:text-teal-dk"
+            className="text-teal hover:text-teal-dk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal rounded-sm px-1"
           >
             Mot de passe oublié ?
           </Link>

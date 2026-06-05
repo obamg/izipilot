@@ -175,7 +175,7 @@ export default async function WeeklyPage({
       </div>
 
       {keyResults.length === 0 ? (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">
             Aucun Key Result ne vous est assign&eacute;.
           </p>
@@ -184,7 +184,7 @@ export default async function WeeklyPage({
           </p>
         </div>
       ) : isHistorical && existingEntries.length === 0 ? (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">
             Aucune revue soumise pour S{String(weekNumber).padStart(2, "0")} &middot; {year}.
           </p>

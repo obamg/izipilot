@@ -90,7 +90,7 @@ export function ProductFormModal({
               required
               defaultValue={product?.code ?? ""}
               placeholder="P8"
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
             />
           </div>
           <div>
@@ -115,7 +115,7 @@ export function ProductFormModal({
             name="name"
             required
             defaultValue={product?.name ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
 
@@ -126,7 +126,7 @@ export function ProductFormModal({
           <textarea
             name="description"
             defaultValue={product?.description ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[52px]"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans resize-none h-[52px]"
           />
         </div>
 
@@ -139,7 +139,7 @@ export function ProductFormModal({
               name="status"
               required
               defaultValue={product?.status ?? "ACTIVE"}
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -156,7 +156,7 @@ export function ProductFormModal({
               name="ownerId"
               required
               defaultValue={product?.ownerId ?? ""}
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
             >
               <option value="">S&eacute;lectionner...</option>
               {users.map((u) => (

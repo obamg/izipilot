@@ -29,7 +29,7 @@ export function FormModal({ title, open, onClose, onOpen, children }: FormModalP
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -37,8 +37,8 @@ export function FormModal({ title, open, onClose, onOpen, children }: FormModalP
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="bg-white rounded-[10px] border border-[#deeaea] shadow-xl w-full max-w-[480px] mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#deeaea]">
+      <div className="bg-white rounded-[10px] border border-border-soft shadow-xl w-full max-w-[480px] mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-soft">
           <h2 id="modal-title" className="font-serif text-[16px] text-dark">
             {title}
           </h2>

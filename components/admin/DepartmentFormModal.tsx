@@ -81,7 +81,7 @@ export function DepartmentFormModal({
               required
               defaultValue={department?.code ?? ""}
               placeholder="D9"
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
             />
           </div>
           <div>
@@ -106,7 +106,7 @@ export function DepartmentFormModal({
             name="name"
             required
             defaultValue={department?.name ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
 
@@ -117,7 +117,7 @@ export function DepartmentFormModal({
           <textarea
             name="description"
             defaultValue={department?.description ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans resize-none h-[52px]"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans resize-none h-[52px]"
           />
         </div>
 
@@ -129,7 +129,7 @@ export function DepartmentFormModal({
             name="ownerId"
             required
             defaultValue={department?.ownerId ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
           >
             <option value="">S&eacute;lectionner...</option>
             {users.map((u) => (

@@ -72,7 +72,7 @@ export function ProductsGrid({ products, users }: ProductsGridProps) {
           return (
             <div
               key={p.id}
-              className={`bg-white rounded-[10px] border border-[#deeaea] p-4 ${
+              className={`bg-white rounded-[10px] border border-border-soft p-4 ${
                 !p.isActive ? "opacity-50" : ""
               }`}
             >
@@ -126,7 +126,7 @@ export function ProductsGrid({ products, users }: ProductsGridProps) {
       </div>
 
       {products.length === 0 && (
-        <div className="bg-white rounded-[10px] border border-[#deeaea] p-8 text-center">
+        <div className="bg-white rounded-[10px] border border-border-soft p-8 text-center">
           <p className="text-sm text-izi-gray">Aucun produit.</p>
         </div>
       )}

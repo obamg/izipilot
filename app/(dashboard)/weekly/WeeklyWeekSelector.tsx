@@ -41,7 +41,7 @@ export function WeeklyWeekSelector({
     <div className="inline-flex items-center gap-1">
       <button
         onClick={handlePrev}
-        className="w-7 h-7 flex items-center justify-center rounded-md text-izi-gray hover:bg-izi-gray-lt hover:text-dark transition-colors cursor-pointer"
+        className="size-11 md:size-9 flex items-center justify-center rounded-md text-izi-gray hover:bg-izi-gray-lt hover:text-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors cursor-pointer"
         aria-label="Semaine pr\u00e9c\u00e9dente"
       >
         <svg
@@ -62,7 +62,7 @@ export function WeeklyWeekSelector({
       <button
         onClick={handleNext}
         disabled={isCurrentWeek}
-        className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors cursor-pointer ${
+        className={`size-11 md:size-9 flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 transition-colors cursor-pointer ${
           isCurrentWeek
             ? "text-izi-gray/30 cursor-not-allowed"
             : "text-izi-gray hover:bg-izi-gray-lt hover:text-dark"
@@ -84,7 +84,7 @@ export function WeeklyWeekSelector({
       {!isCurrentWeek && (
         <button
           onClick={() => navigateToWeek(currentWeek, currentYear)}
-          className="ml-2 text-xs text-teal hover:text-teal-dk font-medium cursor-pointer"
+          className="ml-2 min-h-[44px] md:min-h-0 px-2 text-xs text-teal hover:text-teal-dk font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1 rounded-md cursor-pointer"
         >
           Cette semaine
         </button>

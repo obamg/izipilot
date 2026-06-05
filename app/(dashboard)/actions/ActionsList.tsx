@@ -130,7 +130,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
         <div
           role="tablist"
           aria-label="Vue des actions"
-          className="inline-flex rounded-[7px] border border-[#deeaea] bg-white p-0.5"
+          className="inline-flex rounded-[7px] border border-border-soft bg-white p-0.5"
         >
           <button
             type="button"
@@ -170,7 +170,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as ActionStatus | "ALL")}
-            className="rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[11px] text-dark"
+            className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[11px] text-dark"
             aria-label="Filtrer par statut"
           >
             {STATUS_FILTERS.map((f) => (
@@ -182,7 +182,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value as ActionPriority | "ALL")}
-          className="rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[11px] text-dark"
+          className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[11px] text-dark"
           aria-label="Filtrer par priorite"
         >
           {PRIORITY_FILTERS.map((f) => (
@@ -193,7 +193,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
-          className="rounded-[7px] border border-[#deeaea] bg-white px-2.5 py-1.5 text-[11px] text-dark"
+          className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[11px] text-dark"
           aria-label="Filtrer par responsable"
         >
           <option value="ALL">Tous les responsables</option>
@@ -216,7 +216,7 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
       )}
 
       {view === "list" && (
-      <div className="bg-white rounded-[10px] border border-[#deeaea] overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-border-soft overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-8 text-center text-[13px] text-izi-gray">
             Aucune action trouv&eacute;e.

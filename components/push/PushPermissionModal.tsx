@@ -104,12 +104,18 @@ export function PushPermissionModal({ vapidPublicKey }: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="push-modal-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-dark/40 p-4 sm:items-center"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-end justify-center bg-dark/40 p-4 sm:items-center"
     >
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
         <div className="mb-3 flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-lt text-teal text-xl">
-            🔔
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-lt text-teal"
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 01-3.46 0" />
+            </svg>
           </div>
           <div className="flex-1 min-w-0">
             <h2
@@ -138,7 +144,7 @@ export function PushPermissionModal({ vapidPublicKey }: Props) {
             type="button"
             onClick={() => dismiss(true)}
             disabled={busy}
-            className="rounded-lg border border-[#deeaea] px-4 py-2 text-sm font-medium text-dark hover:bg-izi-gray-lt disabled:opacity-50"
+            className="rounded-lg border border-border-soft px-4 py-2 text-sm font-medium text-dark hover:bg-izi-gray-lt disabled:opacity-50"
           >
             Plus tard
           </button>

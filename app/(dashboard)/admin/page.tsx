@@ -76,7 +76,7 @@ export default async function AdminOverviewPage() {
           <Link
             key={card.label}
             href={card.href}
-            className="bg-white rounded-[10px] border border-[#deeaea] px-4 py-[14px] hover:border-teal-md transition-colors no-underline group"
+            className="bg-white rounded-[10px] border border-border-soft px-4 py-[14px] hover:border-teal-md transition-colors no-underline group"
           >
             <div className="text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-[5px]">
               {card.label}
@@ -93,7 +93,7 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="bg-white rounded-[10px] border border-[#deeaea] p-4">
+      <div className="bg-white rounded-[10px] border border-border-soft p-4">
         <div className="text-xs font-semibold text-dark mb-3">
           Actions rapides
         </div>

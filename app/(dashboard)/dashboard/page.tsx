@@ -10,6 +10,7 @@ import { DashboardWeekSelector } from "./DashboardWeekSelector";
 import { DashboardEntityFilter } from "./DashboardEntityFilter";
 import { ActionKpiWidget } from "@/components/ui/ActionKpiWidget";
 import { getISOWeek } from "@/lib/date";
+import { getSubmissionWindow } from "@/lib/weekly-entry";
 import type { KrStatus } from "@prisma/client";
 
 export default async function DashboardPage({
@@ -62,31 +63,61 @@ export default async function DashboardPage({
     );
   }
 
-  // On Sunday (submission day), nudge a PO with unsubmitted KRs to /weekly.
-  // Once every owned KR has an entry for the current week, the PO regains
-  // access to the dashboard for the rest of Sunday.
-  if (userRole === "PO" && new Date().getDay() === 0) {
-    const ownedObjectiveFilter = {
-      OR: [
-        { productId: { in: ownedProductIds } },
-        { departmentId: { in: ownedDepartmentIds } },
-      ],
-    };
-    const [ownedKrCount, submittedKrCount] = await Promise.all([
-      prisma.keyResult.count({
-        where: { orgId, isActive: true, objective: ownedObjectiveFilter },
-      }),
-      prisma.weeklyEntry.count({
-        where: {
-          orgId,
-          weekNumber: currentWeek,
-          year: currentYear,
-          keyResult: { isActive: true, objective: ownedObjectiveFilter },
-        },
-      }),
-    ]);
-    if (ownedKrCount > 0 && submittedKrCount < ownedKrCount) {
-      redirect("/weekly");
+  // Nudge a PO with unsubmitted KRs to /weekly.
+  //  - Sunday: nudge for the current ISO week (submission day).
+  //  - Monday before grace cutoff (23:59:59.999): nudge for the just-ended
+  //    ISO week — the PO is catching up. ISO week rolls Monday 00:00, so
+  //    "the week the PO owes" is technically last week from now's POV.
+  // Once every owned KR has an entry for the relevant week, the PO regains
+  // access to the dashboard.
+  if (userRole === "PO") {
+    const now = new Date();
+    const day = now.getDay();
+    let targetWeek: number | null = null;
+    let targetYear: number | null = null;
+
+    if (day === 0) {
+      // Sunday — current week, no query-string needed.
+      targetWeek = currentWeek;
+      targetYear = currentYear;
+    } else if (day === 1) {
+      // Monday — check grace window for previous week.
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const prev = getISOWeek(sevenDaysAgo);
+      const { graceCutoff } = getSubmissionWindow(prev.year, prev.weekNumber);
+      if (now.getTime() <= graceCutoff) {
+        targetWeek = prev.weekNumber;
+        targetYear = prev.year;
+      }
+    }
+
+    if (targetWeek !== null && targetYear !== null) {
+      const ownedObjectiveFilter = {
+        OR: [
+          { productId: { in: ownedProductIds } },
+          { departmentId: { in: ownedDepartmentIds } },
+        ],
+      };
+      const [ownedKrCount, submittedKrCount] = await Promise.all([
+        prisma.keyResult.count({
+          where: { orgId, isActive: true, objective: ownedObjectiveFilter },
+        }),
+        prisma.weeklyEntry.count({
+          where: {
+            orgId,
+            weekNumber: targetWeek,
+            year: targetYear,
+            keyResult: { isActive: true, objective: ownedObjectiveFilter },
+          },
+        }),
+      ]);
+      if (ownedKrCount > 0 && submittedKrCount < ownedKrCount) {
+        const path =
+          targetWeek === currentWeek && targetYear === currentYear
+            ? "/weekly"
+            : `/weekly?week=${targetWeek}&year=${targetYear}`;
+        redirect(path);
+      }
     }
   }
 
@@ -407,7 +438,7 @@ export default async function DashboardPage({
 
       {/* KPIs Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4 hover:shadow-sm transition-shadow">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             Score global
           </div>
@@ -415,7 +446,7 @@ export default async function DashboardPage({
             {overallScore}%
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4 hover:shadow-sm transition-shadow">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             En bonne voie
           </div>
@@ -426,7 +457,7 @@ export default async function DashboardPage({
             <span className="text-xs text-izi-gray">KRs</span>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4 hover:shadow-sm transition-shadow">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             Attention
           </div>
@@ -437,7 +468,7 @@ export default async function DashboardPage({
             <span className="text-xs text-izi-gray">KRs</span>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-[#deeaea] px-5 py-4 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-xl border border-border-soft px-5 py-4 hover:shadow-sm transition-shadow">
           <div className="text-xs font-semibold tracking-wide uppercase text-izi-gray mb-2">
             Bloqu&eacute;s
           </div>
@@ -460,7 +491,7 @@ export default async function DashboardPage({
       {/* Main grid: OKR scores + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 mb-4">
         {/* OKR Scores — Products + Departments */}
-        <div className="bg-white rounded-xl border border-[#deeaea] p-5">
+        <div className="bg-white rounded-xl border border-border-soft p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-dark">
@@ -615,7 +646,7 @@ export default async function DashboardPage({
 
         {/* Right column: Alerts */}
         <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-xl border border-[#deeaea] p-5">
+          <div className="bg-white rounded-xl border border-border-soft p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-semibold text-dark">

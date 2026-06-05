@@ -110,7 +110,7 @@ export function PushToggle({ vapidPublicKey }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-[10px] border border-[#deeaea] p-4">
+    <div className="bg-white rounded-[10px] border border-border-soft p-4">
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-medium text-dark">
@@ -143,7 +143,7 @@ export function PushToggle({ vapidPublicKey }: Props) {
             <button
               type="button"
               onClick={disable}
-              className="text-[12px] font-medium px-3 py-1.5 rounded-[7px] border border-[#deeaea] text-dark hover:bg-izi-gray-lt"
+              className="text-[12px] font-medium px-3 py-1.5 rounded-[7px] border border-border-soft text-dark hover:bg-izi-gray-lt"
             >
               Désactiver
             </button>

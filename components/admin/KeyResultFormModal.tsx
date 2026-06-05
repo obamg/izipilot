@@ -109,7 +109,7 @@ export function KeyResultFormModal({
             name="title"
             required
             defaultValue={kr?.title ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
           />
         </div>
 
@@ -153,7 +153,7 @@ export function KeyResultFormModal({
                 step="any"
                 required
                 defaultValue={kr?.target ?? ""}
-                className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+                className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
               />
             </div>
             <div>
@@ -164,7 +164,7 @@ export function KeyResultFormModal({
                 name="targetUnit"
                 defaultValue={kr?.targetUnit ?? ""}
                 placeholder="$, %, traders..."
-                className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+                className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ export function KeyResultFormModal({
               required
               defaultValue={kr?.targetDate ?? ""}
               placeholder="Avr 2026"
-              className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark font-sans"
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark font-sans"
             />
           </div>
         )}
@@ -193,7 +193,7 @@ export function KeyResultFormModal({
             name="ownerId"
             required
             defaultValue={kr?.ownerId ?? ""}
-            className="w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-[11px] text-dark bg-white font-sans"
+            className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
           >
             <option value="">S&eacute;lectionner...</option>
             {users.map((u) => (
