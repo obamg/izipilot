@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { AlertsList } from "./AlertsList";
+import { alertVisibilityWhere } from "@/lib/visibility";
 import type { AlertSeverity, AlertType } from "@prisma/client";
 
 export default async function AlertsPage() {
@@ -65,6 +66,7 @@ export default async function AlertsPage() {
     where: {
       orgId,
       ...(poScopeFilter ?? {}),
+      ...alertVisibilityWhere(userRole),
     },
     take: 150,
     include: {

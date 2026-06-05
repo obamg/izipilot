@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PushPermissionModal } from "@/components/push/PushPermissionModal";
 import { getISOWeek } from "@/lib/date";
+import {
+  alertVisibilityWhere,
+  departmentVisibilityWhere,
+  krVisibilityWhere,
+} from "@/lib/visibility";
 
 export default async function DashboardLayout({
   children,
@@ -37,14 +42,18 @@ export default async function DashboardLayout({
       },
     }),
     prisma.department.findMany({
-      where: { orgId, isActive: true },
+      where: {
+        orgId,
+        isActive: true,
+        ...departmentVisibilityWhere(session.user.role),
+      },
       orderBy: { sortOrder: "asc" },
       include: {
         objectives: {
           where: { isActive: true },
           include: {
             keyResults: {
-              where: { isActive: true },
+              where: { isActive: true, ...krVisibilityWhere(session.user.role) },
               select: { score: true },
             },
           },
@@ -52,7 +61,7 @@ export default async function DashboardLayout({
       },
     }),
     prisma.alert.count({
-      where: { orgId, isResolved: false },
+      where: { orgId, isResolved: false, ...alertVisibilityWhere(session.user.role) },
     }),
     prisma.alert.count({
       where: {
@@ -63,6 +72,7 @@ export default async function DashboardLayout({
           { keyResult: { objective: { product: { ownerId: userId } } } },
           { keyResult: { objective: { department: { ownerId: userId } } } },
         ],
+        ...alertVisibilityWhere(session.user.role),
       },
     }),
   ]);

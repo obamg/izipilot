@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createActionSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
+import { actionVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
       ...(assigneeId && { assigneeId }),
       ...(status && { status: status as never }),
       ...(priority && { priority: priority as never }),
+      ...actionVisibilityWhere(session.user.role),
     },
     include: {
       assignee: { select: { id: true, name: true } },
@@ -92,9 +94,16 @@ export async function POST(request: NextRequest) {
 
   const { krId, title, description, assigneeId, priority, dueDate } = parsed.data;
 
-  // Verify KR belongs to user's org
+  // Verify KR belongs to user's org AND is visible to them. A PO/VIEWER
+  // creating an action on a D7 KR via API would otherwise bypass the UI.
   const kr = await prisma.keyResult.findFirst({
-    where: { id: krId, orgId: session.user.orgId, isActive: true, deletedAt: null },
+    where: {
+      id: krId,
+      orgId: session.user.orgId,
+      isActive: true,
+      deletedAt: null,
+      ...krVisibilityWhere(session.user.role),
+    },
   });
 
   if (!kr) {

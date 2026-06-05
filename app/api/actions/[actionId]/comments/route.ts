@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createActionCommentSchema } from "@/lib/validations/actions";
+import { actionVisibilityWhere } from "@/lib/visibility";
 
 export async function GET(
   _request: NextRequest,
@@ -16,7 +17,7 @@ export async function GET(
 
   // Verify action belongs to org
   const action = await prisma.action.findFirst({
-    where: { id: actionId, orgId: session.user.orgId },
+    where: { id: actionId, orgId: session.user.orgId, ...actionVisibilityWhere(session.user.role) },
     select: { id: true },
   });
 
@@ -58,7 +59,7 @@ export async function POST(
 
   // Verify action belongs to org
   const action = await prisma.action.findFirst({
-    where: { id: actionId, orgId: session.user.orgId },
+    where: { id: actionId, orgId: session.user.orgId, ...actionVisibilityWhere(session.user.role) },
     select: { id: true },
   });
 

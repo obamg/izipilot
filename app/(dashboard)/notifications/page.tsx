@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { alertVisibilityWhere } from "@/lib/visibility";
 import type { AlertSeverity, AlertSource, AlertType, KrStatus } from "@prisma/client";
 
 const SEVERITY_COLORS: Record<
@@ -59,6 +60,7 @@ export default async function NotificationsPage() {
         { keyResult: { objective: { product: { ownerId: userId } } } },
         { keyResult: { objective: { department: { ownerId: userId } } } },
       ],
+      ...alertVisibilityWhere(session.user.role),
     },
     include: {
       keyResult: {

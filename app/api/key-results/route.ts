@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent } from "@/lib/score";
+import { krVisibilityWhere } from "@/lib/visibility";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   // Single KR detail
   if (krId) {
     const kr = await prisma.keyResult.findFirst({
-      where: { id: krId, orgId: session.user.orgId },
+      where: { id: krId, orgId: session.user.orgId, ...krVisibilityWhere(session.user.role) },
       include: {
         owner: { select: { name: true } },
         objective: {
@@ -93,6 +94,7 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
       ...(objectiveId && { objectiveId }),
       ...(ownerId && { ownerId }),
+      ...krVisibilityWhere(session.user.role),
     },
     include: { owner: { select: { name: true } } },
     orderBy: { sortOrder: "asc" },

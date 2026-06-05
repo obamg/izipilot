@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent, objectiveScore } from "@/lib/score";
+import { objectiveVisibilityWhere } from "@/lib/visibility";
 
 const getObjectivesSchema = z.object({
   entityType: z.enum(["DEPARTMENT", "PRODUCT"]).optional(),
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
       ...(productId && { productId }),
       ...(quarter && { quarter }),
       ...(year && { year }),
+      ...objectiveVisibilityWhere(session.user.role),
     },
     include: {
       keyResults: {

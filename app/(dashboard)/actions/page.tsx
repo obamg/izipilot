@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ActionsList } from "./ActionsList";
+import { actionVisibilityWhere } from "@/lib/visibility";
 
 export default async function ActionsPage({
   searchParams,
@@ -20,7 +21,7 @@ export default async function ActionsPage({
 
   const [actions, orgUsers] = await Promise.all([
     prisma.action.findMany({
-      where: { orgId },
+      where: { orgId, ...actionVisibilityWhere(session.user.role) },
       include: {
         assignee: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },

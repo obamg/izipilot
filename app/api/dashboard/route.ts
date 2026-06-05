@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent, meanScore } from "@/lib/score";
 import { getISOWeek, getPreviousISOWeek } from "@/lib/date";
+import { alertVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 
 export async function GET() {
   const session = await auth();
@@ -10,6 +11,7 @@ export async function GET() {
   }
 
   const orgId = session.user.orgId;
+  const userRole = session.user.role;
 
   // Get current ISO week
   const now = new Date();
@@ -23,14 +25,14 @@ export async function GET() {
   const [krs, alerts, weekEntries, totalKrs, prevWeekEntries] = await Promise.all([
     // All active KRs with scores + objectiveId for the rollup
     prisma.keyResult.findMany({
-      where: { orgId, isActive: true, deletedAt: null },
+      where: { orgId, isActive: true, deletedAt: null, ...krVisibilityWhere(userRole) },
       select: { score: true, status: true, objectiveId: true },
     }),
 
     // Unresolved alerts
     prisma.alert.groupBy({
       by: ["severity"],
-      where: { orgId, isResolved: false },
+      where: { orgId, isResolved: false, ...alertVisibilityWhere(userRole) },
       _count: true,
     }),
 
@@ -42,7 +44,7 @@ export async function GET() {
 
     // Total expected KRs
     prisma.keyResult.count({
-      where: { orgId, isActive: true, deletedAt: null },
+      where: { orgId, isActive: true, deletedAt: null, ...krVisibilityWhere(userRole) },
     }),
 
     // Previous week's entries grouped by objective for the delta

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { updateActionSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
+import { actionVisibilityWhere } from "@/lib/visibility";
 
 export async function GET(
   _request: NextRequest,
@@ -16,7 +17,7 @@ export async function GET(
   const { actionId } = await params;
 
   const action = await prisma.action.findFirst({
-    where: { id: actionId, orgId: session.user.orgId },
+    where: { id: actionId, orgId: session.user.orgId, ...actionVisibilityWhere(session.user.role) },
     include: {
       assignee: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true } },
@@ -86,7 +87,7 @@ export async function PATCH(
 
   // Verify action exists and belongs to org
   const existing = await prisma.action.findFirst({
-    where: { id: actionId, orgId: session.user.orgId },
+    where: { id: actionId, orgId: session.user.orgId, ...actionVisibilityWhere(session.user.role) },
     include: { keyResult: { select: { ownerId: true } } },
   });
 
@@ -188,7 +189,7 @@ export async function DELETE(
   const { actionId } = await params;
 
   const action = await prisma.action.findFirst({
-    where: { id: actionId, orgId: session.user.orgId },
+    where: { id: actionId, orgId: session.user.orgId, ...actionVisibilityWhere(session.user.role) },
   });
 
   if (!action) {

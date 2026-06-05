@@ -8,6 +8,7 @@ import { sendPushToUsers } from "@/lib/push";
 import { scoreToPercent } from "@/lib/score";
 import { log } from "@/lib/log";
 import { filterRecipientsByPref } from "@/lib/notification-prefs";
+import { alertVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 import AlertBlocked from "@/emails/AlertBlocked";
 
 const logger = log.child("api/alerts");
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
       ...(isOwnerScoped && {
         keyResult: { ownerId: session.user.id },
       }),
+      ...alertVisibilityWhere(session.user.role),
     },
     include: {
       keyResult: {
@@ -128,7 +130,12 @@ export async function POST(request: NextRequest) {
   const { krId, type, severity, message } = parsed.data;
 
   const kr = await prisma.keyResult.findFirst({
-    where: { id: krId, orgId: session.user.orgId, deletedAt: null },
+    where: {
+      id: krId,
+      orgId: session.user.orgId,
+      deletedAt: null,
+      ...krVisibilityWhere(session.user.role),
+    },
     select: {
       id: true,
       ownerId: true,
@@ -279,7 +286,7 @@ export async function PATCH(request: NextRequest) {
   const { alertId, resolution } = parsed.data;
 
   const alert = await prisma.alert.findFirst({
-    where: { id: alertId, orgId: session.user.orgId },
+    where: { id: alertId, orgId: session.user.orgId, ...alertVisibilityWhere(session.user.role) },
   });
 
   if (!alert) {

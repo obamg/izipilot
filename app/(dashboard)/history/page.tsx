@@ -2,6 +2,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { HistoryChart } from "./HistoryChart";
+import {
+  departmentVisibilityWhere,
+  krVisibilityWhere,
+} from "@/lib/visibility";
 
 export default async function HistoryPage({
   searchParams,
@@ -22,7 +26,11 @@ export default async function HistoryPage({
       select: { id: true, code: true, name: true, color: true },
     }),
     prisma.department.findMany({
-      where: { orgId, isActive: true },
+      where: {
+        orgId,
+        isActive: true,
+        ...departmentVisibilityWhere(session.user.role),
+      },
       orderBy: { sortOrder: "asc" },
       select: { id: true, code: true, name: true, color: true },
     }),
@@ -35,7 +43,11 @@ export default async function HistoryPage({
   thirteenWeeksAgo.setDate(thirteenWeeksAgo.getDate() - 13 * 7);
 
   const keyResults = await prisma.keyResult.findMany({
-    where: { orgId, isActive: true },
+    where: {
+      orgId,
+      isActive: true,
+      ...krVisibilityWhere(session.user.role),
+    },
     include: {
       objective: {
         select: {

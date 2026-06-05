@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { actionVisibilityWhere } from "@/lib/visibility";
 import type { ActionKpiResponse } from "@/types/api";
 
 export async function GET(request: NextRequest) {
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     where: {
       orgId: session.user.orgId,
       ...(assigneeId && { assigneeId }),
+      ...actionVisibilityWhere(session.user.role),
     },
     _count: true,
   });

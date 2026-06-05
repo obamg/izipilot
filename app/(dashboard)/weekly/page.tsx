@@ -5,6 +5,7 @@ import { WeeklyEntryForm } from "./WeeklyEntryForm";
 import { WeeklyWeekSelector } from "./WeeklyWeekSelector";
 import { getISOWeek } from "@/lib/date";
 import { getSubmissionWindow } from "@/lib/weekly-entry";
+import { krVisibilityWhere } from "@/lib/visibility";
 
 export default async function WeeklyPage({
   searchParams,
@@ -34,12 +35,15 @@ export default async function WeeklyPage({
     session.user.role === "PO" && isHistorical && nowMs <= graceCutoff;
   const isReadOnly = isHistorical && !isPoGrace;
 
-  // Fetch KRs owned by this user (with actions)
+  // Fetch KRs owned by this user (with actions). Visibility filter is a
+  // belt-and-braces: POs shouldn't own D7 KRs in normal config, but if a
+  // misconfig delegates a D7 KR to a PO, we still want it hidden.
   const keyResults = await prisma.keyResult.findMany({
     where: {
       orgId,
       ownerId: userId,
       isActive: true,
+      ...krVisibilityWhere(session.user.role),
     },
     include: {
       objective: {

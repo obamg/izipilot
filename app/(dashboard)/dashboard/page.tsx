@@ -11,6 +11,11 @@ import { DashboardEntityFilter } from "./DashboardEntityFilter";
 import { ActionKpiWidget } from "@/components/ui/ActionKpiWidget";
 import { getISOWeek } from "@/lib/date";
 import { getSubmissionWindow } from "@/lib/weekly-entry";
+import {
+  krVisibilityWhere,
+  alertVisibilityWhere,
+  actionVisibilityWhere,
+} from "@/lib/visibility";
 import type { KrStatus } from "@prisma/client";
 
 export default async function DashboardPage({
@@ -163,6 +168,7 @@ export default async function DashboardPage({
     orgId,
     isActive: true,
     ...(objectiveFilter ? { objective: objectiveFilter } : {}),
+    ...krVisibilityWhere(userRole),
   };
 
   const isHistorical = weekNumber !== currentWeek || year !== currentYear;
@@ -188,6 +194,7 @@ export default async function DashboardPage({
         ...(objectiveFilter
           ? { keyResult: { objective: objectiveFilter } }
           : {}),
+        ...alertVisibilityWhere(userRole),
       },
       include: {
         keyResult: { select: { id: true, title: true, status: true } },
@@ -204,7 +211,7 @@ export default async function DashboardPage({
     }),
     prisma.action.groupBy({
       by: ["status"],
-      where: { orgId },
+      where: { orgId, ...actionVisibilityWhere(userRole) },
       _count: true,
     }),
     // Fetch weekly entries for historical view

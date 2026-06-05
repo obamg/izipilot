@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { KrHistoryChart } from "@/components/kr/KrHistoryChart";
 import { KrActionsList } from "@/components/kr/KrActionsList";
 import { RaiseAlertButton } from "@/components/alerts/RaiseAlertButton";
+import { krVisibilityWhere } from "@/lib/visibility";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", {
@@ -35,7 +36,12 @@ export default async function KrDetailPage({
 
   const [kr, orgUsers] = await Promise.all([
     prisma.keyResult.findFirst({
-      where: { id, orgId, deletedAt: null },
+      where: {
+        id,
+        orgId,
+        deletedAt: null,
+        ...krVisibilityWhere(session.user.role),
+      },
       include: {
         owner: { select: { id: true, name: true } },
         objective: {

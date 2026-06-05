@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { bulkActionStatusSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
+import { actionVisibilityWhere } from "@/lib/visibility";
 
 export async function PATCH(request: NextRequest) {
   const session = await auth();
@@ -26,9 +27,15 @@ export async function PATCH(request: NextRequest) {
   const { updates } = parsed.data;
   const actionIds = updates.map((u) => u.actionId);
 
-  // Verify all actions belong to the user's org
+  // Verify all actions belong to the user's org AND are visible to them.
+  // A PO/VIEWER passing D7 action IDs in the payload would otherwise bypass
+  // the UI hide.
   const actions = await prisma.action.findMany({
-    where: { id: { in: actionIds }, orgId: session.user.orgId },
+    where: {
+      id: { in: actionIds },
+      orgId: session.user.orgId,
+      ...actionVisibilityWhere(session.user.role),
+    },
     include: { keyResult: { select: { ownerId: true } } },
   });
 
