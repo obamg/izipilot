@@ -233,6 +233,23 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+// Email-based 2FA. Step 2 of login: after email+password verifies, we issue
+// a 6-digit code (bcrypt-hashed) tied to userId. Caller must present it
+// within 10 min and within 5 attempts to complete sign-in.
+model LoginOtp {
+  id         String    @id @default(cuid())
+  userId     String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("login_otps")
+}
+
 // ============================================================================
 // PÉRIMÈTRE — DÉPARTEMENTS
 // ============================================================================

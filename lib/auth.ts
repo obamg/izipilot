@@ -2,7 +2,9 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 import { prisma } from "./prisma";
+import { issueOtp, consumeOtp, ConsumeOtpError } from "./otp";
 import authConfig from "./auth.config";
 
 // Distinct credentials-error subclass so the login page can show "your
@@ -11,6 +13,24 @@ import authConfig from "./auth.config";
 class AccountDeactivatedError extends CredentialsSignin {
   code = "account_deactivated";
 }
+
+// Step 1 of two-step login succeeded — password is correct, OTP has been
+// sent. The login page reads this code + the challenge cookie to swap to
+// the OTP form.
+class OtpRequiredError extends CredentialsSignin {
+  code = "otp_required";
+}
+class OtpInvalidError extends CredentialsSignin {
+  code = "otp_invalid";
+}
+class OtpExpiredError extends CredentialsSignin {
+  code = "otp_expired";
+}
+class OtpTooManyError extends CredentialsSignin {
+  code = "otp_too_many";
+}
+
+const OTP_COOKIE = "izipilot_otp_challenge";
 
 // How often we re-read role / orgId / isActive from the database while a
 // session is open. JWTs are stateless, so without this a CEO demoted to
@@ -27,14 +47,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" },
+        otpCode: { label: "OTP", type: "text" },
       },
       async authorize(credentials) {
+        const otpCode =
+          typeof credentials?.otpCode === "string" && credentials.otpCode.trim()
+            ? credentials.otpCode.trim()
+            : null;
+
+        // === Step 2 — verify the OTP code against the challenge cookie ===
+        if (otpCode) {
+          const jar = await cookies();
+          const challenge = jar.get(OTP_COOKIE)?.value;
+          if (!challenge) throw new OtpExpiredError();
+          try {
+            const { userId } = await consumeOtp(challenge, otpCode);
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user || !user.isActive) throw new AccountDeactivatedError();
+
+            jar.delete(OTP_COOKIE);
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { lastLoginAt: new Date() },
+            });
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              orgId: user.orgId,
+              mustChangePassword: user.mustChangePassword,
+            };
+          } catch (err) {
+            if (err instanceof ConsumeOtpError) {
+              if (err.reason === "expired") throw new OtpExpiredError();
+              if (err.reason === "too_many_attempts") throw new OtpTooManyError();
+              if (err.reason === "wrong_code") throw new OtpInvalidError();
+              throw new OtpExpiredError();
+            }
+            throw err;
+          }
+        }
+
+        // === Step 1 — validate email + password, send OTP ===
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
         });
-
         // Wrong email, missing password hash, wrong password — all collapse
         // to "invalid credentials" so an attacker can't probe which emails
         // are registered.
@@ -42,7 +102,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user.passwordHash) return null;
         const isValid = await bcrypt.compare(
           credentials.password as string,
-          user.passwordHash
+          user.passwordHash,
         );
         if (!isValid) return null;
 
@@ -51,19 +111,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // of trying password resets.
         if (!user.isActive) throw new AccountDeactivatedError();
 
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
+        const { challengeToken, expiresInSeconds } = await issueOtp(
+          user.id,
+          user.email,
+          user.name,
+        );
+
+        const jar = await cookies();
+        jar.set(OTP_COOKIE, challengeToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: expiresInSeconds,
+          path: "/",
         });
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          orgId: user.orgId,
-          mustChangePassword: user.mustChangePassword,
-        };
+        // Refuse to mint a session — the login page sees code="otp_required"
+        // and swaps to the OTP entry form.
+        throw new OtpRequiredError();
       },
     }),
   ],
