@@ -14,7 +14,7 @@ COPY mcp-server/tsconfig.json ./tsconfig.json
 COPY mcp-server/src ./src
 COPY prisma ./prisma
 RUN npx prisma generate --schema=prisma/schema.prisma
-RUN npm run build
+RUN npm run build:docker
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
