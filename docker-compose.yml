@@ -27,5 +27,22 @@ services:
       db:
         condition: service_healthy
 
+  mcp-server:
+    build:
+      context: .
+      dockerfile: mcp-server/Dockerfile
+    restart: unless-stopped
+    # Only bind to localhost — Traefik/Nginx terminates TLS and proxies in.
+    # Drop the `127.0.0.1:` prefix locally if you want to hit it directly.
+    ports:
+      - "127.0.0.1:3001:3001"
+    env_file:
+      - .env.docker
+    environment:
+      MCP_PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:

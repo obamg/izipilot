@@ -159,6 +159,13 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
               >
                 Pr&eacute;f&eacute;rences de notification
               </Link>
+              <Link
+                href="/settings/claude"
+                onClick={() => setShowMenu(false)}
+                className="block px-4 py-2.5 text-sm text-dark-md hover:bg-teal-lt focus-visible:outline-none focus-visible:bg-teal-lt transition-colors no-underline border-b border-border-soft"
+              >
+                Connecter Claude
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="w-full text-left px-4 py-2.5 text-sm text-izi-red hover:bg-izi-red-lt focus-visible:outline-none focus-visible:bg-izi-red-lt transition-colors cursor-pointer border-none bg-transparent"

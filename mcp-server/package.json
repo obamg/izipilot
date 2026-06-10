@@ -1,0 +1,28 @@
+{
+  "name": "izipilot-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server exposing IziPilot OKR tools to Claude",
+  "main": "dist/index.js",
+  "scripts": {
+    "prisma:setup": "mkdir -p prisma && cp ../prisma/schema.prisma prisma/schema.prisma && prisma generate --schema=prisma/schema.prisma",
+    "build": "npm run prisma:setup && tsc -p tsconfig.json",
+    "dev": "npm run prisma:setup && tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@prisma/client": "^6.19.3",
+    "express": "^4.21.2",
+    "jose": "^5.9.6",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "prisma": "^6.19.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -44,3 +44,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# mcp-server local artifacts (generated from prisma/schema.prisma)
+/mcp-server/node_modules
+/mcp-server/dist
+/mcp-server/prisma
