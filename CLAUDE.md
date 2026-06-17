@@ -201,6 +201,11 @@ CEO          → Accès total : lecture + écriture + admin + tous les OKRs
 MANAGEMENT   → Synthèse + alertes + décisions + lecture tous OKRs
 PO           → Saisie hebdo de SON périmètre (produit ou dept assigné)
               → Lecture de TOUS les OKRs (visibilité globale)
+CONTRIBUTOR  → Membre d'équipe département
+              → Lecture de tous les OKRs (sauf D7)
+              → Saisie hebdo des KRs de son département (via DepartmentMember)
+              → Changement de statut + déplacement Kanban des tâches qui lui sont assignées
+              → Pas de création/suppression de tâches, OKRs, KRs ni de décisions
 VIEWER       → Lecture seule de tout
 ```
 

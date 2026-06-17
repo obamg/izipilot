@@ -32,17 +32,31 @@ export default async function WeeklyPage({
   const nowMs = Date.now();
   const isInGraceWindow = nowMs > deadline && nowMs <= graceCutoff;
   const isPoGrace =
-    session.user.role === "PO" && isHistorical && nowMs <= graceCutoff;
+    (session.user.role === "PO" || session.user.role === "CONTRIBUTOR") &&
+    isHistorical &&
+    nowMs <= graceCutoff;
   const isReadOnly = isHistorical && !isPoGrace;
 
-  // Fetch KRs owned by this user (with actions). Visibility filter is a
-  // belt-and-braces: POs shouldn't own D7 KRs in normal config, but if a
-  // misconfig delegates a D7 KR to a PO, we still want it hidden.
+  // CONTRIBUTOR: fetch KRs for their department(s) via DepartmentMember.
+  // PO/others: fetch KRs they own directly.
+  const memberDeptIds =
+    session.user.role === "CONTRIBUTOR"
+      ? (
+          await prisma.departmentMember.findMany({
+            where: { userId, department: { orgId } },
+            select: { departmentId: true },
+          })
+        ).map((m) => m.departmentId)
+      : [];
+
   const keyResults = await prisma.keyResult.findMany({
     where: {
       orgId,
-      ownerId: userId,
       isActive: true,
+      deletedAt: null,
+      ...(session.user.role === "CONTRIBUTOR"
+        ? { objective: { departmentId: { in: memberDeptIds } } }
+        : { ownerId: userId }),
       ...krVisibilityWhere(session.user.role),
     },
     include: {

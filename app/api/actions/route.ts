@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.role === "VIEWER") {
+  if (session.user.role === "VIEWER" || session.user.role === "CONTRIBUTOR") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

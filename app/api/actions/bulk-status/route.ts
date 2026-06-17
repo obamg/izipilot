@@ -51,6 +51,14 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // CONTRIBUTOR can only update actions assigned to them
+  if (session.user.role === "CONTRIBUTOR") {
+    const unauthorized = actions.some((a) => a.assigneeId !== session.user.id);
+    if (unauthorized) {
+      return Response.json({ error: "Forbidden: you can only update actions assigned to you" }, { status: 403 });
+    }
+  }
+
   const { weekNumber } = getISOWeek(new Date());
 
   // Build a map for quick lookup

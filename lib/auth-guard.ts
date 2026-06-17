@@ -31,11 +31,11 @@ export async function requireAccess(options: AccessOptions = {}) {
     throw new Error("Forbidden: insufficient role");
   }
 
-  // Check ownership (PO can only modify their own resources)
+  // Check ownership (PO/CONTRIBUTOR can only modify their own resources)
   // CEO and MANAGEMENT bypass ownership checks
   if (
     ownerId &&
-    session.user.role === "PO" &&
+    (session.user.role === "PO" || session.user.role === "CONTRIBUTOR") &&
     session.user.id !== ownerId
   ) {
     throw new Error("Forbidden: not the owner");
@@ -44,9 +44,14 @@ export async function requireAccess(options: AccessOptions = {}) {
   return session;
 }
 
+/** Convenience: require at least CONTRIBUTOR role */
+export async function requireContributor() {
+  return requireAccess({ roles: ["CEO", "MANAGEMENT", "PO", "CONTRIBUTOR"] });
+}
+
 /** Convenience: require at least PO role */
 export async function requirePO() {
-  return requireAccess({ roles: ["CEO", "MANAGEMENT", "PO"] });
+  return requireAccess({ roles: ["CEO", "MANAGEMENT", "PO", "CONTRIBUTOR"] });
 }
 
 /** Convenience: require Management or CEO */

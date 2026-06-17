@@ -21,6 +21,7 @@ enum UserRole {
   CEO // Accès total + pilotage global
   MANAGEMENT // Vue synthèse + validation décisions
   PO // Saisie hebdo + vue de son périmètre
+  CONTRIBUTOR // Membre d'équipe département — saisie hebdo + statut tâches
   VIEWER // Lecture seule
 }
 

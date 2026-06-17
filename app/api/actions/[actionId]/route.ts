@@ -78,6 +78,7 @@ export async function PATCH(
   const { actionId } = await params;
   const body = await request.json();
   const parsed = updateActionSchema.safeParse(body);
+
   if (!parsed.success) {
     return Response.json(
       { error: "Validation error", details: parsed.error.flatten().fieldErrors },
@@ -98,6 +99,11 @@ export async function PATCH(
   // PO can only update actions on their own KRs
   if (session.user.role === "PO" && existing.keyResult.ownerId !== session.user.id) {
     return Response.json({ error: "Forbidden: not the owner of this KR" }, { status: 403 });
+  }
+
+  // CONTRIBUTOR can only update actions assigned to them
+  if (session.user.role === "CONTRIBUTOR" && existing.assigneeId !== session.user.id) {
+    return Response.json({ error: "Forbidden: you can only update actions assigned to you" }, { status: 403 });
   }
 
   // Reassigning to another org's user would leak the action across tenants
@@ -180,9 +186,8 @@ export async function DELETE(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // VIEWER is read-only; without an explicit gate they fell through the
-  // PO-creator check below and could delete any action in the org.
-  if (session.user.role === "VIEWER") {
+  // VIEWER and CONTRIBUTOR are blocked from deleting actions.
+  if (session.user.role === "VIEWER" || session.user.role === "CONTRIBUTOR") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

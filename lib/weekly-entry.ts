@@ -156,12 +156,33 @@ export async function upsertWeeklyEntry(
     );
   }
 
+  if (session.role === "CONTRIBUTOR") {
+    const objective = await tx.objective.findUnique({
+      where: { id: kr.objectiveId },
+      select: { departmentId: true },
+    });
+    if (!objective?.departmentId) {
+      throw new WeeklyEntryError("FORBIDDEN", input.krId, "Not authorized for this KR");
+    }
+    const membership = await tx.departmentMember.findUnique({
+      where: {
+        departmentId_userId: {
+          departmentId: objective.departmentId,
+          userId: session.id,
+        },
+      },
+    });
+    if (!membership) {
+      throw new WeeklyEntryError("FORBIDDEN", input.krId, "Not a member of this department");
+    }
+  }
+
   const { deadline, graceCutoff } = getSubmissionWindow(
     input.year,
     input.weekNumber
   );
   const nowMs = Date.now();
-  if (session.role === "PO" && nowMs > graceCutoff) {
+  if ((session.role === "PO" || session.role === "CONTRIBUTOR") && nowMs > graceCutoff) {
     throw new WeeklyEntryError(
       "DEADLINE_PASSED",
       input.krId,
