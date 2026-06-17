@@ -20,6 +20,7 @@ const ROLES = [
   { value: "CEO", label: "CEO" },
   { value: "MANAGEMENT", label: "Management" },
   { value: "PO", label: "Product Owner" },
+  { value: "CONTRIBUTOR", label: "Contributor" },
   { value: "VIEWER", label: "Viewer" },
 ];
 

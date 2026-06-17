@@ -37,7 +37,7 @@ export default async function AdminOverviewPage() {
     {
       label: "Utilisateurs",
       value: totalUsers,
-      detail: `${roleMap.CEO ?? 0} CEO, ${roleMap.MANAGEMENT ?? 0} Mgmt, ${roleMap.PO ?? 0} PO, ${roleMap.VIEWER ?? 0} Viewer`,
+      detail: `${roleMap.CEO ?? 0} CEO, ${roleMap.MANAGEMENT ?? 0} Mgmt, ${roleMap.PO ?? 0} PO, ${roleMap.CONTRIBUTOR ?? 0} Contrib, ${roleMap.VIEWER ?? 0} Viewer`,
       href: "/admin/users",
       color: "var(--teal)",
     },

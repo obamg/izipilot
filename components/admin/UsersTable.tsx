@@ -25,6 +25,7 @@ const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   CEO: { bg: "var(--teal-lt)", text: "var(--teal)" },
   MANAGEMENT: { bg: "var(--gold-lt)", text: "#7a5500" },
   PO: { bg: "var(--green-lt)", text: "var(--green)" },
+  CONTRIBUTOR: { bg: "#e8f0fb", text: "#185FA5" },
   VIEWER: { bg: "var(--gray-lt)", text: "var(--gray)" },
 };
 
@@ -90,6 +91,7 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
           <option value="CEO">CEO</option>
           <option value="MANAGEMENT">Management</option>
           <option value="PO">PO</option>
+          <option value="CONTRIBUTOR">Contributor</option>
           <option value="VIEWER">Viewer</option>
         </select>
         <button
