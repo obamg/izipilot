@@ -3,8 +3,10 @@ import { getOAuthIssuer } from "@/lib/oauth-config";
 // RFC 8414 — OAuth 2.0 Authorization Server Metadata.
 // claude.ai (and the official Anthropic Connector flow) hit this URL
 // to discover where to register, authorize, and exchange tokens.
-
-export const dynamic = "force-static";
+//
+// Must stay dynamic — the issuer URL is read from env at request time
+// so deploys with a different OAUTH_ISSUER don't require a rebuild.
+export const dynamic = "force-dynamic";
 
 export function GET() {
   const issuer = getOAuthIssuer();
