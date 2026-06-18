@@ -15,6 +15,15 @@ const publicPaths = [
   "/api/auth",
   "/api/cron",
   "/sw.js",
+  // OAuth surface for the MCP connector. Discovery + DCR + token endpoint
+  // are explicitly unauthenticated; the consent page (/oauth/authorize)
+  // handles its own login redirect with the full query string preserved,
+  // which the middleware can't do because it only carries the pathname.
+  "/.well-known/oauth-authorization-server",
+  "/.well-known/oauth-protected-resource",
+  "/api/oauth/register",
+  "/api/oauth/token",
+  "/oauth/authorize",
 ];
 
 // Brute-force protection on the credentials sign-in endpoint. Behind
