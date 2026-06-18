@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type UserRole = "CEO" | "MANAGEMENT" | "PO" | "VIEWER";
+export type UserRole = "CEO" | "MANAGEMENT" | "PO" | "CONTRIBUTOR" | "VIEWER";
 
 export interface CallerContext {
   userId: string;
@@ -44,7 +44,7 @@ export function requireAccess(opts: AccessOptions = {}): CallerContext {
 
   if (
     opts.ownerId &&
-    caller.role === "PO" &&
+    (caller.role === "PO" || caller.role === "CONTRIBUTOR") &&
     caller.userId !== opts.ownerId
   ) {
     throw new Error("Forbidden: not the owner");

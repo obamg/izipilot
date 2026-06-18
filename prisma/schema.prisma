@@ -698,6 +698,76 @@ model ActionComment {
 }
 
 // ============================================================================
+// OAuth 2.1 — MCP CONNECTOR (Claude.ai)
+// ============================================================================
+// Each Claude.ai install self-registers a client via Dynamic Client
+// Registration (RFC 7591). Per-user binding happens at the consent step:
+// the auth code is bound to (clientId, userId), and the resulting refresh
+// token carries the same pair. One client can in principle be reused by
+// multiple users — in practice Claude.ai registers a fresh client per
+// workspace, so revoking refresh tokens is per-user-per-client.
+
+model OAuthClient {
+  id                       String   @id @default(cuid())
+  clientId                 String   @unique
+  clientSecretHash         String // bcrypt of the client secret
+  clientName               String
+  redirectUris             String[] // RFC 7591 — exact match required at /authorize
+  tokenEndpointAuthMethod  String   @default("client_secret_post")
+  grantTypes               String[] @default(["authorization_code", "refresh_token"])
+  responseTypes            String[] @default(["code"])
+  scope                    String   @default("mcp")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  authCodes     OAuthAuthCode[]
+  refreshTokens OAuthRefreshToken[]
+
+  @@index([clientId])
+  @@map("oauth_clients")
+}
+
+model OAuthAuthCode {
+  id                  String    @id @default(cuid())
+  codeHash            String    @unique // sha256 of the raw code (codes are short-lived but still hash at rest)
+  clientId            String
+  userId              String
+  orgId               String
+  redirectUri         String
+  codeChallenge       String
+  codeChallengeMethod String    @default("S256")
+  scope               String
+  expiresAt           DateTime
+  consumedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([expiresAt])
+  @@map("oauth_auth_codes")
+}
+
+model OAuthRefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique // sha256 of the raw refresh token
+  clientId  String
+  userId    String
+  orgId     String
+  scope     String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("oauth_refresh_tokens")
+}
+
+// ============================================================================
 // CRM — DAILY SNAPSHOTS (Gleap rolling history pour deltas "vs hier")
 // ============================================================================
 

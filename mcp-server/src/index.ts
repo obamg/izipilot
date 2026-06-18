@@ -16,6 +16,14 @@ const ALLOWED_ORIGINS = new Set(
     .filter(Boolean),
 );
 
+// RFC 9728 §5.1 — the WWW-Authenticate challenge on 401 must point at the
+// protected-resource metadata URL so OAuth-aware clients (claude.ai) can
+// discover where to register and obtain tokens.
+const PUBLIC_BASE_URL = (
+  process.env.MCP_PUBLIC_BASE_URL || "https://izipilote.com"
+).replace(/\/$/, "");
+const PROTECTED_RESOURCE_METADATA_URL = `${PUBLIC_BASE_URL}/.well-known/oauth-protected-resource`;
+
 // One MCP server instance per session. Sessions are keyed by the
 // Mcp-Session-Id header the SDK manages for us.
 const sessions = new Map<string, StreamableHTTPServerTransport>();
@@ -52,6 +60,13 @@ async function handleMcp(req: Request, res: Response) {
   try {
     caller = await verifyBearer(req.header("authorization"));
   } catch (err) {
+    // Advertise the protected-resource metadata so claude.ai's connector
+    // knows where to register/authorize. Use a fresh quote-escape for the
+    // URL — it's the only header value that's not a fixed identifier.
+    res.setHeader(
+      "WWW-Authenticate",
+      `Bearer realm="izipilot-mcp", resource_metadata="${PROTECTED_RESOURCE_METADATA_URL}"`,
+    );
     res.status(401).json({
       jsonrpc: "2.0",
       error: { code: -32001, message: (err as Error).message },

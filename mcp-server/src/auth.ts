@@ -5,6 +5,7 @@ const ROLES: ReadonlySet<UserRole> = new Set([
   "CEO",
   "MANAGEMENT",
   "PO",
+  "CONTRIBUTOR",
   "VIEWER",
 ]);
 
