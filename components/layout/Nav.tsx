@@ -20,6 +20,7 @@ const TABS = [
   { href: "/history", label: "Historique" },
   { href: "/alerts", label: "Alertes" },
   { href: "/actions", label: "Actions" },
+  { href: "/sprints", label: "Sprints" },
 ] as const;
 
 export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0 }: NavProps) {

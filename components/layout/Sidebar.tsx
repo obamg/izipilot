@@ -104,6 +104,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/sprints",
+    label: "Sprints",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+        <rect x="3" y="4" width="5" height="16" rx="1" />
+        <rect x="10" y="4" width="5" height="11" rx="1" />
+        <rect x="17" y="4" width="4" height="8" rx="1" />
+      </svg>
+    ),
+  },
+  {
     href: "/customer-metrics",
     label: "CRM",
     icon: (
