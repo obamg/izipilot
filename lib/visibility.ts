@@ -56,3 +56,24 @@ export function departmentVisibilityWhere(role: UserRole) {
   if (canSeeManagementOkrs(role)) return {};
   return { code: { not: MANAGEMENT_DEPT_CODE } };
 }
+
+// Sprint tasks are org-wide but can be tagged to a team (department/product)
+// and/or linked to a KR. Hide tasks that belong to the Management department
+// (either tagged directly to D7 or linked to a D7 department-OKR). Standalone
+// backlog tasks (no team, no KR) stay visible to everyone in the org.
+export function sprintTaskVisibilityWhere(role: UserRole) {
+  if (canSeeManagementOkrs(role)) return {};
+  return {
+    AND: [
+      {
+        OR: [
+          { departmentId: null },
+          { department: { code: { not: MANAGEMENT_DEPT_CODE } } },
+        ],
+      },
+      {
+        OR: [{ krId: null }, { keyResult: { objective: hideD7Objective() } }],
+      },
+    ],
+  };
+}

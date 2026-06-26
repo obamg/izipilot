@@ -909,6 +909,136 @@ async function main() {
     actionCount++;
   }
 
+  // ── Sprints (sample data) ─────────────────────────────────────
+  // Org-wide sprints with a standalone SprintTask backlog. Tasks can tag a
+  // team (product/department) and optionally link a KR. Dates are relative to
+  // "now" so the burndown of the ACTIVE sprint always straddles today.
+  const dayMs = 86_400_000;
+  const now = new Date();
+  const addDays = (n: number) => new Date(now.getTime() + n * dayMs);
+
+  const completedSprint = await prisma.sprint.create({
+    data: {
+      orgId: org.id,
+      number: 1,
+      name: "Sprint 1 — Fondations",
+      goal: "Poser les fondations produit et l'outillage Q2.",
+      status: "COMPLETED",
+      startDate: addDays(-28),
+      endDate: addDays(-14),
+      completedAt: addDays(-14),
+      createdById: ceo.id,
+    },
+  });
+  const activeSprint = await prisma.sprint.create({
+    data: {
+      orgId: org.id,
+      number: 2,
+      name: "Sprint 2 — Accélération",
+      goal: "Livrer le matching engine et l'onboarding des 100 premiers traders.",
+      status: "ACTIVE",
+      startDate: addDays(-7),
+      endDate: addDays(7),
+      createdById: ceo.id,
+    },
+  });
+  const plannedSprint = await prisma.sprint.create({
+    data: {
+      orgId: org.id,
+      number: 3,
+      name: "Sprint 3 — Conformité",
+      goal: "Dossier BCEAO et durcissement sécurité.",
+      status: "PLANNED",
+      startDate: addDays(8),
+      endDate: addDays(22),
+      createdById: ceo.id,
+    },
+  });
+
+  type SprintRef = "completed" | "active" | "planned" | "backlog";
+  const sprintIdOf: Record<SprintRef, string | null> = {
+    completed: completedSprint.id,
+    active: activeSprint.id,
+    planned: plannedSprint.id,
+    backlog: null,
+  };
+
+  const sprintTaskData: {
+    sprint: SprintRef;
+    title: string;
+    status: "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELLED";
+    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+    points: number | null;
+    assigneeId: string;
+    productIdx?: number;
+    deptIdx?: number;
+    krIdx?: number;
+    completedOffset?: number; // days from now for completedAt
+  }[] = [
+    // Completed sprint (everything closed within its window)
+    { sprint: "completed", title: "Cadrer le matching engine", status: "DONE", priority: "HIGH", points: 5, assigneeId: poTrading.id, productIdx: 0, completedOffset: -22 },
+    { sprint: "completed", title: "Maquettes parcours onboarding", status: "DONE", priority: "MEDIUM", points: 3, assigneeId: poMarketing.id, productIdx: 1, completedOffset: -20 },
+    { sprint: "completed", title: "Mettre en place la CI/CD", status: "DONE", priority: "HIGH", points: 8, assigneeId: poIT.id, deptIdx: 1, completedOffset: -16 },
+    { sprint: "completed", title: "Spike performance WebSocket", status: "DONE", priority: "LOW", points: 2, assigneeId: poTrading.id, productIdx: 0, completedOffset: -24 },
+    { sprint: "completed", title: "Audit sécurité initial", status: "CANCELLED", priority: "LOW", points: 3, assigneeId: mgmt1.id, deptIdx: 1 },
+    // Active sprint
+    { sprint: "active", title: "Intégrer API Binance spot", status: "DONE", priority: "HIGH", points: 5, assigneeId: poTrading.id, productIdx: 0, krIdx: 0, completedOffset: -5 },
+    { sprint: "active", title: "Déployer le matching engine en staging", status: "IN_PROGRESS", priority: "HIGH", points: 8, assigneeId: poTrading.id, productIdx: 0, krIdx: 0 },
+    { sprint: "active", title: "Landing page referral program", status: "IN_PROGRESS", priority: "MEDIUM", points: 3, assigneeId: poMarketing.id, productIdx: 1, krIdx: 3 },
+    { sprint: "active", title: "Onboarding des 100 premiers traders", status: "TODO", priority: "MEDIUM", points: 5, assigneeId: poMarketing.id, productIdx: 0 },
+    { sprint: "active", title: "Brancher le monitoring Datadog", status: "DONE", priority: "HIGH", points: 3, assigneeId: poIT.id, deptIdx: 1, completedOffset: -2 },
+    { sprint: "active", title: "Négocier les frais Orange Money", status: "BLOCKED", priority: "URGENT", points: 5, assigneeId: poWallet.id, productIdx: 1, krIdx: 4 },
+    { sprint: "active", title: "Configurer le tracking UTM", status: "DONE", priority: "MEDIUM", points: 2, assigneeId: poMarketing.id, deptIdx: 0, completedOffset: -1 },
+    // Planned sprint
+    { sprint: "planned", title: "Préparer le dossier BCEAO", status: "TODO", priority: "HIGH", points: 8, assigneeId: mgmt1.id, deptIdx: 2 },
+    { sprint: "planned", title: "Pentest de la plateforme", status: "TODO", priority: "HIGH", points: 5, assigneeId: poIT.id, deptIdx: 1 },
+    // Backlog (not yet in a sprint)
+    { sprint: "backlog", title: "Refonte de la page profil", status: "TODO", priority: "MEDIUM", points: 3, assigneeId: poIT.id, productIdx: 0 },
+    { sprint: "backlog", title: "Idée : programme de fidélité", status: "TODO", priority: "LOW", points: null, assigneeId: poMarketing.id, productIdx: 1 },
+    { sprint: "backlog", title: "Documenter l'API publique", status: "TODO", priority: "LOW", points: 2, assigneeId: poTrading.id, productIdx: 0 },
+  ];
+
+  let sprintTaskCount = 0;
+  for (const t of sprintTaskData) {
+    await prisma.sprintTask.create({
+      data: {
+        orgId: org.id,
+        sprintId: sprintIdOf[t.sprint],
+        krId: t.krIdx !== undefined ? sampleKrs[t.krIdx]?.id ?? null : null,
+        productId: t.productIdx !== undefined ? products[t.productIdx].id : null,
+        departmentId: t.deptIdx !== undefined ? departments[t.deptIdx].id : null,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        storyPoints: t.points,
+        assigneeId: t.assigneeId,
+        createdById: ceo.id,
+        sortOrder: sprintTaskCount,
+        completedAt: t.completedOffset !== undefined ? addDays(t.completedOffset) : null,
+      },
+    });
+    sprintTaskCount++;
+  }
+
+  // Capacity for the active sprint
+  const capacityData: { userId: string; capacityPoints: number }[] = [
+    { userId: poTrading.id, capacityPoints: 13 },
+    { userId: poMarketing.id, capacityPoints: 10 },
+    { userId: poWallet.id, capacityPoints: 8 },
+    { userId: poIT.id, capacityPoints: 8 },
+    { userId: mgmt1.id, capacityPoints: 5 },
+  ];
+  for (const c of capacityData) {
+    await prisma.sprintCapacity.create({
+      data: {
+        orgId: org.id,
+        sprintId: activeSprint.id,
+        userId: c.userId,
+        capacityPoints: c.capacityPoints,
+      },
+    });
+  }
+
   // ── Department Members ────────────────────────────────────────
   // Assign users to departments (owner as LEAD + some cross-members)
   const memberAssignments: { deptIdx: number; userId: string; role: string }[] = [
@@ -939,8 +1069,15 @@ async function main() {
     { deptIdx: 7, userId: mgmt1.id, role: "MEMBER" },         // Dir Ops in RH
   ];
 
+  // Dedupe by (department, user): the unique [departmentId, userId] constraint
+  // rejects a user appearing twice in the same department, so the first entry
+  // (LEAD before MEMBER) wins.
   let memberCount = 0;
+  const seenMembers = new Set<string>();
   for (const ma of memberAssignments) {
+    const key = `${ma.deptIdx}:${ma.userId}`;
+    if (seenMembers.has(key)) continue;
+    seenMembers.add(key);
     await prisma.departmentMember.create({
       data: {
         departmentId: departments[ma.deptIdx].id,
@@ -951,7 +1088,7 @@ async function main() {
     memberCount++;
   }
 
-  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members`);
+  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks`);
 }
 
 main()
