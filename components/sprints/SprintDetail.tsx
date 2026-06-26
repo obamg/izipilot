@@ -9,6 +9,8 @@ import { BacklogPanel } from "./BacklogPanel";
 import { CapacityPanel, type CapacityRow } from "./CapacityPanel";
 import { BurndownChart, type BurndownDatum } from "./BurndownChart";
 import { SprintTaskModal } from "./SprintTaskModal";
+import { DailyReport } from "./DailyReport";
+import type { RosterMember, StandupRecord } from "@/lib/standup";
 import type {
   SprintSummary,
   SprintTaskItem,
@@ -17,13 +19,14 @@ import type {
   KrOption,
 } from "./types";
 
-type Tab = "board" | "backlog" | "burndown" | "capacity";
+type Tab = "board" | "backlog" | "burndown" | "capacity" | "standup";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "board", label: "Tableau" },
   { id: "backlog", label: "Backlog" },
   { id: "burndown", label: "Burndown" },
   { id: "capacity", label: "Capacité" },
+  { id: "standup", label: "Rapport quotidien" },
 ];
 
 interface SprintDetailProps {
@@ -39,6 +42,9 @@ interface SprintDetailProps {
   currentUserRole: UserRole;
   currentUserId: string;
   daysRemaining: number;
+  standupToday: string;
+  standupRoster: RosterMember[];
+  initialStandups: StandupRecord[];
 }
 
 export function SprintDetail({
@@ -54,6 +60,9 @@ export function SprintDetail({
   currentUserRole,
   currentUserId,
   daysRemaining,
+  standupToday,
+  standupRoster,
+  initialStandups,
 }: SprintDetailProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("board");
@@ -177,6 +186,17 @@ export function SprintDetail({
           allUsers={users}
           sprintId={sprint.id}
           canEdit={isManagement}
+        />
+      )}
+
+      {tab === "standup" && (
+        <DailyReport
+          sprintId={sprint.id}
+          today={standupToday}
+          roster={standupRoster}
+          initialStandups={initialStandups}
+          currentUserId={currentUserId}
+          canSubmit={currentUserRole !== "VIEWER"}
         />
       )}
 

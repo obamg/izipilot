@@ -84,3 +84,10 @@ export const setCapacitySchema = z.object({
 export const createSprintTaskCommentSchema = z.object({
   content: z.string().min(1).max(2000),
 });
+
+// ── Daily standup ────────────────────────────────────────────────────────────
+export const submitStandupSchema = z.object({
+  yesterday: z.string().max(2000).nullable().optional(),
+  today: z.string().max(2000).nullable().optional(),
+  blockers: z.string().max(2000).nullable().optional(),
+});

@@ -13,6 +13,7 @@ import {
   daysRemaining,
 } from "@/lib/sprint";
 import { sprintTaskInclude, serializeSprintTask } from "@/lib/sprint-serialize";
+import { watDateOnly, toDateKey } from "@/lib/standup";
 import { SprintDetail } from "@/components/sprints/SprintDetail";
 
 export default async function SprintDetailPage({
@@ -40,7 +41,10 @@ export default async function SprintDetailPage({
   });
   if (!sprint) notFound();
 
-  const [backlog, users, products, departments, krs] = await Promise.all([
+  const standupDate = watDateOnly();
+
+  const [backlog, users, products, departments, krs, standupsToday, standupAuthors] =
+    await Promise.all([
     prisma.sprintTask.findMany({
       where: { orgId, sprintId: null, ...sprintTaskVisibilityWhere(role) },
       include: sprintTaskInclude,
@@ -75,6 +79,17 @@ export default async function SprintDetailPage({
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.standupEntry.findMany({
+      where: { sprintId, orgId, date: standupDate },
+      include: { user: { select: { id: true, name: true } } },
+    }),
+    // All-time authors so past-day reports can resolve names even for people
+    // no longer on the sprint roster.
+    prisma.standupEntry.findMany({
+      where: { sprintId, orgId },
+      select: { user: { select: { id: true, name: true } } },
+      distinct: ["userId"],
+    }),
   ]);
 
   const nameMap = new Map(users.map((u) => [u.id, u.name]));
@@ -94,6 +109,25 @@ export default async function SprintDetailPage({
     title: kr.title,
     entityCode: kr.objective.product?.code ?? kr.objective.department?.code ?? "",
     entityName: kr.objective.product?.name ?? kr.objective.department?.name ?? "",
+  }));
+
+  // Standup roster = task assignees + capacity members + all-time authors + me.
+  const rosterMap = new Map<string, string>();
+  for (const u of users) {
+    const isAssignee = sprint.tasks.some((t) => t.assigneeId === u.id);
+    const hasCapacity = sprint.capacities.some((c) => c.userId === u.id);
+    if (isAssignee || hasCapacity) rosterMap.set(u.id, u.name);
+  }
+  for (const a of standupAuthors) rosterMap.set(a.user.id, a.user.name);
+  rosterMap.set(session.user.id, session.user.name);
+  const standupRoster = [...rosterMap.entries()].map(([id, name]) => ({ id, name }));
+
+  const initialStandups = standupsToday.map((s) => ({
+    userId: s.userId,
+    yesterday: s.yesterday,
+    today: s.today,
+    blockers: s.blockers,
+    updatedAt: s.updatedAt.toISOString(),
   }));
 
   return (
@@ -120,6 +154,9 @@ export default async function SprintDetailPage({
       currentUserRole={role}
       currentUserId={session.user.id}
       daysRemaining={daysRemaining(sprint.endDate)}
+      standupToday={toDateKey(standupDate)}
+      standupRoster={standupRoster}
+      initialStandups={initialStandups}
     />
   );
 }

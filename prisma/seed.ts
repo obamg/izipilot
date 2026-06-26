@@ -1039,6 +1039,55 @@ async function main() {
     });
   }
 
+  // ── Daily standups (today, WAT) for the active sprint ─────────
+  const watNow = new Date(now.getTime() + 60 * 60 * 1000); // UTC+1
+  const standupDate = new Date(
+    Date.UTC(watNow.getUTCFullYear(), watNow.getUTCMonth(), watNow.getUTCDate())
+  );
+  const standupData: {
+    userId: string;
+    yesterday?: string;
+    today?: string;
+    blockers?: string;
+  }[] = [
+    {
+      userId: poTrading.id,
+      yesterday: "Intégration de l'API Binance spot finalisée.",
+      today: "Déployer le matching engine en staging et lancer les tests de charge.",
+    },
+    {
+      userId: poMarketing.id,
+      yesterday: "Maquettes du parcours referral validées avec le design.",
+      today: "Intégrer la landing page referral et brancher le tracking UTM.",
+    },
+    {
+      userId: poWallet.id,
+      yesterday: "Benchmark des frais concurrents terminé.",
+      today: "Poursuivre la négociation Orange Money.",
+      blockers: "En attente du retour tarifaire d'Orange Money — relance prévue ce matin.",
+    },
+    {
+      userId: poIT.id,
+      yesterday: "Monitoring Datadog branché sur les services critiques.",
+      today: "Configurer l'alerting et les dashboards d'astreinte.",
+    },
+  ];
+  let standupCount = 0;
+  for (const s of standupData) {
+    await prisma.standupEntry.create({
+      data: {
+        orgId: org.id,
+        sprintId: activeSprint.id,
+        userId: s.userId,
+        date: standupDate,
+        yesterday: s.yesterday ?? null,
+        today: s.today ?? null,
+        blockers: s.blockers ?? null,
+      },
+    });
+    standupCount++;
+  }
+
   // ── Department Members ────────────────────────────────────────
   // Assign users to departments (owner as LEAD + some cross-members)
   const memberAssignments: { deptIdx: number; userId: string; role: string }[] = [
@@ -1088,7 +1137,7 @@ async function main() {
     memberCount++;
   }
 
-  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks`);
+  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks, ${standupCount} standups`);
 }
 
 main()
