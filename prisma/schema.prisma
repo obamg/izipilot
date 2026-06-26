@@ -107,6 +107,13 @@ enum ActionPriority {
   URGENT // Liée à un KR rouge — auto-escalade
 }
 
+enum SprintStatus {
+  PLANNED // Sprint planifié, pas encore démarré
+  ACTIVE // Sprint en cours (un seul ACTIVE par org)
+  COMPLETED // Sprint clôturé
+  CANCELLED // Sprint annulé
+}
+
 enum NotificationChannel {
   EMAIL
   IN_APP
@@ -143,18 +150,21 @@ model Organization {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  users          User[]
-  departments    Department[]
-  products       Product[]
-  objectives     Objective[]
-  keyResults     KeyResult[]
-  weeklyEntries  WeeklyEntry[]
-  weeklySessions WeeklySession[]
-  alerts         Alert[]
-  decisions      Decision[]
-  actions        Action[]
-  crmSnapshots   CrmDailySnapshot[]
-  agentSnapshots AgentDailySnapshot[]
+  users            User[]
+  departments      Department[]
+  products         Product[]
+  objectives       Objective[]
+  keyResults       KeyResult[]
+  weeklyEntries    WeeklyEntry[]
+  weeklySessions   WeeklySession[]
+  alerts           Alert[]
+  decisions        Decision[]
+  actions          Action[]
+  crmSnapshots     CrmDailySnapshot[]
+  agentSnapshots   AgentDailySnapshot[]
+  sprints          Sprint[]
+  sprintTasks      SprintTask[]
+  sprintCapacities SprintCapacity[]
 
   @@map("organizations")
 }
@@ -164,36 +174,41 @@ model Organization {
 // ============================================================================
 
 model User {
-  id           String    @id @default(cuid())
-  orgId        String
-  email        String    @unique
-  name         String
-  passwordHash String?
-  avatarUrl    String?
-  role         UserRole  @default(VIEWER)
-  isActive     Boolean   @default(true)
-  mustChangePassword Boolean @default(false)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  orgId              String
+  email              String    @unique
+  name               String
+  passwordHash       String?
+  avatarUrl          String?
+  role               UserRole  @default(VIEWER)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Relations
-  org               Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  ownedDepartments  Department[]       @relation("DepartmentOwner")
-  ownedProducts     Product[]          @relation("ProductOwner")
-  ownedKeyResults   KeyResult[]        @relation("KrOwner")
-  weeklyEntries     WeeklyEntry[]
-  alerts            Alert[]            @relation("AlertTriggeredBy")
-  resolvedAlerts    Alert[]            @relation("AlertResolvedBy")
-  decisions         Decision[]         @relation("DecisionOwner")
-  notifications     Notification[]
-  sessions          Session[]
-  pushSubscriptions PushSubscription[]
-  assignedActions   Action[]           @relation("ActionAssignee")
-  createdActions    Action[]           @relation("ActionCreator")
-  actionComments    ActionComment[]    @relation("ActionCommentAuthor")
-  departmentMembers DepartmentMember[]
-  notificationPrefs NotificationPreference?
+  org                 Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ownedDepartments    Department[]            @relation("DepartmentOwner")
+  ownedProducts       Product[]               @relation("ProductOwner")
+  ownedKeyResults     KeyResult[]             @relation("KrOwner")
+  weeklyEntries       WeeklyEntry[]
+  alerts              Alert[]                 @relation("AlertTriggeredBy")
+  resolvedAlerts      Alert[]                 @relation("AlertResolvedBy")
+  decisions           Decision[]              @relation("DecisionOwner")
+  notifications       Notification[]
+  sessions            Session[]
+  pushSubscriptions   PushSubscription[]
+  assignedActions     Action[]                @relation("ActionAssignee")
+  createdActions      Action[]                @relation("ActionCreator")
+  actionComments      ActionComment[]         @relation("ActionCommentAuthor")
+  departmentMembers   DepartmentMember[]
+  notificationPrefs   NotificationPreference?
+  createdSprints      Sprint[]                @relation("SprintCreator")
+  assignedSprintTasks SprintTask[]            @relation("SprintTaskAssignee")
+  createdSprintTasks  SprintTask[]            @relation("SprintTaskCreator")
+  sprintTaskComments  SprintTaskComment[]     @relation("SprintTaskCommentAuthor")
+  sprintCapacities    SprintCapacity[]        @relation("SprintCapacityUser")
 
   @@index([orgId])
   @@index([email])
@@ -269,10 +284,11 @@ model Department {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  org        Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner      User               @relation("DepartmentOwner", fields: [ownerId], references: [id])
-  objectives Objective[]
-  members    DepartmentMember[]
+  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner       User               @relation("DepartmentOwner", fields: [ownerId], references: [id])
+  objectives  Objective[]
+  members     DepartmentMember[]
+  sprintTasks SprintTask[]       @relation("SprintTaskDept")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -314,9 +330,10 @@ model Product {
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner      User         @relation("ProductOwner", fields: [ownerId], references: [id])
-  objectives Objective[]
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner       User         @relation("ProductOwner", fields: [ownerId], references: [id])
+  objectives  Objective[]
+  sprintTasks SprintTask[] @relation("SprintTaskProduct")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -398,6 +415,7 @@ model KeyResult {
   weeklyEntries WeeklyEntry[]
   alerts        Alert[]
   actions       Action[]
+  sprintTasks   SprintTask[]  @relation("SprintTaskKr")
 
   @@index([orgId])
   @@index([objectiveId])
@@ -600,14 +618,14 @@ model Notification {
 // into an upsert without creating duplicate rows.
 
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  orgId     String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  userAgent String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  orgId      String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
   lastUsedAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -698,6 +716,107 @@ model ActionComment {
 }
 
 // ============================================================================
+// SPRINTS (exécution time-boxée — org-wide, board filtrable par équipe)
+// ============================================================================
+
+model Sprint {
+  id          String       @id @default(cuid())
+  orgId       String
+  number      Int // Numéro auto-incrémenté par org (ex: "Sprint 12")
+  name        String
+  goal        String?      @db.Text
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime
+  endDate     DateTime
+  createdById String
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  org        Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy  User             @relation("SprintCreator", fields: [createdById], references: [id])
+  tasks      SprintTask[]
+  capacities SprintCapacity[]
+
+  @@unique([orgId, number])
+  @@index([orgId, status])
+  @@map("sprints")
+}
+
+model SprintTask {
+  id           String         @id @default(cuid())
+  orgId        String
+  sprintId     String? // null = backlog (pas encore dans un sprint)
+  krId         String? // Lien optionnel vers un Key Result
+  departmentId String? // Tag équipe (filtre board)
+  productId    String? // Tag équipe (filtre board)
+  title        String
+  description  String?        @db.Text
+  status       ActionStatus   @default(TODO)
+  priority     ActionPriority @default(MEDIUM)
+  storyPoints  Int? // Estimation (capacité / vélocité)
+  assigneeId   String?
+  createdById  String
+  sortOrder    Int            @default(0) // Ordre dans une colonne du board
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  org        Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sprint     Sprint?             @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  keyResult  KeyResult?          @relation("SprintTaskKr", fields: [krId], references: [id], onDelete: SetNull)
+  department Department?         @relation("SprintTaskDept", fields: [departmentId], references: [id], onDelete: SetNull)
+  product    Product?            @relation("SprintTaskProduct", fields: [productId], references: [id], onDelete: SetNull)
+  assignee   User?               @relation("SprintTaskAssignee", fields: [assigneeId], references: [id])
+  createdBy  User                @relation("SprintTaskCreator", fields: [createdById], references: [id])
+  comments   SprintTaskComment[]
+
+  @@index([orgId, sprintId, status])
+  @@index([assigneeId])
+  @@index([krId])
+  @@index([departmentId])
+  @@index([productId])
+  @@map("sprint_tasks")
+}
+
+model SprintTaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  // Relations
+  task   SprintTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User       @relation("SprintTaskCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("sprint_task_comments")
+}
+
+model SprintCapacity {
+  id             String  @id @default(cuid())
+  orgId          String
+  sprintId       String
+  userId         String
+  capacityPoints Int     @default(0) // Points qu'un membre peut prendre sur le sprint
+  notes          String?
+
+  // Relations
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sprint Sprint       @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  user   User         @relation("SprintCapacityUser", fields: [userId], references: [id])
+
+  @@unique([sprintId, userId])
+  @@index([orgId])
+  @@map("sprint_capacities")
+}
+
+// ============================================================================
 // OAuth 2.1 — MCP CONNECTOR (Claude.ai)
 // ============================================================================
 // Each Claude.ai install self-registers a client via Dynamic Client
@@ -708,17 +827,17 @@ model ActionComment {
 // workspace, so revoking refresh tokens is per-user-per-client.
 
 model OAuthClient {
-  id                       String   @id @default(cuid())
-  clientId                 String   @unique
-  clientSecretHash         String // bcrypt of the client secret
-  clientName               String
-  redirectUris             String[] // RFC 7591 — exact match required at /authorize
-  tokenEndpointAuthMethod  String   @default("client_secret_post")
-  grantTypes               String[] @default(["authorization_code", "refresh_token"])
-  responseTypes            String[] @default(["code"])
-  scope                    String   @default("mcp")
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  clientId                String   @unique
+  clientSecretHash        String // bcrypt of the client secret
+  clientName              String
+  redirectUris            String[] // RFC 7591 — exact match required at /authorize
+  tokenEndpointAuthMethod String   @default("client_secret_post")
+  grantTypes              String[] @default(["authorization_code", "refresh_token"])
+  responseTypes           String[] @default(["code"])
+  scope                   String   @default("mcp")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   authCodes     OAuthAuthCode[]
   refreshTokens OAuthRefreshToken[]
