@@ -16,6 +16,14 @@ const taskStatusEnum = z.enum([
 ]);
 const taskPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
+// Lien vers un rapport de tâche. "" → null pour faciliter le formulaire.
+const reportUrlSchema = z
+  .preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.string().trim().url().max(2048).nullable()
+  )
+  .optional();
+
 // ── Sprint ─────────────────────────────────────────────────────────────────
 export const createSprintSchema = z.object({
   name: z.string().min(2).max(120),
@@ -40,6 +48,7 @@ export const createSprintTaskSchema = z.object({
   productId: z.string().nullable().optional(),
   title: z.string().min(2).max(200),
   description: z.string().max(2000).nullable().optional(),
+  reportUrl: reportUrlSchema,
   assigneeId: z.string().nullable().optional(),
   priority: taskPriorityEnum.default("MEDIUM"),
   storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
@@ -49,6 +58,7 @@ export const createSprintTaskSchema = z.object({
 export const updateSprintTaskSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
+  reportUrl: reportUrlSchema,
   status: taskStatusEnum.optional(),
   priority: taskPriorityEnum.optional(),
   storyPoints: z.number().int().min(0).max(1000).nullable().optional(),

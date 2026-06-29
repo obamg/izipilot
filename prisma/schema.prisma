@@ -756,6 +756,7 @@ model SprintTask {
   productId    String? // Tag équipe (filtre board)
   title        String
   description  String?        @db.Text
+  reportUrl    String? // Lien vers le rapport de tâche (document externe)
   status       ActionStatus   @default(TODO)
   priority     ActionPriority @default(MEDIUM)
   storyPoints  Int? // Estimation (capacité / vélocité)

@@ -65,6 +65,7 @@ export function SprintTaskModal({
   const isEdit = Boolean(task);
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
+  const [reportUrl, setReportUrl] = useState(task?.reportUrl ?? "");
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId ?? "");
   const [team, setTeam] = useState(teamValueOf(task));
   const [krId, setKrId] = useState(task?.krId ?? "");
@@ -103,6 +104,7 @@ export function SprintTaskModal({
       const payload: Record<string, unknown> = {
         title: title.trim(),
         description: description.trim() ? description.trim() : null,
+        reportUrl: reportUrl.trim() ? reportUrl.trim() : null,
         assigneeId: assigneeId || null,
         productId,
         departmentId,
@@ -229,6 +231,20 @@ export function SprintTaskModal({
             rows={2}
             maxLength={2000}
             className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal resize-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-izi-gray mb-1">
+            Lien du rapport (optionnel)
+          </label>
+          <input
+            type="url"
+            value={reportUrl}
+            onChange={(e) => setReportUrl(e.target.value)}
+            maxLength={2048}
+            placeholder="https://…"
+            className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal"
           />
         </div>
 

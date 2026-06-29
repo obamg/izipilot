@@ -94,6 +94,7 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (p.title !== undefined) data.title = p.title;
   if (p.description !== undefined) data.description = p.description ?? null;
+  if (p.reportUrl !== undefined) data.reportUrl = p.reportUrl ?? null;
   if (p.priority !== undefined) data.priority = p.priority;
   if (p.storyPoints !== undefined) data.storyPoints = p.storyPoints ?? null;
   if (p.assigneeId !== undefined) data.assigneeId = p.assigneeId ?? null;
