@@ -18,6 +18,7 @@ export interface SprintTaskItem {
   krTitle: string | null;
   title: string;
   description: string | null;
+  reportUrl: string | null;
   status: ActionStatus;
   priority: ActionPriority;
   storyPoints: number | null;

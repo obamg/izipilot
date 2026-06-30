@@ -52,6 +52,7 @@ export function serializeSprintTask(t: SprintTaskWithRelations) {
     krTitle: t.keyResult?.title ?? null,
     title: t.title,
     description: t.description,
+    reportUrl: t.reportUrl,
     status: t.status,
     priority: t.priority,
     storyPoints: t.storyPoints,

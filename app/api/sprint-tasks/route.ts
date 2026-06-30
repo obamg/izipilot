@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
       productId: d.productId ?? null,
       title: d.title,
       description: d.description ?? null,
+      reportUrl: d.reportUrl ?? null,
       priority: d.priority ?? "MEDIUM",
       storyPoints: d.storyPoints ?? null,
       assigneeId: d.assigneeId ?? null,
