@@ -246,7 +246,6 @@ function LoginForm() {
               aria-describedby={error ? "otp-error" : undefined}
               aria-invalid={!!error}
               className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-3 text-center font-mono text-2xl tracking-[0.4em] focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/30"
-              placeholder="••••••"
             />
           </div>
 
