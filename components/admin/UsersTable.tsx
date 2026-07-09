@@ -38,6 +38,7 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [resetUser, setResetUser] = useState<UserData | null>(null);
   const [deactivateUser, setDeactivateUser] = useState<UserData | null>(null);
+  const [reactivateUser, setReactivateUser] = useState<UserData | null>(null);
 
   const filtered = users.filter((u) => {
     if (roleFilter !== "ALL" && u.role !== roleFilter) return false;
@@ -59,6 +60,21 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
       startTransition(() => router.refresh());
     } catch (err) {
       console.error("Failed to deactivate user:", err);
+    }
+  }
+
+  async function handleReactivate() {
+    if (!reactivateUser) return;
+    try {
+      await fetch(`/api/admin/users/${reactivateUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: true }),
+      });
+      setReactivateUser(null);
+      startTransition(() => router.refresh());
+    } catch (err) {
+      console.error("Failed to reactivate user:", err);
     }
   }
 
@@ -184,6 +200,14 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
                             D&eacute;sactiver
                           </button>
                         )}
+                        {!user.isActive && (
+                          <button
+                            onClick={() => setReactivateUser(user)}
+                            className="px-2 py-1 rounded text-[9px] font-medium text-izi-green hover:bg-izi-green-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-izi-green focus-visible:ring-offset-1 transition-colors"
+                          >
+                            R&eacute;activer
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -234,6 +258,14 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
                       Désactiver
                     </button>
                   )}
+                  {!user.isActive && (
+                    <button
+                      onClick={() => setReactivateUser(user)}
+                      className="min-h-[44px] px-3 py-2 rounded-md text-xs font-medium text-izi-green border border-izi-green-lt hover:bg-izi-green-lt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-izi-green focus-visible:ring-offset-1 transition-colors"
+                    >
+                      Réactiver
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -274,6 +306,16 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
         message={`\u00cates-vous s\u00fbr de vouloir d\u00e9sactiver ${deactivateUser?.name} ? Il ne pourra plus se connecter.`}
         confirmLabel="D\u00e9sactiver"
         destructive
+        loading={isPending}
+      />
+
+      <ConfirmDialog
+        open={!!reactivateUser}
+        onClose={() => setReactivateUser(null)}
+        onConfirm={handleReactivate}
+        title="R\u00e9activer l'utilisateur"
+        message={`\u00cates-vous s\u00fbr de vouloir r\u00e9activer ${reactivateUser?.name} ? Il pourra de nouveau se connecter.`}
+        confirmLabel="R\u00e9activer"
         loading={isPending}
       />
     </div>
