@@ -6,8 +6,9 @@ import { sprintTaskVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 import { sprintTaskInclude, serializeSprintTask } from "@/lib/sprint-serialize";
 import { validateTeamAndAssignee } from "@/lib/sprint-refs";
 
-// Keys a CONTRIBUTOR is allowed to touch (board move only).
-const MOVE_KEYS = new Set(["status", "sortOrder"]);
+// Keys a CONTRIBUTOR may edit on their OWN assigned task: board move
+// (status/sortOrder) plus the report link.
+const CONTRIBUTOR_KEYS = new Set(["status", "sortOrder", "reportUrl"]);
 
 export async function PATCH(
   request: NextRequest,
@@ -43,12 +44,15 @@ export async function PATCH(
     return Response.json({ error: "Task not found" }, { status: 404 });
   }
 
-  // CONTRIBUTOR may only move (status/sortOrder) their own assigned task.
+  // CONTRIBUTOR may only edit the allowed keys (move + report link) on their
+  // own assigned task.
   if (session.user.role === "CONTRIBUTOR") {
-    const moveOnly = Object.keys(parsed.data).every((k) => MOVE_KEYS.has(k));
-    if (!moveOnly || existing.assigneeId !== session.user.id) {
+    const allowed = Object.keys(parsed.data).every((k) =>
+      CONTRIBUTOR_KEYS.has(k)
+    );
+    if (!allowed || existing.assigneeId !== session.user.id) {
       return Response.json(
-        { error: "Forbidden: you can only move tasks assigned to you" },
+        { error: "Forbidden: you can only update tasks assigned to you" },
         { status: 403 }
       );
     }
