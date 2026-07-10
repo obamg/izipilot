@@ -72,7 +72,17 @@ export function SprintDetail({
 
   const isManagement = currentUserRole === "CEO" || currentUserRole === "MANAGEMENT";
   const canManageTasks = isManagement || currentUserRole === "PO";
-  const canEdit = canManageTasks; // who may open the edit modal
+  const canEdit = canManageTasks; // who may open the full edit modal
+  const isContributor = currentUserRole === "CONTRIBUTOR";
+
+  // Management/PO open the full modal on any card; a CONTRIBUTOR opens a
+  // report-link-only modal on cards assigned to them.
+  const openCard = (t: SprintTaskItem) => {
+    if (canEdit || (isContributor && t.assigneeId === currentUserId)) {
+      setEditing(t);
+    }
+  };
+  const canOpenCards = canEdit || isContributor;
 
   const filteredTasks = useMemo(() => {
     if (teamFilter === "ALL") return tasks;
@@ -154,7 +164,7 @@ export function SprintDetail({
             tasks={filteredTasks}
             currentUserRole={currentUserRole}
             currentUserId={currentUserId}
-            onCardClick={canEdit ? (t) => setEditing(t) : undefined}
+            onCardClick={canOpenCards ? openCard : undefined}
           />
         </div>
       )}
@@ -220,6 +230,7 @@ export function SprintDetail({
           departments={departments}
           krs={krs}
           canDelete={canManageTasks}
+          reportOnly={isContributor}
           onClose={() => setEditing(null)}
           onSaved={refresh}
           onDeleted={refresh}

@@ -18,6 +18,8 @@ interface SprintTaskModalProps {
   departments: TeamOption[];
   krs: KrOption[];
   canDelete?: boolean;
+  // CONTRIBUTOR view: only the report link is editable (own task only).
+  reportOnly?: boolean;
   onClose: () => void;
   onSaved?: () => void;
   onDeleted?: () => void;
@@ -58,6 +60,7 @@ export function SprintTaskModal({
   departments,
   krs,
   canDelete = false,
+  reportOnly = false,
   onClose,
   onSaved,
   onDeleted,
@@ -99,22 +102,29 @@ export function SprintTaskModal({
     setError(null);
     setIsSaving(true);
     try {
-      const { productId, departmentId } = teamFields();
-      const points = storyPoints.trim() === "" ? null : Number(storyPoints);
-      const payload: Record<string, unknown> = {
-        title: title.trim(),
-        description: description.trim() ? description.trim() : null,
-        reportUrl: reportUrl.trim() ? reportUrl.trim() : null,
-        assigneeId: assigneeId || null,
-        productId,
-        departmentId,
-        krId: krId || null,
-        priority,
-        storyPoints: points != null && Number.isFinite(points) ? points : null,
-        dueDate: dueDate || null,
-      };
-      if (isEdit) payload.status = status;
-      else payload.sprintId = defaultSprintId;
+      const reportValue = reportUrl.trim() ? reportUrl.trim() : null;
+      let payload: Record<string, unknown>;
+      if (reportOnly) {
+        // CONTRIBUTOR may only touch the report link — send that field alone.
+        payload = { reportUrl: reportValue };
+      } else {
+        const { productId, departmentId } = teamFields();
+        const points = storyPoints.trim() === "" ? null : Number(storyPoints);
+        payload = {
+          title: title.trim(),
+          description: description.trim() ? description.trim() : null,
+          reportUrl: reportValue,
+          assigneeId: assigneeId || null,
+          productId,
+          departmentId,
+          krId: krId || null,
+          priority,
+          storyPoints: points != null && Number.isFinite(points) ? points : null,
+          dueDate: dueDate || null,
+        };
+        if (isEdit) payload.status = status;
+        else payload.sprintId = defaultSprintId;
+      }
 
       const res = await fetch(
         isEdit ? `/api/sprint-tasks/${task!.id}` : "/api/sprint-tasks",
@@ -191,6 +201,68 @@ export function SprintTaskModal({
       })),
     }));
   })();
+
+  // Compact editor for CONTRIBUTOR: report link only, on their own task.
+  if (reportOnly) {
+    return (
+      <div
+        className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/40 p-4"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Lien du rapport"
+      >
+        <form
+          onSubmit={handleSave}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl space-y-3"
+        >
+          <h2 className="font-serif text-lg text-dark">Lien du rapport</h2>
+          {task && (
+            <p className="text-[12px] text-izi-gray line-clamp-2">{task.title}</p>
+          )}
+
+          <div>
+            <label className="block text-[11px] font-semibold text-izi-gray mb-1">
+              Lien du rapport (optionnel)
+            </label>
+            <input
+              type="url"
+              value={reportUrl}
+              onChange={(e) => setReportUrl(e.target.value)}
+              maxLength={2048}
+              placeholder="https://…"
+              autoFocus
+              className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[13px] text-dark focus:outline-none focus:border-teal"
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
+              {error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-[7px] text-[12px] font-medium text-izi-gray border border-border-soft bg-white hover:bg-gray-lt transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-3 py-1.5 rounded-[7px] text-[12px] font-medium text-white bg-teal hover:bg-teal-dk transition-colors disabled:opacity-50"
+            >
+              {isSaving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div
