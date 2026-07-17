@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { UserRole } from "@prisma/client";
-import type { AvailabilityMemberVM } from "./types";
+import { computeAvailability, type SprintTaskLike } from "@/lib/sprint";
+import type { AvailabilityMemberVM, SprintTaskItem, TeamTag } from "./types";
 
 interface AvailabilityPanelProps {
   members: AvailabilityMemberVM[];
+  tasks: SprintTaskItem[];
 }
 
 // Doers first (they're the ones who actually need work), then the rest.
@@ -47,6 +49,20 @@ function RoleChip({ role }: { role: UserRole }) {
   );
 }
 
+// When a team is selected, distinguish the genuinely idle from those simply
+// busy on another team's work.
+function IdleMarker({ free }: { free: boolean }) {
+  return (
+    <span
+      className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+        free ? "bg-green-lt text-green" : "bg-izi-gray-lt text-izi-gray"
+      }`}
+    >
+      {free ? "libre" : "occupé ailleurs"}
+    </span>
+  );
+}
+
 /** e.g. "3 à faire · 1 bloqué · 2 terminé" — only non-zero segments. */
 function breakdown(m: AvailabilityMemberVM): string {
   const parts: string[] = [];
@@ -56,15 +72,84 @@ function breakdown(m: AvailabilityMemberVM): string {
   return parts.join(" · ");
 }
 
-export function AvailabilityPanel({ members }: AvailabilityPanelProps) {
+function toLike(t: SprintTaskItem): SprintTaskLike {
+  return {
+    status: t.status,
+    storyPoints: t.storyPoints,
+    completedAt: t.completedAt ? new Date(t.completedAt) : null,
+    assigneeId: t.assigneeId,
+  };
+}
+
+function matchesTeam(t: SprintTaskItem, filter: string): boolean {
+  if (filter === "ALL") return true;
+  const id = filter.slice(2);
+  return filter.startsWith("P:") ? t.productId === id : t.departmentId === id;
+}
+
+export function AvailabilityPanel({ members, tasks }: AvailabilityPanelProps) {
+  const [teamFilter, setTeamFilter] = useState("ALL");
+
+  // Team options derived from the sprint's own tasks (deduped) — only teams
+  // that actually carry work show up.
+  const { products, departments } = useMemo(() => {
+    const prod = new Map<string, TeamTag>();
+    const dept = new Map<string, TeamTag>();
+    for (const t of tasks) {
+      if (!t.team) continue;
+      if (t.team.type === "PRODUCT") prod.set(t.team.id, t.team);
+      else dept.set(t.team.id, t.team);
+    }
+    const byCode = (a: TeamTag, b: TeamTag) => a.code.localeCompare(b.code);
+    return {
+      products: [...prod.values()].sort(byCode),
+      departments: [...dept.values()].sort(byCode),
+    };
+  }, [tasks]);
+  const hasTeams = products.length > 0 || departments.length > 0;
+
+  const nameRole = useMemo(
+    () => new Map(members.map((m) => [m.userId, { userName: m.userName, role: m.role }])),
+    [members]
+  );
+  // Members with no task anywhere in the sprint (global state, team-independent).
+  const globalIdle = useMemo(
+    () => new Set(members.filter((m) => m.state === "IDLE").map((m) => m.userId)),
+    [members]
+  );
+
   const { noTask, noOngoing, activeCount } = useMemo(() => {
-    const noTask = members.filter((m) => m.state === "IDLE").sort(byRoleThenName);
-    const noOngoing = members
-      .filter((m) => m.state === "NO_ONGOING")
-      .sort(byRoleThenName);
-    const activeCount = members.filter((m) => m.state === "ACTIVE").length;
-    return { noTask, noOngoing, activeCount };
-  }, [members]);
+    const roster = members.map((m) => ({ id: m.userId }));
+    const scopedTasks = tasks.filter((t) => matchesTeam(t, teamFilter));
+    const report = computeAvailability(roster, scopedTasks.map(toLike));
+    const vms: AvailabilityMemberVM[] = report.members.map((m) => {
+      const nr = nameRole.get(m.userId);
+      return {
+        userId: m.userId,
+        userName: nr?.userName ?? "—",
+        role: nr?.role ?? "VIEWER",
+        total: m.total,
+        inProgress: m.inProgress,
+        todo: m.todo,
+        blocked: m.blocked,
+        done: m.done,
+        state: m.state,
+      };
+    });
+    return {
+      noTask: vms.filter((m) => m.state === "IDLE").sort(byRoleThenName),
+      noOngoing: vms.filter((m) => m.state === "NO_ONGOING").sort(byRoleThenName),
+      activeCount: vms.filter((m) => m.state === "ACTIVE").length,
+    };
+  }, [members, tasks, teamFilter, nameRole]);
+
+  const selectedTeam = useMemo(() => {
+    if (teamFilter === "ALL") return null;
+    const id = teamFilter.slice(2);
+    return [...products, ...departments].find((t) => t.id === id) ?? null;
+  }, [teamFilter, products, departments]);
+  const teamLabel = selectedTeam ? `${selectedTeam.code} — ${selectedTeam.name}` : null;
+  const scopeSuffix = teamLabel ? ` sur ${teamLabel}` : "";
 
   if (members.length === 0) {
     return (
@@ -76,6 +161,37 @@ export function AvailabilityPanel({ members }: AvailabilityPanelProps) {
 
   return (
     <div>
+      {hasTeams && (
+        <div className="mb-3">
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
+            aria-label="Filtrer par équipe"
+          >
+            <option value="ALL">Toutes les équipes</option>
+            {products.length > 0 && (
+              <optgroup label="Produits">
+                {products.map((p) => (
+                  <option key={p.id} value={`P:${p.id}`}>
+                    {p.code} — {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {departments.length > 0 && (
+              <optgroup label="Départements">
+                {departments.map((d) => (
+                  <option key={d.id} value={`D:${d.id}`}>
+                    {d.code} — {d.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </div>
+      )}
+
       {/* Summary */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-[12px]">
         <span className="flex items-center gap-1.5">
@@ -91,20 +207,24 @@ export function AvailabilityPanel({ members }: AvailabilityPanelProps) {
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-red" />
           <span className="font-mono font-semibold text-dark">{noTask.length}</span>
-          <span className="text-izi-gray">sans tâche</span>
+          <span className="text-izi-gray">sans tâche{scopeSuffix}</span>
         </span>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Sans tâche */}
         <section className="rounded-[12px] border border-red/20 bg-red-lt/40 p-4">
-          <h2 className="font-serif text-[15px] text-dark mb-0.5">Sans tâche</h2>
+          <h2 className="font-serif text-[15px] text-dark mb-0.5">Sans tâche{scopeSuffix}</h2>
           <p className="text-[11px] text-izi-gray mb-3">
-            Aucune tâche assignée sur ce sprint.
+            {teamLabel
+              ? "Aucune tâche sur cette équipe."
+              : "Aucune tâche assignée sur ce sprint."}
           </p>
           {noTask.length === 0 ? (
             <p className="text-[12px] text-izi-gray py-3">
-              Tout le monde a au moins une tâche. 👍
+              {teamLabel
+                ? "Tout le monde a une tâche sur cette équipe. 👍"
+                : "Tout le monde a au moins une tâche. 👍"}
             </p>
           ) : (
             <ul className="flex flex-col gap-1.5">
@@ -114,7 +234,10 @@ export function AvailabilityPanel({ members }: AvailabilityPanelProps) {
                   className="flex items-center justify-between gap-2 rounded-[8px] bg-white px-3 py-2 border border-border-soft"
                 >
                   <span className="text-[13px] text-dark truncate">{m.userName}</span>
-                  <RoleChip role={m.role} />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {teamLabel && <IdleMarker free={globalIdle.has(m.userId)} />}
+                    <RoleChip role={m.role} />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -123,7 +246,9 @@ export function AvailabilityPanel({ members }: AvailabilityPanelProps) {
 
         {/* Rien en cours */}
         <section className="rounded-[12px] border border-gold/25 bg-gold-lt/50 p-4">
-          <h2 className="font-serif text-[15px] text-dark mb-0.5">Sans tâche en cours</h2>
+          <h2 className="font-serif text-[15px] text-dark mb-0.5">
+            Sans tâche en cours{scopeSuffix}
+          </h2>
           <p className="text-[11px] text-izi-gray mb-3">
             Des tâches assignées, mais rien « En cours ».
           </p>

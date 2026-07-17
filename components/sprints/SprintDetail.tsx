@@ -210,7 +210,9 @@ export function SprintDetail({
         />
       )}
 
-      {tab === "availability" && <AvailabilityPanel members={availability} />}
+      {tab === "availability" && (
+        <AvailabilityPanel members={availability} tasks={tasks} />
+      )}
 
       {tab === "standup" && (
         <DailyReport
