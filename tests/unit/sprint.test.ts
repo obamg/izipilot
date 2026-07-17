@@ -7,6 +7,7 @@ import {
   computeVelocity,
   averageVelocity,
   computeCapacityUtilization,
+  computeAvailability,
   daysRemaining,
   type SprintTaskLike,
 } from '@/lib/sprint'
@@ -197,6 +198,87 @@ describe('computeCapacityUtilization', () => {
       [task('CANCELLED', 5, { assigneeId: 'u1' }), task('TODO', 3, { assigneeId: null })]
     )
     expect(rows[0].assignedPoints).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeAvailability
+// ---------------------------------------------------------------------------
+describe('computeAvailability', () => {
+  it('flags a member with no task as IDLE', () => {
+    const rep = computeAvailability([{ id: 'u1' }], [])
+    expect(rep.noTask).toEqual(['u1'])
+    expect(rep.noOngoing).toEqual([])
+    expect(rep.activeCount).toBe(0)
+    expect(rep.members[0]).toMatchObject({ state: 'IDLE', total: 0 })
+  })
+
+  it('classifies an in-progress task as ACTIVE', () => {
+    const rep = computeAvailability([{ id: 'u1' }], [task('IN_PROGRESS', 3, { assigneeId: 'u1' })])
+    expect(rep.activeCount).toBe(1)
+    expect(rep.noTask).toEqual([])
+    expect(rep.noOngoing).toEqual([])
+    expect(rep.members[0]).toMatchObject({ state: 'ACTIVE', total: 1, inProgress: 1 })
+  })
+
+  it('has tasks but none in progress → NO_ONGOING with a status breakdown', () => {
+    const rep = computeAvailability(
+      [{ id: 'u1' }],
+      [
+        task('TODO', 2, { assigneeId: 'u1' }),
+        task('BLOCKED', 1, { assigneeId: 'u1' }),
+        task('DONE', 3, { assigneeId: 'u1' }),
+      ]
+    )
+    expect(rep.activeCount).toBe(0)
+    expect(rep.noTask).toEqual([])
+    expect(rep.noOngoing).toHaveLength(1)
+    expect(rep.noOngoing[0]).toMatchObject({
+      userId: 'u1',
+      total: 3,
+      todo: 1,
+      blocked: 1,
+      done: 1,
+      inProgress: 0,
+      state: 'NO_ONGOING',
+    })
+  })
+
+  it('a single in-progress task among others still makes the member ACTIVE', () => {
+    const rep = computeAvailability(
+      [{ id: 'u1' }],
+      [task('TODO', 1, { assigneeId: 'u1' }), task('IN_PROGRESS', 1, { assigneeId: 'u1' })]
+    )
+    expect(rep.members[0].state).toBe('ACTIVE')
+  })
+
+  it('ignores CANCELLED and unassigned tasks', () => {
+    const rep = computeAvailability(
+      [{ id: 'u1' }],
+      [task('CANCELLED', 5, { assigneeId: 'u1' }), task('IN_PROGRESS', 2, { assigneeId: null })]
+    )
+    expect(rep.members[0].state).toBe('IDLE')
+    expect(rep.noTask).toEqual(['u1'])
+  })
+
+  it('returns one row per roster user, preserving input order', () => {
+    const rep = computeAvailability(
+      [{ id: 'u1' }, { id: 'u2' }, { id: 'u3' }],
+      [task('IN_PROGRESS', 1, { assigneeId: 'u2' }), task('TODO', 1, { assigneeId: 'u3' })]
+    )
+    expect(rep.members.map((m) => m.userId)).toEqual(['u1', 'u2', 'u3'])
+    expect(rep.members.map((m) => m.state)).toEqual(['IDLE', 'ACTIVE', 'NO_ONGOING'])
+    expect(rep.noTask).toEqual(['u1'])
+    expect(rep.activeCount).toBe(1)
+    expect(rep.noOngoing.map((m) => m.userId)).toEqual(['u3'])
+  })
+
+  it('handles an empty roster', () => {
+    const rep = computeAvailability([], [task('IN_PROGRESS', 1, { assigneeId: 'u1' })])
+    expect(rep.members).toEqual([])
+    expect(rep.noTask).toEqual([])
+    expect(rep.noOngoing).toEqual([])
+    expect(rep.activeCount).toBe(0)
   })
 })
 

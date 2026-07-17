@@ -1,4 +1,9 @@
-import type { ActionStatus, ActionPriority, SprintStatus } from "@prisma/client";
+import type {
+  ActionStatus,
+  ActionPriority,
+  SprintStatus,
+  UserRole,
+} from "@prisma/client";
 
 export interface TeamTag {
   type: "PRODUCT" | "DEPARTMENT";
@@ -53,6 +58,21 @@ export interface KrOption {
   title: string;
   entityCode: string;
   entityName: string;
+}
+
+export type AvailabilityState = "IDLE" | "NO_ONGOING" | "ACTIVE";
+
+// Enriched availability row (lib/sprint#AvailabilityMember + user identity).
+export interface AvailabilityMemberVM {
+  userId: string;
+  userName: string;
+  role: UserRole;
+  total: number;
+  inProgress: number;
+  todo: number;
+  blocked: number;
+  done: number;
+  state: AvailabilityState;
 }
 
 export interface SprintSummary {
