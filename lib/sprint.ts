@@ -188,6 +188,82 @@ export function computeCapacityUtilization(
 }
 
 // ---------------------------------------------------------------------------
+// Availability (idle / no-ongoing detection)
+// ---------------------------------------------------------------------------
+
+/**
+ * - IDLE       → no task assigned in the sprint (CANCELLED ignored).
+ * - NO_ONGOING → has task(s) but none IN_PROGRESS (all TODO / BLOCKED / DONE).
+ * - ACTIVE     → at least one IN_PROGRESS task.
+ */
+export type AvailabilityState = "IDLE" | "NO_ONGOING" | "ACTIVE";
+
+export interface AvailabilityMember {
+  userId: string;
+  /** Counted tasks assigned (excludes CANCELLED). */
+  total: number;
+  inProgress: number;
+  todo: number;
+  blocked: number;
+  done: number;
+  state: AvailabilityState;
+}
+
+export interface AvailabilityReport {
+  /** One row per roster user, in the order the roster was passed. */
+  members: AvailabilityMember[];
+  /** userIds with no task at all (state IDLE). */
+  noTask: string[];
+  /** Members with task(s) but nothing IN_PROGRESS (state NO_ONGOING). */
+  noOngoing: AvailabilityMember[];
+  /** Count of members with ≥1 IN_PROGRESS task (state ACTIVE). */
+  activeCount: number;
+}
+
+/**
+ * Classify every roster member by their workload in the given task set. Only
+ * counted (non-CANCELLED) tasks with an assignee contribute; unassigned tasks
+ * are ignored. Users with no matching task are IDLE.
+ */
+export function computeAvailability(
+  users: { id: string }[],
+  tasks: SprintTaskLike[]
+): AvailabilityReport {
+  const tally = new Map<
+    string,
+    { total: number; inProgress: number; todo: number; blocked: number; done: number }
+  >();
+  for (const t of tasks) {
+    if (!isCounted(t) || !t.assigneeId) continue;
+    const row =
+      tally.get(t.assigneeId) ??
+      { total: 0, inProgress: 0, todo: 0, blocked: 0, done: 0 };
+    row.total += 1;
+    if (t.status === "IN_PROGRESS") row.inProgress += 1;
+    else if (t.status === "TODO") row.todo += 1;
+    else if (t.status === "BLOCKED") row.blocked += 1;
+    else if (t.status === "DONE") row.done += 1;
+    tally.set(t.assigneeId, row);
+  }
+
+  const members: AvailabilityMember[] = users.map((u) => {
+    const r =
+      tally.get(u.id) ??
+      { total: 0, inProgress: 0, todo: 0, blocked: 0, done: 0 };
+    const state: AvailabilityState =
+      r.total === 0 ? "IDLE" : r.inProgress > 0 ? "ACTIVE" : "NO_ONGOING";
+    return { userId: u.id, ...r, state };
+  });
+
+  return {
+    members,
+    noTask: members.filter((m) => m.state === "IDLE").map((m) => m.userId),
+    noOngoing: members.filter((m) => m.state === "NO_ONGOING"),
+    activeCount: members.filter((m) => m.state === "ACTIVE").length,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Date helpers (local-day based, deterministic)
 // ---------------------------------------------------------------------------
 

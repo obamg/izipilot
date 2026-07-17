@@ -10,6 +10,7 @@ import {
   computeSprintStats,
   computeBurndown,
   computeCapacityUtilization,
+  computeAvailability,
   daysRemaining,
 } from "@/lib/sprint";
 import { sprintTaskInclude, serializeSprintTask } from "@/lib/sprint-serialize";
@@ -52,7 +53,7 @@ export default async function SprintDetailPage({
     }),
     prisma.user.findMany({
       where: { orgId, isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, role: true },
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
@@ -104,6 +105,14 @@ export default async function SprintDetailPage({
     sprint.tasks
   ).map((r) => ({ ...r, userName: nameMap.get(r.userId) ?? "—" }));
 
+  // Availability: classify every active member against this sprint's tasks.
+  const roleMap = new Map(users.map((u) => [u.id, u.role]));
+  const availability = computeAvailability(users, sprint.tasks).members.map((m) => ({
+    ...m,
+    userName: nameMap.get(m.userId) ?? "—",
+    role: roleMap.get(m.userId) ?? "VIEWER",
+  }));
+
   const krOptions = krs.map((kr) => ({
     id: kr.id,
     title: kr.title,
@@ -154,6 +163,7 @@ export default async function SprintDetailPage({
       currentUserRole={role}
       currentUserId={session.user.id}
       daysRemaining={daysRemaining(sprint.endDate)}
+      availability={availability}
       standupToday={toDateKey(standupDate)}
       standupRoster={standupRoster}
       initialStandups={initialStandups}

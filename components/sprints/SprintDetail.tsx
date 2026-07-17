@@ -10,6 +10,7 @@ import { CapacityPanel, type CapacityRow } from "./CapacityPanel";
 import { BurndownChart, type BurndownDatum } from "./BurndownChart";
 import { SprintTaskModal } from "./SprintTaskModal";
 import { DailyReport } from "./DailyReport";
+import { AvailabilityPanel } from "./AvailabilityPanel";
 import type { RosterMember, StandupRecord } from "@/lib/standup";
 import type {
   SprintSummary,
@@ -17,15 +18,23 @@ import type {
   UserOption,
   TeamOption,
   KrOption,
+  AvailabilityMemberVM,
 } from "./types";
 
-type Tab = "board" | "backlog" | "burndown" | "capacity" | "standup";
+type Tab =
+  | "board"
+  | "backlog"
+  | "burndown"
+  | "capacity"
+  | "availability"
+  | "standup";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "board", label: "Tableau" },
   { id: "backlog", label: "Backlog" },
   { id: "burndown", label: "Burndown" },
   { id: "capacity", label: "Capacité" },
+  { id: "availability", label: "Disponibilité" },
   { id: "standup", label: "Rapport quotidien" },
 ];
 
@@ -42,6 +51,7 @@ interface SprintDetailProps {
   currentUserRole: UserRole;
   currentUserId: string;
   daysRemaining: number;
+  availability: AvailabilityMemberVM[];
   standupToday: string;
   standupRoster: RosterMember[];
   initialStandups: StandupRecord[];
@@ -60,6 +70,7 @@ export function SprintDetail({
   currentUserRole,
   currentUserId,
   daysRemaining,
+  availability,
   standupToday,
   standupRoster,
   initialStandups,
@@ -198,6 +209,8 @@ export function SprintDetail({
           canEdit={isManagement}
         />
       )}
+
+      {tab === "availability" && <AvailabilityPanel members={availability} />}
 
       {tab === "standup" && (
         <DailyReport
