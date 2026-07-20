@@ -13,7 +13,13 @@ import {
   computeAvailability,
   daysRemaining,
 } from "@/lib/sprint";
-import { sprintTaskInclude, serializeSprintTask } from "@/lib/sprint-serialize";
+import {
+  sprintTaskInclude,
+  serializeSprintTask,
+  sprintTaskRequestInclude,
+  serializeTaskRequest,
+} from "@/lib/sprint-serialize";
+import { loadViewerTeams } from "@/lib/sprint-request-server";
 import { watDateOnly, toDateKey } from "@/lib/standup";
 import { SprintDetail } from "@/components/sprints/SprintDetail";
 
@@ -113,6 +119,34 @@ export default async function SprintDetailPage({
     role: roleMap.get(m.userId) ?? "VIEWER",
   }));
 
+  // Task-request inbox for the "Demandes" tab (org-wide, viewer-scoped).
+  const viewer = await loadViewerTeams(orgId, session.user.id, role);
+  const taskVisible = sprintTaskVisibilityWhere(role);
+  const [inboxReceivedRows, inboxSentRows] = await Promise.all([
+    prisma.sprintTaskRequest.findMany({
+      where: {
+        orgId,
+        status: "OPEN",
+        requestedById: { not: session.user.id },
+        task: taskVisible,
+        OR: [
+          { targetUserId: session.user.id },
+          { targetDepartmentId: { in: viewer.departmentIds } },
+          { targetProductId: { in: viewer.productIds } },
+        ],
+      },
+      include: sprintTaskRequestInclude,
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.sprintTaskRequest.findMany({
+      where: { orgId, requestedById: session.user.id, task: taskVisible },
+      include: sprintTaskRequestInclude,
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  const inboxReceived = inboxReceivedRows.map(serializeTaskRequest);
+  const inboxSent = inboxSentRows.map(serializeTaskRequest);
+
   const krOptions = krs.map((kr) => ({
     id: kr.id,
     title: kr.title,
@@ -164,6 +198,8 @@ export default async function SprintDetailPage({
       currentUserId={session.user.id}
       daysRemaining={daysRemaining(sprint.endDate)}
       availability={availability}
+      inboxReceived={inboxReceived}
+      inboxSent={inboxSent}
       standupToday={toDateKey(standupDate)}
       standupRoster={standupRoster}
       initialStandups={initialStandups}

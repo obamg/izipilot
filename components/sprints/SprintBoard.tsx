@@ -279,7 +279,22 @@ function CardSurface({ task, dragging = false }: { task: SprintTaskItem; draggin
         {task.title}
       </div>
       {task.krTitle && (
-        <div className="text-[10px] text-izi-gray line-clamp-1 mb-2">↳ {task.krTitle}</div>
+        <div className="text-[10px] text-izi-gray line-clamp-1 mb-1">↳ {task.krTitle}</div>
+      )}
+      {task.openRequests?.length > 0 && (
+        <div
+          className="mb-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium bg-gold-lt text-[#946200]"
+          title={task.openRequests
+            .map((r) => `${r.kindLabel} · ${r.targetLabel}`)
+            .join("\n")}
+        >
+          <span aria-hidden>⏳</span>
+          <span className="truncate max-w-[120px]">
+            {task.openRequests.length === 1
+              ? `en attente · ${task.openRequests[0].targetLabel}`
+              : `${task.openRequests.length} demandes en attente`}
+          </span>
+        </div>
       )}
       <div className="flex items-center justify-between text-[10px] text-izi-gray">
         <span className="truncate max-w-[110px]">{task.assigneeName ?? "Non assignée"}</span>
