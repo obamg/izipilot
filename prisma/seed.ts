@@ -999,8 +999,9 @@ async function main() {
   ];
 
   let sprintTaskCount = 0;
+  const createdTaskIdByTitle: Record<string, string> = {};
   for (const t of sprintTaskData) {
-    await prisma.sprintTask.create({
+    const created = await prisma.sprintTask.create({
       data: {
         orgId: org.id,
         sprintId: sprintIdOf[t.sprint],
@@ -1017,6 +1018,7 @@ async function main() {
         completedAt: t.completedOffset !== undefined ? addDays(t.completedOffset) : null,
       },
     });
+    createdTaskIdByTitle[t.title] = created.id;
     sprintTaskCount++;
   }
 
@@ -1037,6 +1039,71 @@ async function main() {
         capacityPoints: c.capacityPoints,
       },
     });
+  }
+
+  // ── Task requests (Demandes) — cross-team input on active-sprint tasks ──────
+  let sprintRequestCount = 0;
+  const sprintRequestData: {
+    title: string; // task title → id
+    requestedById: string;
+    kind: "INPUT" | "REVIEW" | "APPROVAL" | "DATA" | "OTHER";
+    message: string;
+    targetUserId?: string;
+    targetDepartmentId?: string;
+    status?: "OPEN" | "RESOLVED";
+    resolvedById?: string;
+    resolutionNote?: string;
+    resolvedOffset?: number;
+  }[] = [
+    // Open — directed at a whole department (Finance / D3).
+    {
+      title: "Négocier les frais Orange Money",
+      requestedById: poWallet.id,
+      kind: "APPROVAL",
+      message:
+        "Besoin de la validation Finance sur la grille tarifaire avant de signer avec Orange Money.",
+      targetDepartmentId: departments[2].id, // D3 Finance
+    },
+    // Open — directed at a teammate.
+    {
+      title: "Déployer le matching engine en staging",
+      requestedById: poTrading.id,
+      kind: "REVIEW",
+      message: "Peux-tu relire la config Terraform du cluster staging avant le déploiement ?",
+      targetUserId: poIT.id,
+    },
+    // Resolved — a closed hand-off, so the two-sided flow is visible in seed.
+    {
+      title: "Landing page referral program",
+      requestedById: poMarketing.id,
+      kind: "INPUT",
+      message: "Il me faut les libellés d'offre validés pour finaliser la landing.",
+      targetUserId: poTrading.id,
+      status: "RESOLVED",
+      resolvedById: poTrading.id,
+      resolutionNote: "Libellés envoyés par Slack, validés produit.",
+      resolvedOffset: -1,
+    },
+  ];
+  for (const r of sprintRequestData) {
+    const taskId = createdTaskIdByTitle[r.title];
+    if (!taskId) continue;
+    await prisma.sprintTaskRequest.create({
+      data: {
+        orgId: org.id,
+        taskId,
+        requestedById: r.requestedById,
+        kind: r.kind,
+        message: r.message,
+        targetUserId: r.targetUserId ?? null,
+        targetDepartmentId: r.targetDepartmentId ?? null,
+        status: r.status ?? "OPEN",
+        resolvedById: r.resolvedById ?? null,
+        resolutionNote: r.resolutionNote ?? null,
+        resolvedAt: r.resolvedOffset !== undefined ? addDays(r.resolvedOffset) : null,
+      },
+    });
+    sprintRequestCount++;
   }
 
   // ── Daily standups (today, WAT) for the active sprint ─────────
@@ -1137,7 +1204,7 @@ async function main() {
     memberCount++;
   }
 
-  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks, ${standupCount} standups`);
+  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks, ${sprintRequestCount} task requests, ${standupCount} standups`);
 }
 
 main()

@@ -114,6 +114,21 @@ enum SprintStatus {
   CANCELLED // Sprint annulé
 }
 
+enum RequestKind {
+  INPUT // Besoin d'une contribution / information
+  REVIEW // Relecture / validation technique
+  APPROVAL // Approbation / signature
+  DATA // Données / accès à fournir
+  OTHER
+}
+
+enum RequestStatus {
+  OPEN // En attente de réponse
+  RESOLVED // Traitée par la cible
+  DECLINED // Refusée par la cible
+  CANCELLED // Annulée par le demandeur
+}
+
 enum NotificationChannel {
   EMAIL
   IN_APP
@@ -150,22 +165,23 @@ model Organization {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  users            User[]
-  departments      Department[]
-  products         Product[]
-  objectives       Objective[]
-  keyResults       KeyResult[]
-  weeklyEntries    WeeklyEntry[]
-  weeklySessions   WeeklySession[]
-  alerts           Alert[]
-  decisions        Decision[]
-  actions          Action[]
-  crmSnapshots     CrmDailySnapshot[]
-  agentSnapshots   AgentDailySnapshot[]
-  sprints          Sprint[]
-  sprintTasks      SprintTask[]
-  sprintCapacities SprintCapacity[]
-  standupEntries   StandupEntry[]
+  users              User[]
+  departments        Department[]
+  products           Product[]
+  objectives         Objective[]
+  keyResults         KeyResult[]
+  weeklyEntries      WeeklyEntry[]
+  weeklySessions     WeeklySession[]
+  alerts             Alert[]
+  decisions          Decision[]
+  actions            Action[]
+  crmSnapshots       CrmDailySnapshot[]
+  agentSnapshots     AgentDailySnapshot[]
+  sprints            Sprint[]
+  sprintTasks        SprintTask[]
+  sprintCapacities   SprintCapacity[]
+  standupEntries     StandupEntry[]
+  sprintTaskRequests SprintTaskRequest[]
 
   @@map("organizations")
 }
@@ -189,28 +205,31 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   // Relations
-  org                 Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  ownedDepartments    Department[]            @relation("DepartmentOwner")
-  ownedProducts       Product[]               @relation("ProductOwner")
-  ownedKeyResults     KeyResult[]             @relation("KrOwner")
-  weeklyEntries       WeeklyEntry[]
-  alerts              Alert[]                 @relation("AlertTriggeredBy")
-  resolvedAlerts      Alert[]                 @relation("AlertResolvedBy")
-  decisions           Decision[]              @relation("DecisionOwner")
-  notifications       Notification[]
-  sessions            Session[]
-  pushSubscriptions   PushSubscription[]
-  assignedActions     Action[]                @relation("ActionAssignee")
-  createdActions      Action[]                @relation("ActionCreator")
-  actionComments      ActionComment[]         @relation("ActionCommentAuthor")
-  departmentMembers   DepartmentMember[]
-  notificationPrefs   NotificationPreference?
-  createdSprints      Sprint[]                @relation("SprintCreator")
-  assignedSprintTasks SprintTask[]            @relation("SprintTaskAssignee")
-  createdSprintTasks  SprintTask[]            @relation("SprintTaskCreator")
-  sprintTaskComments  SprintTaskComment[]     @relation("SprintTaskCommentAuthor")
-  sprintCapacities    SprintCapacity[]        @relation("SprintCapacityUser")
-  standupEntries      StandupEntry[]          @relation("StandupAuthor")
+  org                        Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ownedDepartments           Department[]            @relation("DepartmentOwner")
+  ownedProducts              Product[]               @relation("ProductOwner")
+  ownedKeyResults            KeyResult[]             @relation("KrOwner")
+  weeklyEntries              WeeklyEntry[]
+  alerts                     Alert[]                 @relation("AlertTriggeredBy")
+  resolvedAlerts             Alert[]                 @relation("AlertResolvedBy")
+  decisions                  Decision[]              @relation("DecisionOwner")
+  notifications              Notification[]
+  sessions                   Session[]
+  pushSubscriptions          PushSubscription[]
+  assignedActions            Action[]                @relation("ActionAssignee")
+  createdActions             Action[]                @relation("ActionCreator")
+  actionComments             ActionComment[]         @relation("ActionCommentAuthor")
+  departmentMembers          DepartmentMember[]
+  notificationPrefs          NotificationPreference?
+  createdSprints             Sprint[]                @relation("SprintCreator")
+  assignedSprintTasks        SprintTask[]            @relation("SprintTaskAssignee")
+  createdSprintTasks         SprintTask[]            @relation("SprintTaskCreator")
+  sprintTaskComments         SprintTaskComment[]     @relation("SprintTaskCommentAuthor")
+  sprintCapacities           SprintCapacity[]        @relation("SprintCapacityUser")
+  standupEntries             StandupEntry[]          @relation("StandupAuthor")
+  sprintTaskRequestsMade     SprintTaskRequest[]     @relation("SprintTaskRequestRequester")
+  sprintTaskRequestsResolved SprintTaskRequest[]     @relation("SprintTaskRequestResolver")
+  sprintTaskRequestsReceived SprintTaskRequest[]     @relation("SprintTaskRequestTargetUser")
 
   @@index([orgId])
   @@index([email])
@@ -286,11 +305,12 @@ model Department {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner       User               @relation("DepartmentOwner", fields: [ownerId], references: [id])
-  objectives  Objective[]
-  members     DepartmentMember[]
-  sprintTasks SprintTask[]       @relation("SprintTaskDept")
+  org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner              User                @relation("DepartmentOwner", fields: [ownerId], references: [id])
+  objectives         Objective[]
+  members            DepartmentMember[]
+  sprintTasks        SprintTask[]        @relation("SprintTaskDept")
+  sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetDept")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -332,10 +352,11 @@ model Product {
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner       User         @relation("ProductOwner", fields: [ownerId], references: [id])
-  objectives  Objective[]
-  sprintTasks SprintTask[] @relation("SprintTaskProduct")
+  org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner              User                @relation("ProductOwner", fields: [ownerId], references: [id])
+  objectives         Objective[]
+  sprintTasks        SprintTask[]        @relation("SprintTaskProduct")
+  sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetProduct")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -777,6 +798,7 @@ model SprintTask {
   assignee   User?               @relation("SprintTaskAssignee", fields: [assigneeId], references: [id])
   createdBy  User                @relation("SprintTaskCreator", fields: [createdById], references: [id])
   comments   SprintTaskComment[]
+  requests   SprintTaskRequest[]
 
   @@index([orgId, sprintId, status])
   @@index([assigneeId])
@@ -784,6 +806,44 @@ model SprintTask {
   @@index([departmentId])
   @@index([productId])
   @@map("sprint_tasks")
+}
+
+// Demande d'input adressée à un·e coéquipier·e OU à une équipe (produit/dépt).
+// La cible résout / refuse (workflow à deux côtés). Une demande OPEN affiche un
+// indicateur sur la carte sans modifier le statut réel de la tâche.
+model SprintTaskRequest {
+  id                 String        @id @default(cuid())
+  orgId              String
+  taskId             String
+  requestedById      String
+  kind               RequestKind   @default(INPUT)
+  message            String        @db.Text
+  // Cible polymorphe : exactement un des trois est renseigné (app-enforced).
+  targetUserId       String?
+  targetDepartmentId String?
+  targetProductId    String?
+  status             RequestStatus @default(OPEN)
+  resolvedById       String?
+  resolvedAt         DateTime?
+  resolutionNote     String?       @db.Text
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  task             SprintTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requestedBy      User         @relation("SprintTaskRequestRequester", fields: [requestedById], references: [id])
+  resolvedBy       User?        @relation("SprintTaskRequestResolver", fields: [resolvedById], references: [id])
+  targetUser       User?        @relation("SprintTaskRequestTargetUser", fields: [targetUserId], references: [id])
+  targetDepartment Department?  @relation("SprintTaskRequestTargetDept", fields: [targetDepartmentId], references: [id], onDelete: SetNull)
+  targetProduct    Product?     @relation("SprintTaskRequestTargetProduct", fields: [targetProductId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status])
+  @@index([taskId])
+  @@index([targetUserId])
+  @@index([targetDepartmentId])
+  @@index([targetProductId])
+  @@map("sprint_task_requests")
 }
 
 model SprintTaskComment {
