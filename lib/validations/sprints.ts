@@ -95,6 +95,31 @@ export const createSprintTaskCommentSchema = z.object({
   content: z.string().min(1).max(2000),
 });
 
+// ── Task request (Demande) ───────────────────────────────────────────────────
+const requestKindEnum = z.enum(["INPUT", "REVIEW", "APPROVAL", "DATA", "OTHER"]);
+
+// Exactly one target — a teammate OR a team (dept/product).
+export const createTaskRequestSchema = z
+  .object({
+    kind: requestKindEnum.default("INPUT"),
+    message: z.string().min(2).max(2000),
+    targetUserId: z.string().nullable().optional(),
+    targetDepartmentId: z.string().nullable().optional(),
+    targetProductId: z.string().nullable().optional(),
+  })
+  .refine(
+    (d) =>
+      [d.targetUserId, d.targetDepartmentId, d.targetProductId].filter(Boolean)
+        .length === 1,
+    { message: "Exactement une cible (personne, département ou produit) est requise." }
+  );
+
+// Target résout/refuse, or requester annule.
+export const resolveTaskRequestSchema = z.object({
+  status: z.enum(["RESOLVED", "DECLINED", "CANCELLED"]),
+  resolutionNote: z.string().max(2000).nullable().optional(),
+});
+
 // ── Daily standup ────────────────────────────────────────────────────────────
 export const submitStandupSchema = z.object({
   yesterday: z.string().max(2000).nullable().optional(),
