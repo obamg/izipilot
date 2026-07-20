@@ -11,6 +11,7 @@ import { BurndownChart, type BurndownDatum } from "./BurndownChart";
 import { SprintTaskModal } from "./SprintTaskModal";
 import { DailyReport } from "./DailyReport";
 import { AvailabilityPanel } from "./AvailabilityPanel";
+import { TaskRequestsInbox } from "./TaskRequestsInbox";
 import type { RosterMember, StandupRecord } from "@/lib/standup";
 import type {
   SprintSummary,
@@ -19,6 +20,7 @@ import type {
   TeamOption,
   KrOption,
   AvailabilityMemberVM,
+  TaskRequestItem,
 } from "./types";
 
 type Tab =
@@ -27,6 +29,7 @@ type Tab =
   | "burndown"
   | "capacity"
   | "availability"
+  | "requests"
   | "standup";
 
 const TABS: { id: Tab; label: string }[] = [
@@ -35,6 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "burndown", label: "Burndown" },
   { id: "capacity", label: "Capacité" },
   { id: "availability", label: "Disponibilité" },
+  { id: "requests", label: "Demandes" },
   { id: "standup", label: "Rapport quotidien" },
 ];
 
@@ -52,6 +56,8 @@ interface SprintDetailProps {
   currentUserId: string;
   daysRemaining: number;
   availability: AvailabilityMemberVM[];
+  inboxReceived: TaskRequestItem[];
+  inboxSent: TaskRequestItem[];
   standupToday: string;
   standupRoster: RosterMember[];
   initialStandups: StandupRecord[];
@@ -71,6 +77,8 @@ export function SprintDetail({
   currentUserId,
   daysRemaining,
   availability,
+  inboxReceived,
+  inboxSent,
   standupToday,
   standupRoster,
   initialStandups,
@@ -130,6 +138,11 @@ export function SprintDetail({
             {t.id === "backlog" && backlogTasks.length > 0 && (
               <span className="ml-1.5 font-mono text-[10px] text-izi-gray">
                 {backlogTasks.length}
+              </span>
+            )}
+            {t.id === "requests" && inboxReceived.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-gold px-1.5 py-0.5 font-mono text-[9px] font-semibold text-white">
+                {inboxReceived.length}
               </span>
             )}
           </button>
@@ -214,6 +227,14 @@ export function SprintDetail({
         <AvailabilityPanel members={availability} tasks={tasks} />
       )}
 
+      {tab === "requests" && (
+        <TaskRequestsInbox
+          initialReceived={inboxReceived}
+          initialSent={inboxSent}
+          canAct={currentUserRole !== "VIEWER"}
+        />
+      )}
+
       {tab === "standup" && (
         <DailyReport
           sprintId={sprint.id}
@@ -232,6 +253,8 @@ export function SprintDetail({
           products={products}
           departments={departments}
           krs={krs}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
           onClose={() => setCreating(false)}
           onSaved={refresh}
         />
@@ -246,6 +269,8 @@ export function SprintDetail({
           krs={krs}
           canDelete={canManageTasks}
           reportOnly={isContributor}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
           onClose={() => setEditing(null)}
           onSaved={refresh}
           onDeleted={refresh}

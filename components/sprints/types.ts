@@ -3,7 +3,39 @@ import type {
   ActionPriority,
   SprintStatus,
   UserRole,
+  RequestKind,
+  RequestStatus,
 } from "@prisma/client";
+
+// Open-request summary carried on a task (powers the board "en attente" chip).
+export interface OpenRequestTag {
+  id: string;
+  kind: RequestKind;
+  kindLabel: string;
+  targetLabel: string;
+}
+
+// Client mirror of lib/sprint-serialize#serializeTaskRequest.
+export interface TaskRequestItem {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  sprintId: string | null;
+  kind: RequestKind;
+  kindLabel: string;
+  message: string;
+  status: RequestStatus;
+  targetType: "USER" | "DEPARTMENT" | "PRODUCT";
+  targetId: string | null;
+  targetLabel: string;
+  requestedById: string;
+  requestedByName: string;
+  resolvedById: string | null;
+  resolvedByName: string | null;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
 
 export interface TeamTag {
   type: "PRODUCT" | "DEPARTMENT";
@@ -39,6 +71,7 @@ export interface SprintTaskItem {
   completedAt: string | null;
   createdAt: string;
   commentCount: number;
+  openRequests: OpenRequestTag[];
 }
 
 export interface UserOption {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ActionStatus, ActionPriority } from "@prisma/client";
+import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { TaskRequestSection } from "./TaskRequestSection";
 import type {
   SprintTaskItem,
   UserOption,
@@ -20,6 +21,8 @@ interface SprintTaskModalProps {
   canDelete?: boolean;
   // CONTRIBUTOR view: only the report link is editable (own task only).
   reportOnly?: boolean;
+  currentUserId: string;
+  currentUserRole: UserRole;
   onClose: () => void;
   onSaved?: () => void;
   onDeleted?: () => void;
@@ -61,6 +64,8 @@ export function SprintTaskModal({
   krs,
   canDelete = false,
   reportOnly = false,
+  currentUserId,
+  currentUserRole,
   onClose,
   onSaved,
   onDeleted,
@@ -243,6 +248,19 @@ export function SprintTaskModal({
             </div>
           )}
 
+          {task && (
+            <TaskRequestSection
+              taskId={task.id}
+              taskAssigneeId={task.assigneeId}
+              currentUserId={currentUserId}
+              currentUserRole={currentUserRole}
+              users={users}
+              products={products}
+              departments={departments}
+              onChanged={onSaved}
+            />
+          )}
+
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -413,6 +431,19 @@ export function SprintTaskModal({
           <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
             {error}
           </div>
+        )}
+
+        {isEdit && task && (
+          <TaskRequestSection
+            taskId={task.id}
+            taskAssigneeId={task.assigneeId}
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+            users={users}
+            products={products}
+            departments={departments}
+            onChanged={onSaved}
+          />
         )}
 
         <div className="flex items-center justify-between pt-1">
