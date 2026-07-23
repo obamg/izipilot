@@ -1,5 +1,20 @@
 import type { Prisma } from "@prisma/client";
 import { describeTarget, REQUEST_KIND_LABELS } from "@/lib/sprint-request";
+import { stepProgress } from "@/lib/sprint-step";
+
+// Shared select for a task step (sous-tâche) so the embedded list on a task
+// and the step routes emit the same shape.
+export const sprintTaskStepSelect = {
+  id: true,
+  title: true,
+  status: true,
+  storyPoints: true,
+  assigneeId: true,
+  createdById: true,
+  sortOrder: true,
+  completedAt: true,
+  assignee: { select: { name: true } },
+} satisfies Prisma.SprintTaskStepSelect;
 
 // Shared include + serializer for SprintTask so API routes and pages emit the
 // exact same client-facing shape.
@@ -20,6 +35,12 @@ export const sprintTaskInclude = {
       targetDepartment: { select: { code: true, name: true } },
       targetProduct: { select: { code: true, name: true } },
     },
+  },
+  // Sub-tasks (étapes) — full list: powers the modal section and the board
+  // progress chip (done/total).
+  steps: {
+    orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
+    select: sprintTaskStepSelect,
   },
   _count: { select: { comments: true } },
 } satisfies Prisma.SprintTaskInclude;
@@ -86,10 +107,33 @@ export function serializeSprintTask(t: SprintTaskWithRelations) {
       kindLabel: REQUEST_KIND_LABELS[r.kind],
       targetLabel: describeTarget(r),
     })),
+    steps: t.steps.map(serializeTaskStep),
+    stepProgress: stepProgress(t.steps),
   };
 }
 
 export type SerializedSprintTask = ReturnType<typeof serializeSprintTask>;
+
+// ── Task step (Sous-tâche) ──────────────────────────────────────────────────
+type StepWithAssignee = Prisma.SprintTaskStepGetPayload<{
+  select: typeof sprintTaskStepSelect;
+}>;
+
+export function serializeTaskStep(s: StepWithAssignee) {
+  return {
+    id: s.id,
+    title: s.title,
+    status: s.status,
+    storyPoints: s.storyPoints,
+    assigneeId: s.assigneeId,
+    assigneeName: s.assignee?.name ?? null,
+    createdById: s.createdById,
+    sortOrder: s.sortOrder,
+    completedAt: s.completedAt?.toISOString() ?? null,
+  };
+}
+
+export type SerializedTaskStep = ReturnType<typeof serializeTaskStep>;
 
 // ── Task request (Demande) ──────────────────────────────────────────────────
 export const sprintTaskRequestInclude = {
