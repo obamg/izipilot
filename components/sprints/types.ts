@@ -49,13 +49,9 @@ export interface TeamTag {
 export interface TaskStepItem {
   id: string;
   title: string;
-  status: ActionStatus;
-  storyPoints: number | null;
-  assigneeId: string | null;
-  assigneeName: string | null;
+  done: boolean;
   createdById: string;
   sortOrder: number;
-  completedAt: string | null;
 }
 
 // Aggregate for the board chip (lib/sprint-step#stepProgress).

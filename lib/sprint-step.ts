@@ -1,19 +1,17 @@
 /**
- * Sous-tâche ("étape") logic — pure helpers, no Prisma access, so the
+ * Étape (checklist) logic — pure helpers, no Prisma access, so the
  * permission / progress rules stay unit-testable.
  *
- * A step is a real mini-work-item nested under a SprintTask: it has its own
- * status / story points / assignee. Progress (done/total) is surfaced on the
- * board card; CANCELLED steps are excluded from the total.
+ * A step is a checklist item nested under a SprintTask: a title + a done
+ * checkbox, ordered. Progress (done/total) is surfaced on the board card.
  */
 
-import type { ActionStatus, UserRole } from "@prisma/client";
+import type { UserRole } from "@prisma/client";
 
 const PRIVILEGED: ReadonlyArray<UserRole> = ["CEO", "MANAGEMENT"];
 
 /** Minimal step shape the permission helpers reason over. */
 export interface StepLike {
-  assigneeId: string | null;
   createdById: string;
 }
 
@@ -38,26 +36,20 @@ export function canAddStep(task: TaskLike, viewer: Viewer): boolean {
 }
 
 /**
- * Who may move a step (status / sortOrder): CEO / MANAGEMENT / PO always,
- * a CONTRIBUTOR when the parent task OR the step itself is assigned to them.
+ * Who may check / uncheck / reorder a step: CEO / MANAGEMENT / PO always,
+ * a CONTRIBUTOR when the parent task is assigned to them.
  */
-export function canUpdateStepStatus(
-  step: StepLike,
-  task: TaskLike,
-  viewer: Viewer
-): boolean {
+export function canToggleStep(task: TaskLike, viewer: Viewer): boolean {
   if (viewer.role === "VIEWER") return false;
   if (PRIVILEGED.includes(viewer.role) || viewer.role === "PO") return true;
-  return (
-    task.assigneeId === viewer.userId || step.assigneeId === viewer.userId
-  );
+  return task.assigneeId === viewer.userId; // CONTRIBUTOR
 }
 
 /**
- * Who may edit a step's details (title / points / assignee): CEO / MANAGEMENT
- * / PO always, a CONTRIBUTOR only for steps they created on their own task.
+ * Who may rename a step: CEO / MANAGEMENT / PO always, a CONTRIBUTOR only
+ * for steps they created on their own task.
  */
-export function canEditStepDetails(
+export function canEditStep(
   step: StepLike,
   task: TaskLike,
   viewer: Viewer
@@ -70,8 +62,8 @@ export function canEditStepDetails(
 }
 
 /**
- * Who may delete a step: CEO / MANAGEMENT any, PO any visible task, a
- * CONTRIBUTOR only steps they created themselves.
+ * Who may delete a step: CEO / MANAGEMENT / PO always, a CONTRIBUTOR only
+ * steps they created themselves.
  */
 export function canDeleteStep(step: StepLike, viewer: Viewer): boolean {
   if (viewer.role === "VIEWER") return false;
@@ -80,21 +72,17 @@ export function canDeleteStep(step: StepLike, viewer: Viewer): boolean {
 }
 
 /**
- * Aggregate progress for the board chip: done / total, CANCELLED excluded
- * from the total. percent is always rounded (never a raw float).
+ * Aggregate progress for the board chip: checked / total. percent is always
+ * rounded (never a raw float).
  */
-export function stepProgress(steps: ReadonlyArray<{ status: ActionStatus }>): {
+export function stepProgress(steps: ReadonlyArray<{ done: boolean }>): {
   done: number;
   total: number;
   percent: number;
 } {
+  const total = steps.length;
   let done = 0;
-  let total = 0;
-  for (const s of steps) {
-    if (s.status === "CANCELLED") continue;
-    total++;
-    if (s.status === "DONE") done++;
-  }
+  for (const s of steps) if (s.done) done++;
   return {
     done,
     total,

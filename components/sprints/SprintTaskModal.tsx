@@ -256,7 +256,6 @@ export function SprintTaskModal({
               initialSteps={task.steps}
               currentUserId={currentUserId}
               currentUserRole={currentUserRole}
-              users={users}
               onChanged={onSaved}
             />
           )}
@@ -453,7 +452,6 @@ export function SprintTaskModal({
             initialSteps={task.steps}
             currentUserId={currentUserId}
             currentUserRole={currentUserRole}
-            users={users}
             onChanged={onSaved}
           />
         )}
