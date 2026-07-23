@@ -45,6 +45,26 @@ export interface TeamTag {
   color: string;
 }
 
+// Client mirror of lib/sprint-serialize#serializeTaskStep.
+export interface TaskStepItem {
+  id: string;
+  title: string;
+  status: ActionStatus;
+  storyPoints: number | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  createdById: string;
+  sortOrder: number;
+  completedAt: string | null;
+}
+
+// Aggregate for the board chip (lib/sprint-step#stepProgress).
+export interface StepProgress {
+  done: number;
+  total: number;
+  percent: number;
+}
+
 // Client mirror of lib/sprint-serialize#serializeSprintTask output.
 export interface SprintTaskItem {
   id: string;
@@ -72,6 +92,8 @@ export interface SprintTaskItem {
   createdAt: string;
   commentCount: number;
   openRequests: OpenRequestTag[];
+  steps: TaskStepItem[];
+  stepProgress: StepProgress;
 }
 
 export interface UserOption {
