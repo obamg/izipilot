@@ -231,7 +231,6 @@ model User {
   sprintTaskRequestsMade     SprintTaskRequest[]     @relation("SprintTaskRequestRequester")
   sprintTaskRequestsResolved SprintTaskRequest[]     @relation("SprintTaskRequestResolver")
   sprintTaskRequestsReceived SprintTaskRequest[]     @relation("SprintTaskRequestTargetUser")
-  assignedSprintTaskSteps    SprintTaskStep[]        @relation("SprintTaskStepAssignee")
   createdSprintTaskSteps     SprintTaskStep[]        @relation("SprintTaskStepCreator")
 
   @@index([orgId])
@@ -866,32 +865,26 @@ model SprintTaskComment {
   @@map("sprint_task_comments")
 }
 
-// Sous-tâche (étape) d'une SprintTask : un vrai mini-travail avec son propre
-// statut / points / responsable. La progression (done/total) est agrégée sur
-// la carte du board ; CANCELLED est exclue du total.
+// Étape (checklist) d'une SprintTask : un titre + une case cochée, ordonnée.
+// La progression (done/total) est agrégée sur la carte du board.
 model SprintTaskStep {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   orgId       String
   taskId      String
   title       String
-  status      ActionStatus @default(TODO)
-  storyPoints Int?
-  assigneeId  String?
+  done        Boolean  @default(false)
   createdById String
-  sortOrder   Int          @default(0)
-  completedAt DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   task      SprintTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  assignee  User?        @relation("SprintTaskStepAssignee", fields: [assigneeId], references: [id])
   createdBy User         @relation("SprintTaskStepCreator", fields: [createdById], references: [id])
 
   @@index([taskId])
   @@index([orgId])
-  @@index([assigneeId])
   @@map("sprint_task_steps")
 }
 

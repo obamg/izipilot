@@ -2,18 +2,14 @@ import type { Prisma } from "@prisma/client";
 import { describeTarget, REQUEST_KIND_LABELS } from "@/lib/sprint-request";
 import { stepProgress } from "@/lib/sprint-step";
 
-// Shared select for a task step (sous-tâche) so the embedded list on a task
-// and the step routes emit the same shape.
+// Shared select for a task step (checklist item) so the embedded list on a
+// task and the step routes emit the same shape.
 export const sprintTaskStepSelect = {
   id: true,
   title: true,
-  status: true,
-  storyPoints: true,
-  assigneeId: true,
+  done: true,
   createdById: true,
   sortOrder: true,
-  completedAt: true,
-  assignee: { select: { name: true } },
 } satisfies Prisma.SprintTaskStepSelect;
 
 // Shared include + serializer for SprintTask so API routes and pages emit the
@@ -114,22 +110,18 @@ export function serializeSprintTask(t: SprintTaskWithRelations) {
 
 export type SerializedSprintTask = ReturnType<typeof serializeSprintTask>;
 
-// ── Task step (Sous-tâche) ──────────────────────────────────────────────────
-type StepWithAssignee = Prisma.SprintTaskStepGetPayload<{
+// ── Task step (Étape) ───────────────────────────────────────────────────────
+type StepPayload = Prisma.SprintTaskStepGetPayload<{
   select: typeof sprintTaskStepSelect;
 }>;
 
-export function serializeTaskStep(s: StepWithAssignee) {
+export function serializeTaskStep(s: StepPayload) {
   return {
     id: s.id,
     title: s.title,
-    status: s.status,
-    storyPoints: s.storyPoints,
-    assigneeId: s.assigneeId,
-    assigneeName: s.assignee?.name ?? null,
+    done: s.done,
     createdById: s.createdById,
     sortOrder: s.sortOrder,
-    completedAt: s.completedAt?.toISOString() ?? null,
   };
 }
 

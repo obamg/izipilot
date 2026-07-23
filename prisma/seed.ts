@@ -1106,27 +1106,24 @@ async function main() {
     sprintRequestCount++;
   }
 
-  // ── Task steps (Sous-tâches) — breakdown of a few active-sprint tasks ──────
+  // ── Task steps (Étapes) — checklist on a few active-sprint tasks ───────────
   let sprintStepCount = 0;
   const sprintStepData: {
     taskTitle: string; // task title → id
     title: string;
-    status: "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELLED";
-    points?: number;
-    assigneeId?: string;
-    completedOffset?: number; // days from now for completedAt
+    done?: boolean;
   }[] = [
-    // Mid-flight task: one step done, one running, one waiting.
-    { taskTitle: "Déployer le matching engine en staging", title: "Provisionner le cluster staging", status: "DONE", points: 3, assigneeId: poIT.id, completedOffset: -3 },
-    { taskTitle: "Déployer le matching engine en staging", title: "Pipeline de déploiement blue/green", status: "IN_PROGRESS", points: 3, assigneeId: poTrading.id },
-    { taskTitle: "Déployer le matching engine en staging", title: "Tests de charge 1000 ordres/s", status: "TODO", points: 2, assigneeId: poTrading.id },
-    // Blocked task: the blocking step is visible in the breakdown.
-    { taskTitle: "Négocier les frais Orange Money", title: "Benchmark des frais concurrents", status: "DONE", points: 1, assigneeId: poWallet.id, completedOffset: -4 },
-    { taskTitle: "Négocier les frais Orange Money", title: "Validation grille tarifaire par Finance", status: "BLOCKED", points: 2, assigneeId: mgmt1.id },
-    { taskTitle: "Négocier les frais Orange Money", title: "Signature de l'avenant", status: "TODO", points: 2 },
-    // Untouched breakdown on a TODO task.
-    { taskTitle: "Onboarding des 100 premiers traders", title: "Liste des 100 prospects prioritaires", status: "TODO", points: 2, assigneeId: poMarketing.id },
-    { taskTitle: "Onboarding des 100 premiers traders", title: "Séquence email de bienvenue", status: "TODO", points: 3, assigneeId: poMarketing.id },
+    // Mid-flight task: first step checked.
+    { taskTitle: "Déployer le matching engine en staging", title: "Provisionner le cluster staging", done: true },
+    { taskTitle: "Déployer le matching engine en staging", title: "Pipeline de déploiement blue/green" },
+    { taskTitle: "Déployer le matching engine en staging", title: "Tests de charge 1000 ordres/s" },
+    // Blocked task: the blocking step is visible in the checklist.
+    { taskTitle: "Négocier les frais Orange Money", title: "Benchmark des frais concurrents", done: true },
+    { taskTitle: "Négocier les frais Orange Money", title: "Validation grille tarifaire par Finance" },
+    { taskTitle: "Négocier les frais Orange Money", title: "Signature de l'avenant" },
+    // Untouched checklist on a TODO task.
+    { taskTitle: "Onboarding des 100 premiers traders", title: "Liste des 100 prospects prioritaires" },
+    { taskTitle: "Onboarding des 100 premiers traders", title: "Séquence email de bienvenue" },
   ];
   const stepOrderByTask: Record<string, number> = {};
   for (const s of sprintStepData) {
@@ -1138,12 +1135,9 @@ async function main() {
         orgId: org.id,
         taskId,
         title: s.title,
-        status: s.status,
-        storyPoints: s.points ?? null,
-        assigneeId: s.assigneeId ?? null,
+        done: s.done ?? false,
         createdById: ceo.id,
         sortOrder: order,
-        completedAt: s.completedOffset !== undefined ? addDays(s.completedOffset) : null,
       },
     });
     stepOrderByTask[taskId] = order + 1;

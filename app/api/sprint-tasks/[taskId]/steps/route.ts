@@ -6,7 +6,7 @@ import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 import { sprintTaskStepSelect, serializeTaskStep } from "@/lib/sprint-serialize";
 import { canAddStep } from "@/lib/sprint-step";
 
-// POST — add a step (sous-tâche) to a task.
+// POST — add a checklist step (étape) to a task.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
@@ -37,20 +37,6 @@ export async function POST(
       { status: 400 }
     );
   }
-  const d = parsed.data;
-
-  if (d.assigneeId) {
-    const assignee = await prisma.user.findFirst({
-      where: { id: d.assigneeId, orgId, isActive: true },
-      select: { id: true },
-    });
-    if (!assignee) {
-      return Response.json(
-        { error: "Assignee not found in your organization" },
-        { status: 400 }
-      );
-    }
-  }
 
   // Append at the end of the current list.
   const last = await prisma.sprintTaskStep.findFirst({
@@ -63,9 +49,7 @@ export async function POST(
     data: {
       orgId,
       taskId,
-      title: d.title,
-      assigneeId: d.assigneeId ?? null,
-      storyPoints: d.storyPoints ?? null,
+      title: parsed.data.title,
       createdById: session.user.id,
       sortOrder: (last?.sortOrder ?? -1) + 1,
     },

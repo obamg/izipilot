@@ -120,18 +120,14 @@ export const resolveTaskRequestSchema = z.object({
   resolutionNote: z.string().max(2000).nullable().optional(),
 });
 
-// ── Task step (Sous-tâche) ───────────────────────────────────────────────────
+// ── Task step (Étape / checklist) ────────────────────────────────────────────
 export const createTaskStepSchema = z.object({
   title: z.string().min(1).max(200),
-  assigneeId: z.string().nullable().optional(),
-  storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
 });
 
 export const updateTaskStepSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  status: taskStatusEnum.optional(),
-  assigneeId: z.string().nullable().optional(),
-  storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
+  done: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
 

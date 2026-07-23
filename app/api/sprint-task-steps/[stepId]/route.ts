@@ -4,15 +4,11 @@ import { auth } from "@/lib/auth";
 import { updateTaskStepSchema } from "@/lib/validations/sprints";
 import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 import { sprintTaskStepSelect, serializeTaskStep } from "@/lib/sprint-serialize";
-import {
-  canUpdateStepStatus,
-  canEditStepDetails,
-  canDeleteStep,
-} from "@/lib/sprint-step";
+import { canToggleStep, canEditStep, canDeleteStep } from "@/lib/sprint-step";
 
-// Keys a "move" touches — a CONTRIBUTOR assigned to the task or the step may
+// Keys a check/reorder touches — a CONTRIBUTOR assigned to the task may
 // change these without being the step's creator.
-const MOVE_KEYS = new Set(["status", "sortOrder"]);
+const TOGGLE_KEYS = new Set(["done", "sortOrder"]);
 
 export async function PATCH(
   request: NextRequest,
@@ -33,8 +29,6 @@ export async function PATCH(
     },
     select: {
       id: true,
-      status: true,
-      assigneeId: true,
       createdById: true,
       task: { select: { assigneeId: true } },
     },
@@ -52,41 +46,19 @@ export async function PATCH(
   }
   const p = parsed.data;
 
-  // Moves (status/sortOrder) have a looser rule than detail edits.
-  const moveOnly = Object.keys(p).every((k) => MOVE_KEYS.has(k));
-  const allowed = moveOnly
-    ? canUpdateStepStatus(step, step.task, viewer)
-    : canEditStepDetails(step, step.task, viewer);
+  // Checking / reordering has a looser rule than renaming.
+  const toggleOnly = Object.keys(p).every((k) => TOGGLE_KEYS.has(k));
+  const allowed = toggleOnly
+    ? canToggleStep(step.task, viewer)
+    : canEditStep(step, step.task, viewer);
   if (!allowed) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (p.assigneeId) {
-    const assignee = await prisma.user.findFirst({
-      where: { id: p.assigneeId, orgId: session.user.orgId, isActive: true },
-      select: { id: true },
-    });
-    if (!assignee) {
-      return Response.json(
-        { error: "Assignee not found in your organization" },
-        { status: 400 }
-      );
-    }
-  }
-
   const data: Record<string, unknown> = {};
   if (p.title !== undefined) data.title = p.title;
-  if (p.assigneeId !== undefined) data.assigneeId = p.assigneeId ?? null;
-  if (p.storyPoints !== undefined) data.storyPoints = p.storyPoints ?? null;
+  if (p.done !== undefined) data.done = p.done;
   if (p.sortOrder !== undefined) data.sortOrder = p.sortOrder;
-  if (p.status !== undefined) {
-    data.status = p.status;
-    if (p.status === "DONE" && step.status !== "DONE") {
-      data.completedAt = new Date();
-    } else if (p.status !== "DONE" && step.status === "DONE") {
-      data.completedAt = null;
-    }
-  }
 
   const updated = await prisma.sprintTaskStep.update({
     where: { id: stepId },
@@ -113,7 +85,7 @@ export async function DELETE(
       orgId: session.user.orgId,
       task: { ...sprintTaskVisibilityWhere(session.user.role) },
     },
-    select: { id: true, assigneeId: true, createdById: true },
+    select: { id: true, createdById: true },
   });
   if (!step) {
     return Response.json({ error: "Step not found" }, { status: 404 });
