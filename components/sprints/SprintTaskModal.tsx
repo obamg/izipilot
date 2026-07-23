@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TaskRequestSection } from "./TaskRequestSection";
+import { TaskStepsSection } from "./TaskStepsSection";
 import type {
   SprintTaskItem,
   UserOption,
@@ -249,6 +250,18 @@ export function SprintTaskModal({
           )}
 
           {task && (
+            <TaskStepsSection
+              taskId={task.id}
+              taskAssigneeId={task.assigneeId}
+              initialSteps={task.steps}
+              currentUserId={currentUserId}
+              currentUserRole={currentUserRole}
+              users={users}
+              onChanged={onSaved}
+            />
+          )}
+
+          {task && (
             <TaskRequestSection
               taskId={task.id}
               taskAssigneeId={task.assigneeId}
@@ -431,6 +444,18 @@ export function SprintTaskModal({
           <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
             {error}
           </div>
+        )}
+
+        {isEdit && task && (
+          <TaskStepsSection
+            taskId={task.id}
+            taskAssigneeId={task.assigneeId}
+            initialSteps={task.steps}
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+            users={users}
+            onChanged={onSaved}
+          />
         )}
 
         {isEdit && task && (

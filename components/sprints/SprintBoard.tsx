@@ -299,6 +299,32 @@ function CardSurface({ task, dragging = false }: { task: SprintTaskItem; draggin
       <div className="flex items-center justify-between text-[10px] text-izi-gray">
         <span className="truncate max-w-[110px]">{task.assigneeName ?? "Non assignée"}</span>
         <div className="flex items-center gap-2 shrink-0">
+          {task.stepProgress?.total > 0 && (
+            <span
+              className={`inline-flex items-center gap-0.5 font-mono ${
+                task.stepProgress.done === task.stepProgress.total
+                  ? "text-green font-semibold"
+                  : ""
+              }`}
+              title={`Sous-tâches : ${task.stepProgress.done}/${task.stepProgress.total}`}
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M3 6h1.5M3 12h1.5M3 18h1.5" />
+                <path d="M9 6h12M9 12h12M9 18h12" />
+              </svg>
+              {task.stepProgress.done}/{task.stepProgress.total}
+            </span>
+          )}
           {task.reportUrl && <ReportLink url={task.reportUrl} />}
           {task.storyPoints != null && (
             <span
