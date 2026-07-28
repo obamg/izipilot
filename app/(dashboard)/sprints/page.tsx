@@ -2,11 +2,21 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sprintTaskVisibilityWhere } from "@/lib/visibility";
+import {
+  sprintTaskVisibilityWhere,
+  departmentVisibilityWhere,
+  krVisibilityWhere,
+} from "@/lib/visibility";
 import { computeSprintStats, computeVelocity, averageVelocity, daysRemaining } from "@/lib/sprint";
+import { canManageRecurring } from "@/lib/recurring-task";
+import {
+  recurringTaskInclude,
+  serializeRecurringTask,
+} from "@/lib/sprint-serialize";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SprintStatusBadge } from "@/components/sprints/SprintStatusBadge";
 import { NewSprintButton } from "@/components/sprints/NewSprintButton";
+import { RecurringTasksButton } from "@/components/sprints/RecurringTasksButton";
 import { VelocityChart } from "@/components/sprints/VelocityChart";
 
 function fmt(d: Date): string {
@@ -45,6 +55,82 @@ export default async function SprintsPage() {
 
   const active = withStats.find((s) => s.status === "ACTIVE") ?? null;
 
+  // Recurring-task management surface — only loaded for roles that can manage it
+  // (CEO / MANAGEMENT / PO), with the reference lists its form needs.
+  const canManage = canManageRecurring(role);
+  let recurringData:
+    | Awaited<ReturnType<typeof loadRecurringData>>
+    | null = null;
+  async function loadRecurringData() {
+    const [templates, users, products, departments, krs] = await Promise.all([
+      prisma.recurringTask.findMany({
+        where: { orgId },
+        include: recurringTaskInclude,
+        orderBy: [{ isActive: "desc" }, { nextRunAt: "asc" }],
+      }),
+      prisma.user.findMany({
+        where: { orgId, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.product.findMany({
+        where: { orgId, isActive: true },
+        select: { id: true, code: true, name: true, color: true },
+        orderBy: { sortOrder: "asc" },
+      }),
+      prisma.department.findMany({
+        where: { orgId, isActive: true, ...departmentVisibilityWhere(role) },
+        select: { id: true, code: true, name: true, color: true },
+        orderBy: { sortOrder: "asc" },
+      }),
+      prisma.keyResult.findMany({
+        where: { orgId, isActive: true, deletedAt: null, ...krVisibilityWhere(role) },
+        select: {
+          id: true,
+          title: true,
+          objective: {
+            select: {
+              product: { select: { code: true, name: true } },
+              department: { select: { code: true, name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+    return {
+      templates: templates.map(serializeRecurringTask),
+      users,
+      products,
+      departments,
+      krs: krs.map((kr) => ({
+        id: kr.id,
+        title: kr.title,
+        entityCode: kr.objective.product?.code ?? kr.objective.department?.code ?? "",
+        entityName: kr.objective.product?.name ?? kr.objective.department?.name ?? "",
+      })),
+    };
+  }
+  if (canManage) recurringData = await loadRecurringData();
+
+  const headerActions =
+    canManage && recurringData ? (
+      <div className="flex items-center gap-2">
+        <RecurringTasksButton
+          initialTemplates={recurringData.templates}
+          users={recurringData.users}
+          products={recurringData.products}
+          departments={recurringData.departments}
+          krs={recurringData.krs}
+          currentUserId={session.user.id}
+          currentUserRole={role}
+        />
+        {isManagement && <NewSprintButton />}
+      </div>
+    ) : isManagement ? (
+      <NewSprintButton />
+    ) : undefined;
+
   // Velocity over completed sprints, oldest → newest.
   const completed = [...sprints]
     .filter((s) => s.status === "COMPLETED")
@@ -59,7 +145,7 @@ export default async function SprintsPage() {
       <PageHeader
         title="Sprints"
         subtitle="Exécution time-boxée — tableau, backlog, burndown et capacité"
-        actions={isManagement ? <NewSprintButton /> : undefined}
+        actions={headerActions}
       />
 
       {withStats.length === 0 ? (
