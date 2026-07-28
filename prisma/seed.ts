@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole, EntityType, Quarter, KrType, KrStatus, ProductStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { computeNextRun } from "../lib/recurring-task";
 
 const prisma = new PrismaClient();
 
@@ -1193,6 +1194,46 @@ async function main() {
     standupCount++;
   }
 
+  // ── Recurring tasks (Tâches récurrentes) — templates spawned by the cron ────
+  const recurringData: {
+    title: string;
+    description?: string;
+    frequency: "DAILY" | "WEEKLY" | "MONTHLY";
+    weekday?: number; // 0=dim..6=sam
+    monthDay?: number; // 1..28
+    priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+    points?: number;
+    assigneeId?: string;
+    deptIdx?: number;
+    productIdx?: number;
+  }[] = [
+    { title: "Revue OKR hebdomadaire", description: "Mettre à jour les scores et préparer la synthèse du dimanche.", frequency: "WEEKLY", weekday: 5, priority: "HIGH", points: 2, assigneeId: mgmt1.id, deptIdx: 6 },
+    { title: "Point sécurité & sauvegardes", description: "Vérifier les backups et les alertes de sécurité de la semaine.", frequency: "WEEKLY", weekday: 1, priority: "MEDIUM", points: 3, assigneeId: poIT.id, deptIdx: 1 },
+    { title: "Rapport financier mensuel", description: "Consolider les chiffres du mois pour le CODIR.", frequency: "MONTHLY", monthDay: 1, priority: "HIGH", points: 5, assigneeId: poFinance.id, deptIdx: 2 },
+    { title: "Nettoyage du backlog", description: "Trier et prioriser les tâches non planifiées.", frequency: "DAILY", priority: "LOW", points: 1, assigneeId: poTrading.id, productIdx: 0 },
+  ];
+  let recurringCount = 0;
+  for (const r of recurringData) {
+    await prisma.recurringTask.create({
+      data: {
+        orgId: org.id,
+        title: r.title,
+        description: r.description ?? null,
+        frequency: r.frequency,
+        weekday: r.weekday ?? null,
+        monthDay: r.monthDay ?? null,
+        priority: r.priority,
+        storyPoints: r.points ?? null,
+        assigneeId: r.assigneeId ?? null,
+        departmentId: r.deptIdx !== undefined ? departments[r.deptIdx].id : null,
+        productId: r.productIdx !== undefined ? products[r.productIdx].id : null,
+        createdById: ceo.id,
+        nextRunAt: computeNextRun(now, r.frequency, r.weekday ?? null, r.monthDay ?? null),
+      },
+    });
+    recurringCount++;
+  }
+
   // ── Department Members ────────────────────────────────────────
   // Assign users to departments (owner as LEAD + some cross-members)
   const memberAssignments: { deptIdx: number; userId: string; role: string }[] = [
@@ -1242,7 +1283,7 @@ async function main() {
     memberCount++;
   }
 
-  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks, ${sprintStepCount} task steps, ${sprintRequestCount} task requests, ${standupCount} standups`);
+  console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks, ${sprintStepCount} task steps, ${sprintRequestCount} task requests, ${standupCount} standups, ${recurringCount} recurring tasks`);
 }
 
 main()
