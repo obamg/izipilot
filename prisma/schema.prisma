@@ -183,6 +183,7 @@ model Organization {
   standupEntries     StandupEntry[]
   sprintTaskRequests SprintTaskRequest[]
   sprintTaskSteps    SprintTaskStep[]
+  recurringTasks     RecurringTask[]
 
   @@map("organizations")
 }
@@ -232,6 +233,8 @@ model User {
   sprintTaskRequestsResolved SprintTaskRequest[]     @relation("SprintTaskRequestResolver")
   sprintTaskRequestsReceived SprintTaskRequest[]     @relation("SprintTaskRequestTargetUser")
   createdSprintTaskSteps     SprintTaskStep[]        @relation("SprintTaskStepCreator")
+  recurringTasksCreated      RecurringTask[]         @relation("RecurringTaskCreator")
+  recurringTasksAssigned     RecurringTask[]         @relation("RecurringTaskAssignee")
 
   @@index([orgId])
   @@index([email])
@@ -313,6 +316,7 @@ model Department {
   members            DepartmentMember[]
   sprintTasks        SprintTask[]        @relation("SprintTaskDept")
   sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetDept")
+  recurringTasks     RecurringTask[]     @relation("RecurringTaskDept")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -359,6 +363,7 @@ model Product {
   objectives         Objective[]
   sprintTasks        SprintTask[]        @relation("SprintTaskProduct")
   sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetProduct")
+  recurringTasks     RecurringTask[]     @relation("RecurringTaskProduct")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -441,6 +446,7 @@ model KeyResult {
   alerts        Alert[]
   actions       Action[]
   sprintTasks   SprintTask[]  @relation("SprintTaskKr")
+  recurringTasks RecurringTask[] @relation("RecurringTaskKr")
 
   @@index([orgId])
   @@index([objectiveId])
@@ -777,6 +783,7 @@ model SprintTask {
   krId         String? // Lien optionnel vers un Key Result
   departmentId String? // Tag équipe (filtre board)
   productId    String? // Tag équipe (filtre board)
+  recurringTaskId String? // Origine : généré par un modèle récurrent
   title        String
   description  String?        @db.Text
   reportUrl    String? // Lien vers le rapport de tâche (document externe)
@@ -799,15 +806,17 @@ model SprintTask {
   product    Product?            @relation("SprintTaskProduct", fields: [productId], references: [id], onDelete: SetNull)
   assignee   User?               @relation("SprintTaskAssignee", fields: [assigneeId], references: [id])
   createdBy  User                @relation("SprintTaskCreator", fields: [createdById], references: [id])
-  comments   SprintTaskComment[]
-  requests   SprintTaskRequest[]
-  steps      SprintTaskStep[]
+  comments      SprintTaskComment[]
+  requests      SprintTaskRequest[]
+  steps         SprintTaskStep[]
+  recurringTask RecurringTask?      @relation("SprintTaskRecurring", fields: [recurringTaskId], references: [id], onDelete: SetNull)
 
   @@index([orgId, sprintId, status])
   @@index([assigneeId])
   @@index([krId])
   @@index([departmentId])
   @@index([productId])
+  @@index([recurringTaskId])
   @@map("sprint_tasks")
 }
 
@@ -886,6 +895,52 @@ model SprintTaskStep {
   @@index([taskId])
   @@index([orgId])
   @@map("sprint_task_steps")
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+// Modèle de tâche récurrente : un gabarit qu'un cron clone en SprintTask réelle
+// à chaque échéance (quotidienne / hebdo / mensuelle). La tâche générée atterrit
+// dans le sprint ACTIF de l'org, sinon dans le backlog.
+model RecurringTask {
+  id           String              @id @default(cuid())
+  orgId        String
+  title        String
+  description  String?             @db.Text
+  krId         String?
+  departmentId String?
+  productId    String?
+  priority     ActionPriority      @default(MEDIUM)
+  storyPoints  Int?
+  assigneeId   String?
+  createdById  String
+
+  // Configuration de la récurrence
+  frequency RecurrenceFrequency
+  weekday   Int? // 0 = dimanche … 6 = samedi (WEEKLY)
+  monthDay  Int? // 1 … 28 (MONTHLY ; borné à 28 pour exister chaque mois)
+  isActive  Boolean             @default(true) // pause / reprise
+  nextRunAt DateTime // prochaine échéance (00:00 UTC)
+  lastRunAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  keyResult      KeyResult?   @relation("RecurringTaskKr", fields: [krId], references: [id], onDelete: SetNull)
+  department     Department?  @relation("RecurringTaskDept", fields: [departmentId], references: [id], onDelete: SetNull)
+  product        Product?     @relation("RecurringTaskProduct", fields: [productId], references: [id], onDelete: SetNull)
+  assignee       User?        @relation("RecurringTaskAssignee", fields: [assigneeId], references: [id])
+  createdBy      User         @relation("RecurringTaskCreator", fields: [createdById], references: [id])
+  generatedTasks SprintTask[] @relation("SprintTaskRecurring")
+
+  @@index([orgId, isActive, nextRunAt])
+  @@map("recurring_tasks")
 }
 
 model SprintCapacity {

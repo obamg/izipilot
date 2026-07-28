@@ -131,6 +131,73 @@ export const updateTaskStepSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
+// ── Recurring task (Tâche récurrente) ────────────────────────────────────────
+const recurrenceFrequencyEnum = z.enum(["DAILY", "WEEKLY", "MONTHLY"]);
+
+// WEEKLY needs a weekday (0=dim..6=sam); MONTHLY needs a day-of-month (1..28,
+// capped so it exists every month). Enforced by the refine below.
+const recurrenceFields = {
+  frequency: recurrenceFrequencyEnum,
+  weekday: z.number().int().min(0).max(6).nullable().optional(),
+  monthDay: z.number().int().min(1).max(28).nullable().optional(),
+};
+
+function requireCadenceParams(
+  d: { frequency: string; weekday?: number | null; monthDay?: number | null },
+  ctx: z.RefinementCtx
+) {
+  if (d.frequency === "WEEKLY" && (d.weekday === null || d.weekday === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["weekday"],
+      message: "Choisissez un jour de la semaine.",
+    });
+  }
+  if (d.frequency === "MONTHLY" && (d.monthDay === null || d.monthDay === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["monthDay"],
+      message: "Choisissez un jour du mois.",
+    });
+  }
+}
+
+export const createRecurringTaskSchema = z
+  .object({
+    title: z.string().min(2).max(200),
+    description: z.string().max(2000).nullable().optional(),
+    krId: z.string().nullable().optional(),
+    departmentId: z.string().nullable().optional(),
+    productId: z.string().nullable().optional(),
+    assigneeId: z.string().nullable().optional(),
+    priority: taskPriorityEnum.default("MEDIUM"),
+    storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
+    ...recurrenceFields,
+  })
+  .superRefine(requireCadenceParams);
+
+// Update: any field optional, plus isActive to pause/resume. When a recurrence
+// field is present the route recomputes nextRunAt.
+export const updateRecurringTaskSchema = z
+  .object({
+    title: z.string().min(2).max(200).optional(),
+    description: z.string().max(2000).nullable().optional(),
+    krId: z.string().nullable().optional(),
+    departmentId: z.string().nullable().optional(),
+    productId: z.string().nullable().optional(),
+    assigneeId: z.string().nullable().optional(),
+    priority: taskPriorityEnum.optional(),
+    storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
+    frequency: recurrenceFrequencyEnum.optional(),
+    weekday: z.number().int().min(0).max(6).nullable().optional(),
+    monthDay: z.number().int().min(1).max(28).nullable().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .superRefine((d, ctx) => {
+    // Only enforce cadence params when the frequency itself is being set.
+    if (d.frequency) requireCadenceParams({ ...d, frequency: d.frequency }, ctx);
+  });
+
 // ── Daily standup ────────────────────────────────────────────────────────────
 export const submitStandupSchema = z.object({
   yesterday: z.string().max(2000).nullable().optional(),

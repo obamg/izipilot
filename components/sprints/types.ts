@@ -5,6 +5,7 @@ import type {
   UserRole,
   RequestKind,
   RequestStatus,
+  RecurrenceFrequency,
 } from "@prisma/client";
 
 // Open-request summary carried on a task (powers the board "en attente" chip).
@@ -90,6 +91,33 @@ export interface SprintTaskItem {
   openRequests: OpenRequestTag[];
   steps: TaskStepItem[];
   stepProgress: StepProgress;
+}
+
+// Client mirror of lib/sprint-serialize#serializeRecurringTask.
+export interface RecurringTaskItem {
+  id: string;
+  title: string;
+  description: string | null;
+  krId: string | null;
+  krTitle: string | null;
+  departmentId: string | null;
+  productId: string | null;
+  team: TeamTag | null;
+  priority: ActionPriority;
+  storyPoints: number | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  createdById: string;
+  createdByName: string;
+  frequency: RecurrenceFrequency;
+  frequencyLabel: string;
+  weekday: number | null;
+  monthDay: number | null;
+  cadenceLabel: string;
+  isActive: boolean;
+  nextRunAt: string;
+  lastRunAt: string | null;
+  createdAt: string;
 }
 
 export interface UserOption {

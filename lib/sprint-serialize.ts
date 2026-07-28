@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { describeTarget, REQUEST_KIND_LABELS } from "@/lib/sprint-request";
 import { stepProgress } from "@/lib/sprint-step";
+import { cadenceLabel, FREQUENCY_LABELS } from "@/lib/recurring-task";
 
 // Shared select for a task step (checklist item) so the embedded list on a
 // task and the step routes emit the same shape.
@@ -170,3 +171,64 @@ export function serializeTaskRequest(r: SprintTaskRequestWithRelations) {
 }
 
 export type SerializedTaskRequest = ReturnType<typeof serializeTaskRequest>;
+
+// ── Recurring task (Tâche récurrente) ───────────────────────────────────────
+export const recurringTaskInclude = {
+  assignee: { select: { id: true, name: true } },
+  createdBy: { select: { name: true } },
+  department: { select: { id: true, code: true, name: true, color: true } },
+  product: { select: { id: true, code: true, name: true, color: true } },
+  keyResult: { select: { id: true, title: true } },
+} satisfies Prisma.RecurringTaskInclude;
+
+export type RecurringTaskWithRelations = Prisma.RecurringTaskGetPayload<{
+  include: typeof recurringTaskInclude;
+}>;
+
+export function serializeRecurringTask(r: RecurringTaskWithRelations) {
+  const team: TeamTag | null = r.product
+    ? {
+        type: "PRODUCT",
+        id: r.product.id,
+        code: r.product.code,
+        name: r.product.name,
+        color: r.product.color,
+      }
+    : r.department
+    ? {
+        type: "DEPARTMENT",
+        id: r.department.id,
+        code: r.department.code,
+        name: r.department.name,
+        color: r.department.color,
+      }
+    : null;
+
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    krId: r.krId,
+    krTitle: r.keyResult?.title ?? null,
+    departmentId: r.departmentId,
+    productId: r.productId,
+    team,
+    priority: r.priority,
+    storyPoints: r.storyPoints,
+    assigneeId: r.assignee?.id ?? null,
+    assigneeName: r.assignee?.name ?? null,
+    createdById: r.createdById,
+    createdByName: r.createdBy.name,
+    frequency: r.frequency,
+    frequencyLabel: FREQUENCY_LABELS[r.frequency],
+    weekday: r.weekday,
+    monthDay: r.monthDay,
+    cadenceLabel: cadenceLabel(r),
+    isActive: r.isActive,
+    nextRunAt: r.nextRunAt.toISOString(),
+    lastRunAt: r.lastRunAt?.toISOString() ?? null,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+export type SerializedRecurringTask = ReturnType<typeof serializeRecurringTask>;
