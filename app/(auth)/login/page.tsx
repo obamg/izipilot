@@ -158,7 +158,11 @@ function LoginForm() {
       </div>
 
       {step === "credentials" ? (
-        <form onSubmit={handleCredentials} className="space-y-4" noValidate>
+        // Distinct `key` per step: without it React reuses the same <input>
+        // DOM node across steps, morphing the type="password" field into the
+        // type="text" OTP field while KEEPING the typed value — which leaks the
+        // password in cleartext on the OTP screen. The key forces a remount.
+        <form key="credentials" onSubmit={handleCredentials} className="space-y-4" noValidate>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-dark-md">
               Email
@@ -217,7 +221,7 @@ function LoginForm() {
           </div>
         </form>
       ) : (
-        <form onSubmit={handleOtp} className="space-y-4" noValidate>
+        <form key="otp" onSubmit={handleOtp} className="space-y-4" noValidate>
           <div>
             <h2 className="text-base font-semibold text-dark">
               Code de vérification
