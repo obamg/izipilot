@@ -7,7 +7,7 @@ import {
   departmentVisibilityWhere,
   krVisibilityWhere,
 } from "@/lib/visibility";
-import { computeSprintStats, computeVelocity, averageVelocity, daysRemaining } from "@/lib/sprint";
+import { displaySprintStats, computeVelocity, averageVelocity, daysRemaining } from "@/lib/sprint";
 import { canManageRecurring } from "@/lib/recurring-task";
 import {
   recurringTaskInclude,
@@ -50,7 +50,7 @@ export default async function SprintsPage() {
     status: s.status,
     startDate: s.startDate,
     endDate: s.endDate,
-    stats: computeSprintStats(s.tasks),
+    stats: displaySprintStats(s, s.tasks),
   }));
 
   const active = withStats.find((s) => s.status === "ACTIVE") ?? null;
@@ -136,7 +136,11 @@ export default async function SprintsPage() {
     .filter((s) => s.status === "COMPLETED")
     .sort((a, b) => a.number - b.number);
   const velocity = computeVelocity(
-    completed.map((s) => ({ name: `S${s.number}`, tasks: s.tasks }))
+    completed.map((s) => ({
+      name: `S${s.number}`,
+      tasks: s.tasks,
+      snapshot: displaySprintStats(s, s.tasks),
+    }))
   );
   const avgVelocity = averageVelocity(velocity);
 

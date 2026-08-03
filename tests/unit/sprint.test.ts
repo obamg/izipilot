@@ -3,12 +3,16 @@ import type { ActionStatus } from '@prisma/client'
 import {
   taskPoints,
   computeSprintStats,
+  displaySprintStats,
   computeBurndown,
   computeVelocity,
   averageVelocity,
   computeCapacityUtilization,
   computeAvailability,
   daysRemaining,
+  isUnfinished,
+  pickCarryTarget,
+  UNFINISHED_STATUSES,
   type SprintTaskLike,
 } from '@/lib/sprint'
 
@@ -291,5 +295,126 @@ describe('daysRemaining', () => {
   })
   it('never goes negative', () => {
     expect(daysRemaining(new Date('2026-06-01'), new Date('2026-06-10'))).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Carry-over on sprint close
+// ---------------------------------------------------------------------------
+describe('isUnfinished / UNFINISHED_STATUSES', () => {
+  it('treats TODO / IN_PROGRESS / BLOCKED as unfinished', () => {
+    expect(isUnfinished('TODO')).toBe(true)
+    expect(isUnfinished('IN_PROGRESS')).toBe(true)
+    expect(isUnfinished('BLOCKED')).toBe(true)
+  })
+  it('treats DONE / CANCELLED as finished (do not carry)', () => {
+    expect(isUnfinished('DONE')).toBe(false)
+    expect(isUnfinished('CANCELLED')).toBe(false)
+  })
+  it('the allowlist excludes DONE and CANCELLED', () => {
+    expect(UNFINISHED_STATUSES).not.toContain('DONE')
+    expect(UNFINISHED_STATUSES).not.toContain('CANCELLED')
+  })
+})
+
+describe('pickCarryTarget', () => {
+  const c = (number: number, status: ActionStatus | 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED', id = `s${number}`) =>
+    ({ id, number, status } as { id: string; number: number; status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' })
+
+  it('picks the lowest-numbered open sprint after the closed one', () => {
+    const target = pickCarryTarget(
+      [c(5, 'PLANNED'), c(4, 'PLANNED'), c(6, 'ACTIVE')],
+      3
+    )
+    expect(target?.number).toBe(4)
+  })
+  it('ignores sprints at or before the closed number', () => {
+    const target = pickCarryTarget([c(3, 'PLANNED'), c(2, 'PLANNED'), c(5, 'PLANNED')], 3)
+    expect(target?.number).toBe(5)
+  })
+  it('ignores COMPLETED / CANCELLED candidates', () => {
+    const target = pickCarryTarget([c(4, 'COMPLETED'), c(5, 'CANCELLED'), c(6, 'PLANNED')], 3)
+    expect(target?.number).toBe(6)
+  })
+  it('returns null when there is no next open sprint (→ backlog)', () => {
+    expect(pickCarryTarget([c(2, 'COMPLETED'), c(4, 'COMPLETED')], 3)).toBeNull()
+    expect(pickCarryTarget([], 3)).toBeNull()
+  })
+  it('preserves the caller extra fields on the returned candidate', () => {
+    const target = pickCarryTarget([c(4, 'PLANNED', 'the-id')], 3)
+    expect(target?.id).toBe('the-id')
+  })
+})
+
+describe('displaySprintStats', () => {
+  const liveTasks: SprintTaskLike[] = [
+    task('DONE', 5),
+    task('TODO', 3),
+  ]
+
+  it('computes live for a non-completed sprint (ignores any snapshot)', () => {
+    const stats = displaySprintStats(
+      { status: 'ACTIVE', statsSnapshot: { totalPoints: 999 } },
+      liveTasks
+    )
+    expect(stats.totalPoints).toBe(8)
+    expect(stats.donePoints).toBe(5)
+  })
+
+  it('uses the frozen snapshot for a COMPLETED sprint', () => {
+    const snap = {
+      totalTasks: 4,
+      doneTasks: 2,
+      totalPoints: 20,
+      donePoints: 12,
+      percentComplete: 60,
+    }
+    // Only DONE tasks physically remain after carry, but the snapshot wins.
+    const stats = displaySprintStats(
+      { status: 'COMPLETED', statsSnapshot: snap },
+      [task('DONE', 12)]
+    )
+    expect(stats).toEqual(snap)
+  })
+
+  it('falls back to live compute when a completed sprint has no snapshot', () => {
+    const stats = displaySprintStats({ status: 'COMPLETED', statsSnapshot: null }, liveTasks)
+    expect(stats.totalPoints).toBe(8)
+  })
+
+  it('falls back when the snapshot JSON is malformed', () => {
+    const stats = displaySprintStats(
+      { status: 'COMPLETED', statsSnapshot: { totalPoints: 'nope' } },
+      liveTasks
+    )
+    expect(stats.totalPoints).toBe(8)
+  })
+})
+
+describe('computeVelocity with snapshots', () => {
+  it('uses the snapshot verbatim so a carry does not rewrite history', () => {
+    // Sprint physically holds only its DONE task after carry, but committed
+    // must still reflect what was planned at close (via the snapshot).
+    const v = computeVelocity([
+      {
+        name: 'S1',
+        tasks: [task('DONE', 12)],
+        snapshot: {
+          totalTasks: 4,
+          doneTasks: 2,
+          totalPoints: 20,
+          donePoints: 12,
+          percentComplete: 60,
+        },
+      },
+    ])
+    expect(v[0]).toEqual({ name: 'S1', committedPoints: 20, completedPoints: 12 })
+  })
+
+  it('computes live when no snapshot is given', () => {
+    const v = computeVelocity([
+      { name: 'S1', tasks: [task('DONE', 5), task('TODO', 3), task('CANCELLED', 8)] },
+    ])
+    expect(v[0]).toEqual({ name: 'S1', committedPoints: 8, completedPoints: 5 })
   })
 })

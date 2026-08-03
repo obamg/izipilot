@@ -76,6 +76,10 @@ export function computeNextRun(
       }
       return d;
     }
+    case "PER_SPRINT":
+      // Event-driven (spawned when a sprint is activated), never date-scheduled.
+      // Callers must not schedule it — they store nextRunAt = null instead.
+      throw new Error("computeNextRun is not defined for PER_SPRINT");
   }
 }
 
@@ -99,12 +103,16 @@ export function advancePastNow(
   return next;
 }
 
-/** A template is due when active and its next run is at or before `now`. */
+/**
+ * A date-scheduled template is due when active and its next run is at or before
+ * `now`. PER_SPRINT templates carry a null `nextRunAt` and are never date-due —
+ * they are spawned on sprint activation instead, so this returns false for them.
+ */
 export function isDue(
-  template: { isActive: boolean; nextRunAt: Date },
+  template: { isActive: boolean; nextRunAt: Date | null },
   now: Date
 ): boolean {
-  return template.isActive && template.nextRunAt <= now;
+  return template.isActive && template.nextRunAt != null && template.nextRunAt <= now;
 }
 
 // ── Labels (French) ──────────────────────────────────────────────────────────
@@ -113,6 +121,7 @@ export const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
   DAILY: "Quotidienne",
   WEEKLY: "Hebdomadaire",
   MONTHLY: "Mensuelle",
+  PER_SPRINT: "Par sprint",
 };
 
 // 0 = dimanche … 6 = samedi (JS getUTCDay convention).
@@ -143,5 +152,7 @@ export function cadenceLabel(t: {
       return `Chaque ${WEEKDAY_LABELS[t.weekday ?? 1]}`;
     case "MONTHLY":
       return `Le ${ordinalFr(clampMonthDay(t.monthDay ?? 1))} de chaque mois`;
+    case "PER_SPRINT":
+      return "À chaque sprint";
   }
 }

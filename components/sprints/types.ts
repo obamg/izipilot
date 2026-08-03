@@ -115,7 +115,7 @@ export interface RecurringTaskItem {
   monthDay: number | null;
   cadenceLabel: string;
   isActive: boolean;
-  nextRunAt: string;
+  nextRunAt: string | null;
   lastRunAt: string | null;
   createdAt: string;
 }

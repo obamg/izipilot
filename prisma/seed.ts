@@ -1198,7 +1198,7 @@ async function main() {
   const recurringData: {
     title: string;
     description?: string;
-    frequency: "DAILY" | "WEEKLY" | "MONTHLY";
+    frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "PER_SPRINT";
     weekday?: number; // 0=dim..6=sam
     monthDay?: number; // 1..28
     priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -1211,6 +1211,7 @@ async function main() {
     { title: "Point sécurité & sauvegardes", description: "Vérifier les backups et les alertes de sécurité de la semaine.", frequency: "WEEKLY", weekday: 1, priority: "MEDIUM", points: 3, assigneeId: poIT.id, deptIdx: 1 },
     { title: "Rapport financier mensuel", description: "Consolider les chiffres du mois pour le CODIR.", frequency: "MONTHLY", monthDay: 1, priority: "HIGH", points: 5, assigneeId: poFinance.id, deptIdx: 2 },
     { title: "Nettoyage du backlog", description: "Trier et prioriser les tâches non planifiées.", frequency: "DAILY", priority: "LOW", points: 1, assigneeId: poTrading.id, productIdx: 0 },
+    { title: "Préparer la rétro de sprint", description: "Rassembler les points de rétrospective avant la fin du sprint.", frequency: "PER_SPRINT", priority: "MEDIUM", points: 2, assigneeId: mgmt1.id, deptIdx: 6 },
   ];
   let recurringCount = 0;
   for (const r of recurringData) {
@@ -1228,7 +1229,11 @@ async function main() {
         departmentId: r.deptIdx !== undefined ? departments[r.deptIdx].id : null,
         productId: r.productIdx !== undefined ? products[r.productIdx].id : null,
         createdById: ceo.id,
-        nextRunAt: computeNextRun(now, r.frequency, r.weekday ?? null, r.monthDay ?? null),
+        // PER_SPRINT is event-driven (spawned on sprint activation) → no date.
+        nextRunAt:
+          r.frequency === "PER_SPRINT"
+            ? null
+            : computeNextRun(now, r.frequency, r.weekday ?? null, r.monthDay ?? null),
       },
     });
     recurringCount++;

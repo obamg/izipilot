@@ -132,7 +132,7 @@ export const updateTaskStepSchema = z.object({
 });
 
 // ── Recurring task (Tâche récurrente) ────────────────────────────────────────
-const recurrenceFrequencyEnum = z.enum(["DAILY", "WEEKLY", "MONTHLY"]);
+const recurrenceFrequencyEnum = z.enum(["DAILY", "WEEKLY", "MONTHLY", "PER_SPRINT"]);
 
 // WEEKLY needs a weekday (0=dim..6=sam); MONTHLY needs a day-of-month (1..28,
 // capped so it exists every month). Enforced by the refine below.
