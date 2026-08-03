@@ -47,6 +47,10 @@ export async function GET(request: NextRequest) {
 
     for (const t of due) {
       try {
+        // PER_SPRINT templates carry a null nextRunAt and are event-driven
+        // (spawned on sprint activation), so they never appear here — guard
+        // anyway to satisfy the now-nullable type.
+        if (!t.nextRunAt) continue;
         const sprintId = await targetSprintId(t.orgId);
         const nextRunAt = advancePastNow(
           t.nextRunAt,

@@ -25,9 +25,11 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function patchStatus(status: string) {
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/sprints/${sprint.id}`, {
@@ -35,10 +37,24 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Échec de l'opération");
         return;
+      }
+      const carry = data.carry;
+      if (carry && carry.count > 0) {
+        const n = carry.count;
+        const s = n > 1 ? "s" : "";
+        setNotice(
+          carry.toBacklog
+            ? `${n} tâche${s} non terminée${s} renvoyée${s} au backlog.`
+            : `${n} tâche${s} non terminée${s} reportée${s} vers ${carry.toSprintName}.`
+        );
+      } else if (data.spawned > 0) {
+        const n = data.spawned;
+        const s = n > 1 ? "s" : "";
+        setNotice(`${n} tâche${s} récurrente${s} ajoutée${s} à ce sprint.`);
       }
       router.refresh();
     } finally {
@@ -144,6 +160,12 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
       {error && (
         <div className="mt-3 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mt-3 rounded-[7px] border border-teal-md bg-teal-lt px-3 py-2 text-[11px] text-teal-dk">
+          {notice}
         </div>
       )}
 

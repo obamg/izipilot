@@ -6,6 +6,7 @@ import {
   advancePastNow,
   isDue,
   cadenceLabel,
+  FREQUENCY_LABELS,
 } from "@/lib/recurring-task";
 
 const utc = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -148,6 +149,9 @@ describe("isDue", () => {
   it("is never due when inactive", () => {
     expect(isDue({ isActive: false, nextRunAt: utc("2026-07-01") }, now)).toBe(false);
   });
+  it("is never date-due for a PER_SPRINT template (null nextRunAt)", () => {
+    expect(isDue({ isActive: true, nextRunAt: null }, now)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -174,5 +178,22 @@ describe("cadenceLabel", () => {
     expect(cadenceLabel({ frequency: "MONTHLY", weekday: null, monthDay: 15 })).toBe(
       "Le 15 de chaque mois"
     );
+  });
+  it("labels PER_SPRINT", () => {
+    expect(
+      cadenceLabel({ frequency: "PER_SPRINT", weekday: null, monthDay: null })
+    ).toBe("À chaque sprint");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PER_SPRINT specifics
+// ---------------------------------------------------------------------------
+describe("PER_SPRINT", () => {
+  it("computeNextRun throws — it is event-driven, not date-scheduled", () => {
+    expect(() => computeNextRun(utc("2026-07-28"), "PER_SPRINT", null, null)).toThrow();
+  });
+  it("has a French frequency label", () => {
+    expect(FREQUENCY_LABELS.PER_SPRINT).toBe("Par sprint");
   });
 });

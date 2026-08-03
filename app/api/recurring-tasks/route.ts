@@ -9,6 +9,7 @@ import {
 } from "@/lib/sprint-serialize";
 import { validateTeamAndAssignee } from "@/lib/sprint-refs";
 import { canManageRecurring, computeNextRun } from "@/lib/recurring-task";
+import { spawnPerSprintTask } from "@/lib/recurring-spawn";
 
 // GET — list the org's recurring-task templates (active first, then by next run).
 export async function GET() {
@@ -75,12 +76,12 @@ export async function POST(request: NextRequest) {
   const refError = await validateTeamAndAssignee(orgId, d);
   if (refError) return refError;
 
-  const nextRunAt = computeNextRun(
-    new Date(),
-    d.frequency,
-    d.weekday ?? null,
-    d.monthDay ?? null
-  );
+  // PER_SPRINT is event-driven (spawned on sprint activation), so it has no
+  // scheduled date; date-based cadences seed their first run from today.
+  const nextRunAt =
+    d.frequency === "PER_SPRINT"
+      ? null
+      : computeNextRun(new Date(), d.frequency, d.weekday ?? null, d.monthDay ?? null);
 
   const created = await prisma.recurringTask.create({
     data: {
@@ -101,6 +102,24 @@ export async function POST(request: NextRequest) {
     },
     include: recurringTaskInclude,
   });
+
+  // A PER_SPRINT template created while a sprint is running drops an instance
+  // into it immediately (idempotent), so it's usable now rather than only from
+  // the next sprint's activation.
+  if (created.frequency === "PER_SPRINT") {
+    const active = await prisma.sprint.findFirst({
+      where: { orgId, status: "ACTIVE" },
+      orderBy: { startDate: "desc" },
+      select: { id: true },
+    });
+    if (active) {
+      try {
+        await spawnPerSprintTask(created, active.id);
+      } catch {
+        // Best-effort — the template is created regardless of spawn outcome.
+      }
+    }
+  }
 
   return Response.json({ data: serializeRecurringTask(created) }, { status: 201 });
 }

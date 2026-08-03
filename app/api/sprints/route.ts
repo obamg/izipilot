@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { createSprintSchema } from "@/lib/validations/sprints";
-import { computeSprintStats } from "@/lib/sprint";
+import { computeSprintStats, displaySprintStats } from "@/lib/sprint";
 import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 
 const taskStatSelect = {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       completedAt: s.completedAt?.toISOString() ?? null,
       createdById: s.createdBy.id,
       createdByName: s.createdBy.name,
-      stats: computeSprintStats(s.tasks),
+      stats: displaySprintStats(s, s.tasks),
     })),
   });
 }

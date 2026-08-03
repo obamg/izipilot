@@ -761,6 +761,9 @@ model Sprint {
   endDate     DateTime
   createdById String
   completedAt DateTime?
+  // Stats frozen at close (SprintStats shape) so committed/done figures survive
+  // unfinished tasks being carried out to the next sprint. Null until closed.
+  statsSnapshot Json?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -901,6 +904,7 @@ enum RecurrenceFrequency {
   DAILY
   WEEKLY
   MONTHLY
+  PER_SPRINT // Une fois par sprint — déclenché à l'activation du sprint (pas de date)
 }
 
 // Modèle de tâche récurrente : un gabarit qu'un cron clone en SprintTask réelle
@@ -924,7 +928,7 @@ model RecurringTask {
   weekday   Int? // 0 = dimanche … 6 = samedi (WEEKLY)
   monthDay  Int? // 1 … 28 (MONTHLY ; borné à 28 pour exister chaque mois)
   isActive  Boolean             @default(true) // pause / reprise
-  nextRunAt DateTime // prochaine échéance (00:00 UTC)
+  nextRunAt DateTime? // prochaine échéance (00:00 UTC) ; null pour PER_SPRINT (piloté par l'activation du sprint)
   lastRunAt DateTime?
 
   createdAt DateTime @default(now())

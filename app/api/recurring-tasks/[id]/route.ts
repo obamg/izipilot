@@ -95,14 +95,21 @@ export async function PATCH(
     const weekday = p.weekday !== undefined ? p.weekday : existing.weekday;
     const monthDay = p.monthDay !== undefined ? p.monthDay : existing.monthDay;
     data.frequency = frequency;
-    data.weekday = weekday ?? null;
-    data.monthDay = monthDay ?? null;
-    data.nextRunAt = computeNextRun(
-      new Date(),
-      frequency,
-      weekday ?? null,
-      monthDay ?? null
-    );
+    if (frequency === "PER_SPRINT") {
+      // Event-driven — no weekday/monthDay/schedule.
+      data.weekday = null;
+      data.monthDay = null;
+      data.nextRunAt = null;
+    } else {
+      data.weekday = weekday ?? null;
+      data.monthDay = monthDay ?? null;
+      data.nextRunAt = computeNextRun(
+        new Date(),
+        frequency,
+        weekday ?? null,
+        monthDay ?? null
+      );
+    }
   }
 
   const updated = await prisma.recurringTask.update({

@@ -8,7 +8,7 @@
  * - CANCELLED tasks are out of scope: excluded from every total.
  */
 
-import type { ActionStatus } from "@prisma/client";
+import type { ActionStatus, SprintStatus } from "@prisma/client";
 
 // Minimal shapes the metrics need — keeps callers free to pass richer rows.
 export interface SprintTaskLike {
@@ -30,6 +30,21 @@ export function taskPoints(task: { storyPoints: number | null }): number {
 
 function isCounted(t: SprintTaskLike): boolean {
   return t.status !== "CANCELLED";
+}
+
+/**
+ * Task statuses that are still "open" — these roll over to the next sprint (or
+ * the backlog) when a sprint is closed. DONE / CANCELLED stay on the sprint.
+ * An allowlist so a future status never carries over by accident.
+ */
+export const UNFINISHED_STATUSES: ActionStatus[] = [
+  "TODO",
+  "IN_PROGRESS",
+  "BLOCKED",
+];
+
+export function isUnfinished(status: ActionStatus): boolean {
+  return UNFINISHED_STATUSES.includes(status);
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +73,74 @@ export function computeSprintStats(tasks: SprintTaskLike[]): SprintStats {
     percentComplete:
       totalPoints === 0 ? 0 : Math.round((donePoints / totalPoints) * 100),
   };
+}
+
+/** Narrow an arbitrary JSON value to SprintStats, or null if it doesn't fit. */
+function coerceStats(v: unknown): SprintStats | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const keys: (keyof SprintStats)[] = [
+    "totalTasks",
+    "doneTasks",
+    "totalPoints",
+    "donePoints",
+    "percentComplete",
+  ];
+  if (keys.some((k) => typeof o[k] !== "number")) return null;
+  return {
+    totalTasks: o.totalTasks as number,
+    doneTasks: o.doneTasks as number,
+    totalPoints: o.totalPoints as number,
+    donePoints: o.donePoints as number,
+    percentComplete: o.percentComplete as number,
+  };
+}
+
+/**
+ * Stats to display for a sprint. A COMPLETED sprint uses the snapshot frozen at
+ * close (via `statsSnapshot`) so its committed/done figures survive unfinished
+ * tasks being carried out; every other sprint is computed live from its tasks.
+ * Falls back to live compute when a completed sprint has no snapshot (legacy).
+ */
+export function displaySprintStats(
+  sprint: { status: SprintStatus; statsSnapshot: unknown },
+  tasks: SprintTaskLike[]
+): SprintStats {
+  if (sprint.status === "COMPLETED") {
+    const snap = coerceStats(sprint.statsSnapshot);
+    if (snap) return snap;
+  }
+  return computeSprintStats(tasks);
+}
+
+// ---------------------------------------------------------------------------
+// Carry-over on sprint close
+// ---------------------------------------------------------------------------
+
+export interface SprintCandidate {
+  number: number;
+  status: SprintStatus;
+}
+
+/**
+ * The sprint that unfinished work rolls into when the sprint numbered
+ * `completedNumber` is closed: the lowest-numbered PLANNED/ACTIVE sprint that
+ * comes after it. Returns null when there is none — the caller then sends the
+ * tasks to the backlog. Generic so callers keep their extra fields (id, name).
+ */
+export function pickCarryTarget<T extends SprintCandidate>(
+  candidates: T[],
+  completedNumber: number
+): T | null {
+  return (
+    candidates
+      .filter(
+        (s) =>
+          s.number > completedNumber &&
+          (s.status === "PLANNED" || s.status === "ACTIVE")
+      )
+      .sort((a, b) => a.number - b.number)[0] ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -121,11 +204,26 @@ export interface VelocityPoint {
   completedPoints: number;
 }
 
-/** Committed vs completed points per sprint (oldest → newest as passed in). */
+/**
+ * Committed vs completed points per sprint (oldest → newest as passed in). When
+ * a `snapshot` is provided (a closed sprint's frozen stats) it is used verbatim,
+ * so carrying unfinished tasks out of the sprint doesn't rewrite its velocity.
+ */
 export function computeVelocity(
-  sprints: { name: string; tasks: SprintTaskLike[] }[]
+  sprints: {
+    name: string;
+    tasks: SprintTaskLike[];
+    snapshot?: SprintStats | null;
+  }[]
 ): VelocityPoint[] {
   return sprints.map((s) => {
+    if (s.snapshot) {
+      return {
+        name: s.name,
+        committedPoints: s.snapshot.totalPoints,
+        completedPoints: s.snapshot.donePoints,
+      };
+    }
     const counted = s.tasks.filter(isCounted);
     return {
       name: s.name,

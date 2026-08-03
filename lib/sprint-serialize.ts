@@ -225,7 +225,7 @@ export function serializeRecurringTask(r: RecurringTaskWithRelations) {
     monthDay: r.monthDay,
     cadenceLabel: cadenceLabel(r),
     isActive: r.isActive,
-    nextRunAt: r.nextRunAt.toISOString(),
+    nextRunAt: r.nextRunAt?.toISOString() ?? null,
     lastRunAt: r.lastRunAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
   };

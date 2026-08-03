@@ -32,6 +32,7 @@ const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
   { value: "DAILY", label: "Quotidienne" },
   { value: "WEEKLY", label: "Hebdomadaire" },
   { value: "MONTHLY", label: "Mensuelle" },
+  { value: "PER_SPRINT", label: "Par sprint" },
 ];
 
 // Monday-first for the picker; value is the JS getUTCDay index (0=dim..6=sam).
@@ -251,8 +252,9 @@ function ManagerModal({
                         </div>
                         <p className="text-[11px] text-izi-gray">
                           <span className="font-medium text-dark">{t.cadenceLabel}</span>
-                          {" · "}
-                          prochaine : {fmtDate(t.nextRunAt)}
+                          {t.nextRunAt
+                            ? ` · prochaine : ${fmtDate(t.nextRunAt)}`
+                            : " · au démarrage du sprint"}
                           {t.assigneeName ? ` · ${t.assigneeName}` : ""}
                         </p>
                       </div>
@@ -537,6 +539,12 @@ function RecurringForm({
         )}
         {frequency === "DAILY" && (
           <p className="text-[11px] text-izi-gray">Une tâche sera créée chaque jour.</p>
+        )}
+        {frequency === "PER_SPRINT" && (
+          <p className="text-[11px] text-izi-gray">
+            Une tâche sera créée au démarrage de chaque sprint (et tout de suite
+            dans le sprint actif, s&apos;il y en a un).
+          </p>
         )}
       </div>
 
