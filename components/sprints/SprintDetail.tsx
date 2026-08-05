@@ -211,6 +211,41 @@ export function SprintDetail({
       {tab === "board" && (
         <div>
           <div className="mb-3 space-y-2">
+            {/* Text search — the most prominent filter: type to narrow instantly. */}
+            <div className="relative">
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-izi-gray"
+              >
+                <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.6" />
+                <path
+                  d="M14 14l3.5 3.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher une tâche, une personne ou un KR…"
+                aria-label="Rechercher une tâche"
+                className="w-full rounded-[8px] border border-border-soft bg-white pl-9 pr-3 py-2 text-[13px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal focus:ring-2 focus:ring-teal/20"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Effacer la recherche"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-izi-gray hover:text-dark text-[15px] leading-none"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               {/* Quick "my tasks" toggle — one click to see only what's assigned to me. */}
               <button
@@ -286,15 +321,6 @@ export function SprintDetail({
                   </option>
                 ))}
               </select>
-
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher…"
-                aria-label="Rechercher une tâche"
-                className="min-w-[130px] flex-1 sm:flex-none rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal"
-              />
 
               {canManageTasks && (
                 <button
