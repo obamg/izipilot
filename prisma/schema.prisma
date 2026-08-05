@@ -184,6 +184,7 @@ model Organization {
   sprintTaskRequests SprintTaskRequest[]
   sprintTaskSteps    SprintTaskStep[]
   recurringTasks     RecurringTask[]
+  evaluations        Evaluation[]
 
   @@map("organizations")
 }
@@ -235,6 +236,8 @@ model User {
   createdSprintTaskSteps     SprintTaskStep[]        @relation("SprintTaskStepCreator")
   recurringTasksCreated      RecurringTask[]         @relation("RecurringTaskCreator")
   recurringTasksAssigned     RecurringTask[]         @relation("RecurringTaskAssignee")
+  evaluationsReceived        Evaluation[]            @relation("EvaluationSubject")
+  evaluationsGiven           Evaluation[]            @relation("EvaluationEvaluator")
 
   @@index([orgId])
   @@index([email])
@@ -1114,4 +1117,45 @@ model AgentDailySnapshot {
   @@unique([orgId, gleapProjectKey, snapshotDate, agentId])
   @@index([orgId, snapshotDate])
   @@map("agent_daily_snapshots")
+}
+
+// ============================================================================
+// ÉVALUATIONS — notation mensuelle des collègues (/5), hybride
+// ============================================================================
+// Score global = 60 % livraison (auto, à partir des points livrés vs engagés
+// sur les sprints du mois) + 40 % moyenne des critères manuels. Les valeurs
+// auto sont figées à l'enregistrement (statsSnapshot) car les tâches/capacités
+// évoluent. Un seul avis par (évalué, évaluateur, mois, année).
+
+model Evaluation {
+  id          String @id @default(cuid())
+  orgId       String
+  subjectId   String // collègue évalué
+  evaluatorId String // auteur de la note
+  periodMonth Int // 1–12
+  periodYear  Int
+
+  // Critères manuels (1–5)
+  scoreQuality       Int
+  scoreCollaboration Int
+  scoreInitiative    Int
+
+  // Livraison auto (0–5) figée au moment de l'évaluation, puis global pondéré.
+  deliveryScore Decimal? @db.Decimal(3, 1)
+  overall       Decimal  @db.Decimal(3, 1)
+
+  comment       String?
+  statsSnapshot Json? // { deliveredPoints, committedPoints, ratio, tasksDone, onTimeRate }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  subject   User         @relation("EvaluationSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  evaluator User         @relation("EvaluationEvaluator", fields: [evaluatorId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, evaluatorId, periodMonth, periodYear])
+  @@index([orgId, periodYear, periodMonth])
+  @@index([subjectId])
+  @@map("evaluations")
 }
