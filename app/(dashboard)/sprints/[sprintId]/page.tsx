@@ -18,7 +18,10 @@ import {
   serializeSprintTask,
   sprintTaskRequestInclude,
   serializeTaskRequest,
+  recurringTaskInclude,
+  serializeRecurringTask,
 } from "@/lib/sprint-serialize";
+import { canManageRecurring } from "@/lib/recurring-task";
 import { loadViewerTeams } from "@/lib/sprint-request-server";
 import { watDateOnly, toDateKey } from "@/lib/standup";
 import { SprintDetail } from "@/components/sprints/SprintDetail";
@@ -154,6 +157,18 @@ export default async function SprintDetailPage({
     entityName: kr.objective.product?.name ?? kr.objective.department?.name ?? "",
   }));
 
+  // Recurring-task templates for the in-sprint manager (self-gated to
+  // CEO/MANAGEMENT/PO — matches the Sprints list page).
+  const recurringTemplates = canManageRecurring(role)
+    ? (
+        await prisma.recurringTask.findMany({
+          where: { orgId },
+          include: recurringTaskInclude,
+          orderBy: [{ isActive: "desc" }, { nextRunAt: "asc" }],
+        })
+      ).map(serializeRecurringTask)
+    : [];
+
   // Standup roster = task assignees + capacity members + all-time authors + me.
   const rosterMap = new Map<string, string>();
   for (const u of users) {
@@ -203,6 +218,7 @@ export default async function SprintDetailPage({
       standupToday={toDateKey(standupDate)}
       standupRoster={standupRoster}
       initialStandups={initialStandups}
+      recurringTemplates={recurringTemplates}
     />
   );
 }

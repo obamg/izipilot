@@ -269,7 +269,17 @@ function CardSurface({ task, dragging = false }: { task: SprintTaskItem; draggin
         ) : (
           <span className="font-mono text-[9px] text-izi-gray">—</span>
         )}
-        <ActionPriorityBadge priority={task.priority} />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {task.recurringTaskId && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded bg-teal-lt px-1.5 py-0.5 text-[9px] font-medium text-teal-dk"
+              title="Tâche générée par un modèle récurrent"
+            >
+              <span aria-hidden>↻</span> récurrente
+            </span>
+          )}
+          <ActionPriorityBadge priority={task.priority} />
+        </div>
       </div>
       <div
         className={`text-[12px] font-medium leading-tight mb-1 ${
