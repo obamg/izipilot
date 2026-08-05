@@ -115,6 +115,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/evaluations",
+    label: "Évaluations",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+        <circle cx="12" cy="8" r="5" />
+        <path d="M8.5 12.5L7 22l5-3 5 3-1.5-9.5" />
+      </svg>
+    ),
+  },
+  {
     href: "/customer-metrics",
     label: "CRM",
     icon: (

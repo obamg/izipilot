@@ -21,6 +21,7 @@ const TABS = [
   { href: "/alerts", label: "Alertes" },
   { href: "/actions", label: "Actions" },
   { href: "/sprints", label: "Sprints" },
+  { href: "/evaluations", label: "Évaluations" },
 ] as const;
 
 export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0 }: NavProps) {
