@@ -12,6 +12,7 @@ import { SprintTaskModal } from "./SprintTaskModal";
 import { DailyReport } from "./DailyReport";
 import { AvailabilityPanel } from "./AvailabilityPanel";
 import { TaskRequestsInbox } from "./TaskRequestsInbox";
+import { RecurringTasksButton } from "./RecurringTasksButton";
 import type { RosterMember, StandupRecord } from "@/lib/standup";
 import type {
   SprintSummary,
@@ -21,6 +22,7 @@ import type {
   KrOption,
   AvailabilityMemberVM,
   TaskRequestItem,
+  RecurringTaskItem,
 } from "./types";
 
 type Tab =
@@ -72,6 +74,7 @@ interface SprintDetailProps {
   standupToday: string;
   standupRoster: RosterMember[];
   initialStandups: StandupRecord[];
+  recurringTemplates: RecurringTaskItem[];
 }
 
 export function SprintDetail({
@@ -93,6 +96,7 @@ export function SprintDetail({
   standupToday,
   standupRoster,
   initialStandups,
+  recurringTemplates,
 }: SprintDetailProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("board");
@@ -322,15 +326,26 @@ export function SprintDetail({
                 ))}
               </select>
 
-              {canManageTasks && (
-                <button
-                  type="button"
-                  onClick={() => setCreating(true)}
-                  className="ml-auto rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors"
-                >
-                  + Nouvelle tâche
-                </button>
-              )}
+              <div className="ml-auto flex items-center gap-2">
+                <RecurringTasksButton
+                  initialTemplates={recurringTemplates}
+                  users={users}
+                  products={products}
+                  departments={departments}
+                  krs={krs}
+                  currentUserId={currentUserId}
+                  currentUserRole={currentUserRole}
+                />
+                {canManageTasks && (
+                  <button
+                    type="button"
+                    onClick={() => setCreating(true)}
+                    className="rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors"
+                  >
+                    + Nouvelle tâche
+                  </button>
+                )}
+              </div>
             </div>
 
             {filtersActive && (

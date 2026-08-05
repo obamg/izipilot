@@ -76,6 +76,7 @@ export function serializeSprintTask(t: SprintTaskWithRelations) {
   return {
     id: t.id,
     sprintId: t.sprintId,
+    recurringTaskId: t.recurringTaskId,
     sprintName: t.sprint?.name ?? null,
     sprintNumber: t.sprint?.number ?? null,
     krId: t.krId,

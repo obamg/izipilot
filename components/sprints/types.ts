@@ -66,6 +66,8 @@ export interface StepProgress {
 export interface SprintTaskItem {
   id: string;
   sprintId: string | null;
+  // Set when this task was spawned from a recurring-task template.
+  recurringTaskId: string | null;
   sprintName: string | null;
   sprintNumber: number | null;
   krId: string | null;
