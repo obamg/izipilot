@@ -56,6 +56,22 @@
   --color-izi-gray-lt: var(--gray-lt);
   --color-border-soft: var(--border-soft);
 
+  /* Bare aliases for the three palette colours that also carry an `izi-`
+     name. Components use BOTH conventions across the codebase (e.g.
+     `bg-green` and `bg-izi-green`); Tailwind only emits a utility for a
+     name it can resolve, so the bare form silently produced NO style.
+     That made the green "Démarrer" button (bg-green + text-white) render
+     as white-on-white — invisible. teal/gold/dark are already exposed
+     bare above, so this just makes the collision-prone red/green/gray
+     consistent with them. The default Tailwind red-/green-/gray-<shade>
+     scales are untouched (separate keys). */
+  --color-red: var(--red);
+  --color-red-lt: var(--red-lt);
+  --color-green: var(--green);
+  --color-green-lt: var(--green-lt);
+  --color-gray: var(--gray);
+  --color-gray-lt: var(--gray-lt);
+
   /* Fonts */
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "DM Serif Display", ui-serif, Georgia, serif;
