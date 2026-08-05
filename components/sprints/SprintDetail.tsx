@@ -42,6 +42,17 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "standup", label: "Rapport quotidien" },
 ];
 
+// Board priority filter — highest → lowest, matching SprintTaskModal labels.
+const PRIORITY_FILTERS: { value: string; label: string }[] = [
+  { value: "URGENT", label: "Urgente" },
+  { value: "HIGH", label: "Haute" },
+  { value: "MEDIUM", label: "Moyenne" },
+  { value: "LOW", label: "Basse" },
+];
+
+const SELECT_CLS =
+  "rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal";
+
 interface SprintDetailProps {
   sprint: SprintSummary;
   tasks: SprintTaskItem[];
@@ -86,6 +97,10 @@ export function SprintDetail({
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("board");
   const [teamFilter, setTeamFilter] = useState<string>("ALL");
+  // Assignee filter: "ALL" | "UNASSIGNED" | a userId (currentUserId = "Mes tâches").
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
+  const [search, setSearch] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SprintTaskItem | null>(null);
 
@@ -103,15 +118,59 @@ export function SprintDetail({
   };
   const canOpenCards = canEdit || isContributor;
 
-  const filteredTasks = useMemo(() => {
-    if (teamFilter === "ALL") return tasks;
-    if (teamFilter.startsWith("P:")) {
-      const id = teamFilter.slice(2);
-      return tasks.filter((t) => t.productId === id);
+  // People who actually have a task in this sprint — keeps the assignee
+  // dropdown short and relevant (vs. the full org roster).
+  const assigneeOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of tasks) {
+      if (t.assigneeId && t.assigneeName) m.set(t.assigneeId, t.assigneeName);
     }
-    const id = teamFilter.slice(2);
-    return tasks.filter((t) => t.departmentId === id);
-  }, [tasks, teamFilter]);
+    return [...m.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return tasks.filter((t) => {
+      // Team (product / department)
+      if (teamFilter.startsWith("P:") && t.productId !== teamFilter.slice(2)) return false;
+      if (teamFilter.startsWith("D:") && t.departmentId !== teamFilter.slice(2)) return false;
+      // Assignee
+      if (assigneeFilter === "UNASSIGNED" && t.assigneeId) return false;
+      if (
+        assigneeFilter !== "ALL" &&
+        assigneeFilter !== "UNASSIGNED" &&
+        t.assigneeId !== assigneeFilter
+      )
+        return false;
+      // Priority
+      if (priorityFilter !== "ALL" && t.priority !== priorityFilter) return false;
+      // Free-text search across title / description / KR / assignee
+      if (
+        q &&
+        !`${t.title} ${t.description ?? ""} ${t.krTitle ?? ""} ${t.assigneeName ?? ""}`
+          .toLowerCase()
+          .includes(q)
+      )
+        return false;
+      return true;
+    });
+  }, [tasks, teamFilter, assigneeFilter, priorityFilter, search]);
+
+  const mineActive = assigneeFilter === currentUserId;
+  const filtersActive =
+    teamFilter !== "ALL" ||
+    assigneeFilter !== "ALL" ||
+    priorityFilter !== "ALL" ||
+    search.trim() !== "";
+
+  function resetFilters() {
+    setTeamFilter("ALL");
+    setAssigneeFilter("ALL");
+    setPriorityFilter("ALL");
+    setSearch("");
+  }
 
   function refresh() {
     router.refresh();
@@ -151,37 +210,117 @@ export function SprintDetail({
 
       {tab === "board" && (
         <div>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <select
-              value={teamFilter}
-              onChange={(e) => setTeamFilter(e.target.value)}
-              className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
-              aria-label="Filtrer par équipe"
-            >
-              <option value="ALL">Toutes les équipes</option>
-              <optgroup label="Produits">
-                {products.map((p) => (
-                  <option key={p.id} value={`P:${p.id}`}>
-                    {p.code} — {p.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Départements">
-                {departments.map((d) => (
-                  <option key={d.id} value={`D:${d.id}`}>
-                    {d.code} — {d.name}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-            {canManageTasks && (
+          <div className="mb-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Quick "my tasks" toggle — one click to see only what's assigned to me. */}
               <button
                 type="button"
-                onClick={() => setCreating(true)}
-                className="rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors"
+                onClick={() =>
+                  setAssigneeFilter((a) => (a === currentUserId ? "ALL" : currentUserId))
+                }
+                aria-pressed={mineActive}
+                className={`rounded-[7px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  mineActive
+                    ? "border-teal bg-teal text-white"
+                    : "border-border-soft bg-white text-dark hover:bg-gray-lt"
+                }`}
               >
-                + Nouvelle tâche
+                Mes tâches
               </button>
+
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className={SELECT_CLS}
+                aria-label="Filtrer par personne"
+              >
+                <option value="ALL">Tout le monde</option>
+                <option value={currentUserId}>Mes tâches</option>
+                <option value="UNASSIGNED">Non assignées</option>
+                {assigneeOptions.some((u) => u.id !== currentUserId) && (
+                  <optgroup label="Personnes">
+                    {assigneeOptions
+                      .filter((u) => u.id !== currentUserId)
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
+
+              <select
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+                className={SELECT_CLS}
+                aria-label="Filtrer par équipe"
+              >
+                <option value="ALL">Toutes les équipes</option>
+                <optgroup label="Produits">
+                  {products.map((p) => (
+                    <option key={p.id} value={`P:${p.id}`}>
+                      {p.code} — {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Départements">
+                  {departments.map((d) => (
+                    <option key={d.id} value={`D:${d.id}`}>
+                      {d.code} — {d.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className={SELECT_CLS}
+                aria-label="Filtrer par priorité"
+              >
+                <option value="ALL">Toutes priorités</option>
+                {PRIORITY_FILTERS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher…"
+                aria-label="Rechercher une tâche"
+                className="min-w-[130px] flex-1 sm:flex-none rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal"
+              />
+
+              {canManageTasks && (
+                <button
+                  type="button"
+                  onClick={() => setCreating(true)}
+                  className="ml-auto rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors"
+                >
+                  + Nouvelle tâche
+                </button>
+              )}
+            </div>
+
+            {filtersActive && (
+              <div className="flex items-center gap-2 text-[11px] text-izi-gray">
+                <span>
+                  {filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""} sur{" "}
+                  {tasks.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-teal hover:text-teal-dk underline"
+                >
+                  Réinitialiser
+                </button>
+              </div>
             )}
           </div>
           <SprintBoard
