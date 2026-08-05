@@ -13,6 +13,8 @@ import { DailyReport } from "./DailyReport";
 import { AvailabilityPanel } from "./AvailabilityPanel";
 import { TaskRequestsInbox } from "./TaskRequestsInbox";
 import { RecurringTasksButton } from "./RecurringTasksButton";
+import { TaskScopeFilters } from "./TaskScopeFilters";
+import { computeBurndown } from "@/lib/sprint";
 import type { RosterMember, StandupRecord } from "@/lib/standup";
 import type {
   SprintSummary,
@@ -43,17 +45,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "requests", label: "Demandes" },
   { id: "standup", label: "Rapport quotidien" },
 ];
-
-// Board priority filter — highest → lowest, matching SprintTaskModal labels.
-const PRIORITY_FILTERS: { value: string; label: string }[] = [
-  { value: "URGENT", label: "Urgente" },
-  { value: "HIGH", label: "Haute" },
-  { value: "MEDIUM", label: "Moyenne" },
-  { value: "LOW", label: "Basse" },
-];
-
-const SELECT_CLS =
-  "rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal";
 
 interface SprintDetailProps {
   sprint: SprintSummary;
@@ -134,13 +125,12 @@ export function SprintDetail({
       .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   }, [tasks]);
 
-  const filteredTasks = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  // Scope filters (assignee / team / priority) — shared by the board and the
+  // burndown so a filtered view stays consistent across tabs.
+  const scopeFilteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      // Team (product / department)
       if (teamFilter.startsWith("P:") && t.productId !== teamFilter.slice(2)) return false;
       if (teamFilter.startsWith("D:") && t.departmentId !== teamFilter.slice(2)) return false;
-      // Assignee
       if (assigneeFilter === "UNASSIGNED" && t.assigneeId) return false;
       if (
         assigneeFilter !== "ALL" &&
@@ -148,26 +138,40 @@ export function SprintDetail({
         t.assigneeId !== assigneeFilter
       )
         return false;
-      // Priority
       if (priorityFilter !== "ALL" && t.priority !== priorityFilter) return false;
-      // Free-text search across title / description / KR / assignee
-      if (
-        q &&
-        !`${t.title} ${t.description ?? ""} ${t.krTitle ?? ""} ${t.assigneeName ?? ""}`
-          .toLowerCase()
-          .includes(q)
-      )
-        return false;
       return true;
     });
-  }, [tasks, teamFilter, assigneeFilter, priorityFilter, search]);
+  }, [tasks, teamFilter, assigneeFilter, priorityFilter]);
 
-  const mineActive = assigneeFilter === currentUserId;
-  const filtersActive =
-    teamFilter !== "ALL" ||
-    assigneeFilter !== "ALL" ||
-    priorityFilter !== "ALL" ||
-    search.trim() !== "";
+  // Board additionally narrows by the free-text search box.
+  const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return scopeFilteredTasks;
+    return scopeFilteredTasks.filter((t) =>
+      `${t.title} ${t.description ?? ""} ${t.krTitle ?? ""} ${t.assigneeName ?? ""}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [scopeFilteredTasks, search]);
+
+  const scopeActive =
+    teamFilter !== "ALL" || assigneeFilter !== "ALL" || priorityFilter !== "ALL";
+  const filtersActive = scopeActive || search.trim() !== "";
+
+  // Burndown reflects the scope filters (not the board-only text search):
+  // recompute client-side from the filtered subset, else use the server view.
+  const displayBurndown = useMemo<BurndownDatum[]>(() => {
+    if (!scopeActive) return burndown;
+    return computeBurndown(
+      { startDate: new Date(sprint.startDate), endDate: new Date(sprint.endDate) },
+      scopeFilteredTasks.map((t) => ({
+        status: t.status,
+        storyPoints: t.storyPoints,
+        completedAt: t.completedAt ? new Date(t.completedAt) : null,
+        assigneeId: t.assigneeId,
+      }))
+    ).map((p) => ({ label: p.label, ideal: p.ideal, remaining: p.remaining }));
+  }, [scopeActive, burndown, sprint.startDate, sprint.endDate, scopeFilteredTasks]);
 
   function resetFilters() {
     setTeamFilter("ALL");
@@ -251,80 +255,18 @@ export function SprintDetail({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {/* Quick "my tasks" toggle — one click to see only what's assigned to me. */}
-              <button
-                type="button"
-                onClick={() =>
-                  setAssigneeFilter((a) => (a === currentUserId ? "ALL" : currentUserId))
-                }
-                aria-pressed={mineActive}
-                className={`rounded-[7px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                  mineActive
-                    ? "border-teal bg-teal text-white"
-                    : "border-border-soft bg-white text-dark hover:bg-gray-lt"
-                }`}
-              >
-                Mes tâches
-              </button>
-
-              <select
-                value={assigneeFilter}
-                onChange={(e) => setAssigneeFilter(e.target.value)}
-                className={SELECT_CLS}
-                aria-label="Filtrer par personne"
-              >
-                <option value="ALL">Tout le monde</option>
-                <option value={currentUserId}>Mes tâches</option>
-                <option value="UNASSIGNED">Non assignées</option>
-                {assigneeOptions.some((u) => u.id !== currentUserId) && (
-                  <optgroup label="Personnes">
-                    {assigneeOptions
-                      .filter((u) => u.id !== currentUserId)
-                      .map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-              </select>
-
-              <select
-                value={teamFilter}
-                onChange={(e) => setTeamFilter(e.target.value)}
-                className={SELECT_CLS}
-                aria-label="Filtrer par équipe"
-              >
-                <option value="ALL">Toutes les équipes</option>
-                <optgroup label="Produits">
-                  {products.map((p) => (
-                    <option key={p.id} value={`P:${p.id}`}>
-                      {p.code} — {p.name}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Départements">
-                  {departments.map((d) => (
-                    <option key={d.id} value={`D:${d.id}`}>
-                      {d.code} — {d.name}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className={SELECT_CLS}
-                aria-label="Filtrer par priorité"
-              >
-                <option value="ALL">Toutes priorités</option>
-                {PRIORITY_FILTERS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              <TaskScopeFilters
+                currentUserId={currentUserId}
+                assigneeFilter={assigneeFilter}
+                setAssigneeFilter={setAssigneeFilter}
+                teamFilter={teamFilter}
+                setTeamFilter={setTeamFilter}
+                priorityFilter={priorityFilter}
+                setPriorityFilter={setPriorityFilter}
+                assigneeOptions={assigneeOptions}
+                products={products}
+                departments={departments}
+              />
 
               <div className="ml-auto flex items-center gap-2">
                 <RecurringTasksButton
@@ -390,7 +332,36 @@ export function SprintDetail({
           <p className="text-[11px] text-izi-gray mb-3">
             Points restants vs trajectoire idéale.
           </p>
-          <BurndownChart data={burndown} />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <TaskScopeFilters
+              currentUserId={currentUserId}
+              assigneeFilter={assigneeFilter}
+              setAssigneeFilter={setAssigneeFilter}
+              teamFilter={teamFilter}
+              setTeamFilter={setTeamFilter}
+              priorityFilter={priorityFilter}
+              setPriorityFilter={setPriorityFilter}
+              assigneeOptions={assigneeOptions}
+              products={products}
+              departments={departments}
+            />
+            {scopeActive && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-[11px] text-teal hover:text-teal-dk underline"
+              >
+                Réinitialiser
+              </button>
+            )}
+          </div>
+          {scopeActive && (
+            <p className="mb-2 text-[11px] text-izi-gray">
+              Burndown filtré · {scopeFilteredTasks.length} tâche
+              {scopeFilteredTasks.length > 1 ? "s" : ""} sur {tasks.length}
+            </p>
+          )}
+          <BurndownChart data={displayBurndown} />
         </div>
       )}
 
