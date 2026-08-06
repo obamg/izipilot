@@ -126,3 +126,35 @@ export const MONTH_LABELS_FR = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
+
+export interface MonthRef {
+  month: number; // 1–12
+  year: number;
+  label: string; // "MM/YY"
+}
+
+/**
+ * The `count` months ending at (year, month), oldest → newest. Used to build
+ * the evaluation trend axis.
+ */
+export function recentMonths(year: number, month: number, count: number): MonthRef[] {
+  const out: MonthRef[] = [];
+  let y = year;
+  let m = month;
+  for (let i = 0; i < count; i++) {
+    out.push({ month: m, year: y, label: `${String(m).padStart(2, "0")}/${String(y).slice(2)}` });
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  return out.reverse();
+}
+
+/** Mean of the defined numbers, rounded to 1 decimal; null if none. */
+export function avgDefined(values: (number | null | undefined)[]): number | null {
+  const nums = values.filter((v): v is number => typeof v === "number");
+  if (nums.length === 0) return null;
+  return round1(nums.reduce((s, v) => s + v, 0) / nums.length);
+}

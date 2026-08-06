@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 import { overallScore, MONTH_LABELS_FR } from "@/lib/evaluation";
+import { EvaluationTrends, type TrendData } from "./EvaluationTrends";
 
 interface DeliveryVM {
   deliveredPoints: number;
@@ -35,6 +36,7 @@ interface Props {
   month: number;
   year: number;
   subjects: SubjectVM[];
+  trend: TrendData;
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -49,8 +51,9 @@ function pct(n: number | null): string {
   return n == null ? "—" : `${Math.round(n * 100)}%`;
 }
 
-export function EvaluationsView({ month, year, subjects }: Props) {
+export function EvaluationsView({ month, year, subjects, trend }: Props) {
   const router = useRouter();
+  const [view, setView] = useState<"board" | "trends">("board");
 
   function go(m: number, y: number) {
     router.push(`/evaluations?month=${m}&year=${y}`);
@@ -66,8 +69,8 @@ export function EvaluationsView({ month, year, subjects }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Month selector */}
-      <div className="flex items-center justify-between">
+      {/* Month selector + view toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="inline-flex items-center gap-1 rounded-[8px] border border-border-soft bg-white px-1">
           <button
             type="button"
@@ -89,21 +92,45 @@ export function EvaluationsView({ month, year, subjects }: Props) {
             ›
           </button>
         </div>
-        <span className="text-[11px] text-izi-gray">
-          {rated}/{subjects.length} évalué{rated > 1 ? "s" : ""}
-        </span>
-      </div>
 
-      {subjects.length === 0 ? (
-        <div className="rounded-[12px] border border-dashed border-border-soft p-10 text-center text-[13px] text-izi-gray">
-          Personne à évaluer sur cette période.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {subjects.map((s) => (
-            <SubjectCard key={s.id} subject={s} month={month} year={year} />
+        <div className="inline-flex rounded-[8px] border border-border-soft bg-white p-0.5">
+          {(["board", "trends"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`rounded-[6px] px-3 py-1 text-[12px] font-medium transition-colors ${
+                view === v ? "bg-teal text-white" : "text-izi-gray hover:text-dark"
+              }`}
+            >
+              {v === "board" ? "Évaluer" : "Tendances"}
+            </button>
           ))}
         </div>
+      </div>
+
+      {view === "board" ? (
+        <>
+          <div className="flex justify-end">
+            <span className="text-[11px] text-izi-gray">
+              {rated}/{subjects.length} évalué{rated > 1 ? "s" : ""} · {MONTH_LABELS_FR[month - 1]}{" "}
+              {year}
+            </span>
+          </div>
+          {subjects.length === 0 ? (
+            <div className="rounded-[12px] border border-dashed border-border-soft p-10 text-center text-[13px] text-izi-gray">
+              Personne à évaluer sur cette période.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {subjects.map((s) => (
+                <SubjectCard key={s.id} subject={s} month={month} year={year} />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <EvaluationTrends trend={trend} />
       )}
     </div>
   );
