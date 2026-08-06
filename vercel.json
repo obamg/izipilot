@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/spawn-recurring",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/monthly-eval-reminder",
+      "schedule": "0 6 1 * *"
     }
   ]
 }

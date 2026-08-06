@@ -140,6 +140,7 @@ enum NotificationType {
   ESCALATION_48H // Escalade 48h
   WEEKLY_DIGEST // Digest hebdo Management
   DECISION_DUE // Décision à rendre
+  EVAL_REMINDER // Rappel mensuel — évaluez votre équipe
 }
 
 enum SessionStatus {
