@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { evaluableSubjectIds, monthDeliveryByUser } from "@/lib/evaluation-server";
-import { deliveryScoreFromRatio } from "@/lib/evaluation";
+import { deliveryScoreFromRatio, recentMonths, avgDefined } from "@/lib/evaluation";
 import { EvaluationsView } from "@/components/evaluations/EvaluationsView";
+
+const HISTORY_MONTHS = 6;
 
 function clamp(n: number, lo: number, hi: number, fallback: number): number {
   return Number.isFinite(n) && n >= lo && n <= hi ? n : fallback;
@@ -88,6 +90,72 @@ export default async function EvaluationsPage({
     };
   });
 
+  // ── Trend / history: avg overall per (subject, month) over the last N months
+  const months = recentMonths(year, month, HISTORY_MONTHS);
+  const isManagement = allowed === "ALL";
+
+  const grouped = userIds.length
+    ? await prisma.evaluation.groupBy({
+        by: ["subjectId", "periodYear", "periodMonth"],
+        where: {
+          orgId,
+          subjectId: { in: userIds },
+          OR: months.map((mo) => ({ periodYear: mo.year, periodMonth: mo.month })),
+        },
+        _avg: { overall: true },
+      })
+    : [];
+  const key = (sid: string, y: number, m: number) => `${sid}:${y}:${m}`;
+  const avgMap = new Map<string, number>();
+  for (const g of grouped) {
+    if (g._avg.overall != null) {
+      avgMap.set(key(g.subjectId, g.periodYear, g.periodMonth), Number(g._avg.overall));
+    }
+  }
+
+  const perPerson = users.map((u) => {
+    const scores = months.map((mo) => avgMap.get(key(u.id, mo.year, mo.month)) ?? null);
+    return { id: u.id, name: u.name, role: u.role, scores, average: avgDefined(scores) };
+  });
+
+  let perDepartment: { code: string; name: string; color: string; average: number | null }[] = [];
+  let orgSeries: (number | null)[] = [];
+  if (isManagement && perPerson.length) {
+    orgSeries = months.map((_, i) => avgDefined(perPerson.map((p) => p.scores[i])));
+    const depts = await prisma.department.findMany({
+      where: { orgId, isActive: true },
+      select: { id: true, code: true, name: true, color: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    const members = await prisma.departmentMember.findMany({
+      where: { departmentId: { in: depts.map((d) => d.id) } },
+      select: { departmentId: true, userId: true },
+    });
+    const avgByPerson = new Map(perPerson.map((p) => [p.id, p.average]));
+    const byDept = new Map<string, string[]>();
+    for (const m of members) {
+      const arr = byDept.get(m.departmentId) ?? [];
+      arr.push(m.userId);
+      byDept.set(m.departmentId, arr);
+    }
+    perDepartment = depts
+      .map((d) => ({
+        code: d.code,
+        name: d.name,
+        color: d.color,
+        average: avgDefined((byDept.get(d.id) ?? []).map((id) => avgByPerson.get(id) ?? null)),
+      }))
+      .filter((d) => d.average != null);
+  }
+
+  const trend = {
+    months: months.map((mo) => ({ month: mo.month, year: mo.year, label: mo.label })),
+    perPerson,
+    isManagement,
+    perDepartment,
+    orgSeries,
+  };
+
   return (
     <div>
       <PageHeader
@@ -105,7 +173,7 @@ export default async function EvaluationsPage({
           </p>
         </div>
       ) : (
-        <EvaluationsView month={month} year={year} subjects={subjects} />
+        <EvaluationsView month={month} year={year} subjects={subjects} trend={trend} />
       )}
     </div>
   );

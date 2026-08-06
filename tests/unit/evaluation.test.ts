@@ -5,6 +5,8 @@ import {
   manualAverage,
   computeDelivery,
   monthRange,
+  recentMonths,
+  avgDefined,
   round1,
   type DeliveryTaskLike,
 } from "@/lib/evaluation";
@@ -96,5 +98,26 @@ describe("monthRange", () => {
     const { start, end } = monthRange(2026, 8);
     expect(start.toISOString()).toBe("2026-08-01T00:00:00.000Z");
     expect(end.toISOString()).toBe("2026-09-01T00:00:00.000Z");
+  });
+});
+
+describe("recentMonths", () => {
+  it("returns count months ending at (year, month), oldest → newest, crossing years", () => {
+    const m = recentMonths(2026, 2, 4);
+    expect(m.map((x) => `${x.month}/${x.year}`)).toEqual([
+      "11/2025",
+      "12/2025",
+      "1/2026",
+      "2/2026",
+    ]);
+    expect(m[3].label).toBe("02/26");
+  });
+});
+
+describe("avgDefined", () => {
+  it("averages defined numbers, ignoring null/undefined", () => {
+    expect(avgDefined([4, null, 2, undefined])).toBe(3);
+    expect(avgDefined([null, undefined])).toBeNull();
+    expect(avgDefined([])).toBeNull();
   });
 });
