@@ -9,5 +9,5 @@
 0 22 * * * . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/crm-daily-snapshot > /dev/null 2>&1
 # Tâches récurrentes : spawn quotidien 06h WAT = 05h UTC (avant la journée de travail)
 0 5 * * * . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/spawn-recurring > /dev/null 2>&1
-# Rappel évaluations : 1er du mois 07h WAT = 06h UTC (évaluer le mois précédent, complet)
-0 6 1 * * . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/monthly-eval-reminder > /dev/null 2>&1
+# Rappel évaluations : 22 du mois 07h WAT = 06h UTC (évaluer le mois en cours avant sa clôture)
+0 6 22 * * . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/monthly-eval-reminder > /dev/null 2>&1

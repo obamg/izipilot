@@ -50,7 +50,8 @@ export default function EvalReminder({
             </Heading>
 
             <Text style={textStyle}>
-              Le mois est terminé — il est temps d&apos;évaluer votre équipe pour{" "}
+              La fin du mois approche — il est temps d&apos;évaluer votre équipe
+              pour{" "}
               <strong>
                 {monthLabel} {year}
               </strong>
@@ -81,7 +82,7 @@ export default function EvalReminder({
           <Section style={footerStyle}>
             <Text style={footerTextStyle}>IziPilot · IziChange S.A. · Bénin</Text>
             <Text style={footerTextStyle}>
-              Rappel envoyé automatiquement en début de mois.
+              Rappel envoyé automatiquement le 22 de chaque mois.
             </Text>
           </Section>
         </Container>
