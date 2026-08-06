@@ -22,6 +22,7 @@ const TABS = [
   { href: "/actions", label: "Actions" },
   { href: "/sprints", label: "Sprints" },
   { href: "/evaluations", label: "Évaluations" },
+  { href: "/my-evaluations", label: "Mes évaluations" },
 ] as const;
 
 export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0 }: NavProps) {
