@@ -1,4 +1,4 @@
-import { auth } from "./auth";
+import { auth } from "./api-auth";
 import type { UserRole } from "@prisma/client";
 
 interface AccessOptions {

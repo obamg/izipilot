@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { createRecurringTaskSchema } from "@/lib/validations/sprints";
 import { krVisibilityWhere } from "@/lib/visibility";
 import {

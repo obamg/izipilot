@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { MCP_TOKEN_TTL_SECONDS, mintMcpAccessToken } from "@/lib/mcp-token";
 
 // Legacy "Connecter Claude" paste-token endpoint.

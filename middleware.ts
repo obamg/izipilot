@@ -14,6 +14,8 @@ const publicPaths = [
   "/reset-password",
   "/api/auth",
   "/api/cron",
+  // Native app auth surface (login → OTP → tokens). Rate-limited per route.
+  "/api/mobile",
   "/sw.js",
   // PWA surface — the manifest, icons and offline fallback must load
   // outside a session (install banner, home-screen icon, push badge).
@@ -44,8 +46,28 @@ function getClientIp(req: Request): string {
   return req.headers.get("x-real-ip") ?? "unknown";
 }
 
+// CORS for the token-authenticated mobile/API surface. Bearer tokens are not
+// ambient credentials (unlike cookies), so reflecting the Origin is safe —
+// and Access-Control-Allow-Credentials is deliberately never set, so
+// cookie-authenticated responses remain unreadable cross-origin.
+function corsify(res: NextResponse, origin: string): NextResponse {
+  res.headers.set("Access-Control-Allow-Origin", origin);
+  res.headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+  res.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.headers.set("Access-Control-Max-Age", "86400");
+  res.headers.set("Vary", "Origin");
+  return res;
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+  const origin = req.headers.get("origin");
+
+  // Answer CORS preflights for the API surface before any auth check —
+  // browsers never attach credentials or custom headers to the preflight.
+  if (req.method === "OPTIONS" && pathname.startsWith("/api/") && origin) {
+    return corsify(new NextResponse(null, { status: 204 }), origin);
+  }
 
   // Rate-limit the credentials sign-in POST before NextAuth gets the
   // request. /api/auth/* is otherwise a public path, so without this
@@ -78,7 +100,22 @@ export default auth((req) => {
 
   // Allow public paths (cron routes have their own CRON_SECRET auth)
   if (publicPaths.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+    const res = NextResponse.next();
+    // The mobile auth endpoints are called cross-origin during web-based
+    // development/E2E of the native app.
+    return pathname.startsWith("/api/mobile") && origin ? corsify(res, origin) : res;
+  }
+
+  // API calls from the native app carry a Bearer token instead of a session
+  // cookie. Let them through to the route handlers — every API route
+  // validates the token via lib/api-auth and 401s JSON on failure, which the
+  // app can handle (a redirect to the login HTML page could not be).
+  if (
+    pathname.startsWith("/api/") &&
+    req.headers.get("authorization")?.startsWith("Bearer ")
+  ) {
+    const res = NextResponse.next();
+    return origin ? corsify(res, origin) : res;
   }
 
   // Redirect unauthenticated users to login

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { bulkActionStatusSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
 import { actionVisibilityWhere } from "@/lib/visibility";

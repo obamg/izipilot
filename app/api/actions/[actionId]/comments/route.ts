@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { createActionCommentSchema } from "@/lib/validations/actions";
 import { actionVisibilityWhere } from "@/lib/visibility";
 
