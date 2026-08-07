@@ -200,6 +200,7 @@ export function Sidebar({
 
       <aside
         className={`bg-dark border-r border-white/[0.06] py-4 overflow-y-auto w-[250px] shrink-0
+          pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-4
           fixed lg:static inset-y-0 left-0 z-[var(--z-drawer)] top-[56px]
           transition-transform duration-200
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}

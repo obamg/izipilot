@@ -898,12 +898,9 @@ export function WeeklyEntryForm({
 
       {/* Submit bar */}
       {!isReadOnly && (
-        <div
-          className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-border-soft px-4 pt-3 flex flex-wrap justify-end gap-2 -mx-5 mt-4"
-          style={{
-            paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)",
-          }}
-        >
+        /* Sticks above the mobile tab bar (52px + safe area); at lg the tab
+           bar is hidden so the bar sits on the viewport edge again. */
+        <div className="sticky bottom-[calc(52px+env(safe-area-inset-bottom))] lg:bottom-0 bg-white/90 backdrop-blur-sm border-t border-border-soft px-4 pt-3 pb-3 lg:pb-[max(env(safe-area-inset-bottom),0.75rem)] flex flex-wrap justify-end gap-2 -mx-5 mt-4">
           {submitError && (
             <span className="text-xs text-izi-red self-center mr-auto">
               {submitError}

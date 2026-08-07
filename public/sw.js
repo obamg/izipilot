@@ -1,15 +1,88 @@
-/* IziPilot service worker — push notifications only.
- * Kept intentionally minimal: no caching, no offline support, no fetch
- * interception. The only jobs are receiving Web Push events and routing
- * the click back into the app.
+/* IziPilot service worker.
+ * 1. Web Push: receives push events and routes notification clicks into the app.
+ * 2. Offline: precaches an offline fallback page + app icons, serves hashed
+ *    Next.js static assets cache-first, and falls back to /offline.html when a
+ *    navigation fails (POs on flaky mobile networks).
+ * Bump CACHE_VERSION on any change to the precached files.
  */
 
+const CACHE_VERSION = "izipilot-v1";
+const OFFLINE_URL = "/offline.html";
+const PRECACHE = [
+  OFFLINE_URL,
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png",
+  "/apple-touch-icon.png",
+];
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches
+      .open(CACHE_VERSION)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))),
+      )
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Page navigations: network first, offline fallback. Never cache HTML —
+  // every page is session-scoped and personalised.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match(OFFLINE_URL).then(
+          (cached) =>
+            cached ||
+            new Response("Hors ligne", {
+              status: 503,
+              headers: { "Content-Type": "text/plain; charset=utf-8" },
+            }),
+        ),
+      ),
+    );
+    return;
+  }
+
+  // Never touch API or auth traffic.
+  if (url.pathname.startsWith("/api/")) return;
+
+  // Hashed immutable build assets (JS, CSS, fonts under /_next/static) and
+  // the precached icons: cache first, populate on miss.
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") || PRECACHE.includes(url.pathname);
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+            }
+            return response;
+          }),
+      ),
+    );
+  }
 });
 
 self.addEventListener("push", (event) => {

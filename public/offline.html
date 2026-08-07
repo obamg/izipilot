@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#008081" />
+  <title>Hors ligne — IziPilot</title>
+  <style>
+    /* Self-contained: served from the SW cache, no external assets. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f2f6f7;
+      color: #2e3e4b;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #b3e0e0;
+      border-radius: 16px;
+      padding: 40px 28px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(28, 58, 74, 0.06);
+    }
+    .logo {
+      width: 56px;
+      height: 56px;
+      background: #008081;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 20px; font-weight: 600; color: #1c3a4a; margin-bottom: 10px; }
+    p { font-size: 15px; color: #5f6e7a; line-height: 1.5; margin-bottom: 24px; }
+    button {
+      font: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      color: #fff;
+      background: #008081;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 28px;
+      min-height: 44px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:active { background: #005f60; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 28 28" fill="none" width="30" height="30">
+        <circle cx="14" cy="14" r="10" stroke="white" stroke-width="2" />
+        <path d="M14 8L14 14L18 17" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="14" cy="14" r="2.5" fill="white" />
+      </svg>
+    </div>
+    <h1>Vous êtes hors ligne</h1>
+    <p>Impossible de joindre IziPilot pour le moment. Vérifiez votre connexion internet, puis réessayez. Vos brouillons de saisie restent enregistrés sur cet appareil.</p>
+    <button onclick="location.reload()">Réessayer</button>
+  </main>
+</body>
+</html>

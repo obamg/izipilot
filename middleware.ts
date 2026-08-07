@@ -15,6 +15,12 @@ const publicPaths = [
   "/api/auth",
   "/api/cron",
   "/sw.js",
+  // PWA surface — the manifest, icons and offline fallback must load
+  // outside a session (install banner, home-screen icon, push badge).
+  "/manifest.webmanifest",
+  "/icon-",
+  "/apple-touch-icon.png",
+  "/offline.html",
   // OAuth surface for the MCP connector. Discovery + DCR + token endpoint
   // are explicitly unauthenticated; the consent page (/oauth/authorize)
   // handles its own login redirect with the full query string preserved,

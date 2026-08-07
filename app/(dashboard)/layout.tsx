@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PushPermissionModal } from "@/components/push/PushPermissionModal";
+import { SWRegister } from "@/components/pwa/SWRegister";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { getISOWeek } from "@/lib/date";
 import {
   alertVisibilityWhere,
@@ -117,6 +119,8 @@ export default async function DashboardLayout({
       departments={sidebarDepartments}
     >
       {children}
+      <SWRegister />
+      <InstallPrompt />
       {vapidPublicKey && <PushPermissionModal vapidPublicKey={vapidPublicKey} />}
     </DashboardShell>
   );
