@@ -23,6 +23,15 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "IziPilot — Pilotage OKR",
   description: "L'exécution au rythme de vos ambitions",
+  applicationName: "IziPilot",
+  appleWebApp: {
+    capable: true,
+    title: "IziPilot",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
