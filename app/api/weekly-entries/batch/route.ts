@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { scoreToPercent } from "@/lib/score";
 import {
   upsertWeeklyEntry,

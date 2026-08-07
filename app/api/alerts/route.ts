@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import * as React from "react";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { sendEmail } from "@/lib/email";
 import { sendPushToUsers } from "@/lib/push";
 import { scoreToPercent } from "@/lib/score";

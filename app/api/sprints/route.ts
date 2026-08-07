@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { createSprintSchema } from "@/lib/validations/sprints";
 import { computeSprintStats, displaySprintStats } from "@/lib/sprint";
 import { sprintTaskVisibilityWhere } from "@/lib/visibility";

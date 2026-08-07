@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 import {
   sprintTaskRequestInclude,

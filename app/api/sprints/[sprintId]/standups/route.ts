@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { submitStandupSchema } from "@/lib/validations/sprints";
 import { watDateOnly, parseDateKey, toDateKey } from "@/lib/standup";
 

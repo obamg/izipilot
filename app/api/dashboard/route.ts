@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/api-auth";
 import { scoreToPercent, meanScore } from "@/lib/score";
 import { getISOWeek, getPreviousISOWeek } from "@/lib/date";
 import { alertVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";

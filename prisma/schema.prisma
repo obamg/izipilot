@@ -1063,6 +1063,26 @@ model OAuthRefreshToken {
   @@map("oauth_refresh_tokens")
 }
 
+// Refresh tokens for the native mobile app (Expo). Access tokens are
+// short-lived HS256 JWTs (aud "izipilot-mobile", signed with NEXTAUTH_SECRET)
+// and never stored; refresh tokens are opaque 48-byte secrets, sha256-hashed
+// at rest, rotated on every use.
+model MobileRefreshToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique // sha256 of the raw token
+  userId     String
+  orgId      String
+  deviceName String? // e.g. "iPhone de Marius" — shown in future session management UI
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("mobile_refresh_tokens")
+}
+
 // ============================================================================
 // CRM — DAILY SNAPSHOTS (Gleap rolling history pour deltas "vs hier")
 // ============================================================================
