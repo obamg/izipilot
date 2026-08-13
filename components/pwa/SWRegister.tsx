@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /* Registers the service worker for every signed-in user so offline fallback
  * and asset caching work without requiring push opt-in (push registration in
- * PushToggle/PushPermissionModal reuses the same registration). */
+ * PushToggle/PushNudgeBanner reuses the same registration). */
 export function SWRegister() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

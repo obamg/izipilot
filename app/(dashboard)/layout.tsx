@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { PushPermissionModal } from "@/components/push/PushPermissionModal";
+import { PushNudgeBanner } from "@/components/push/PushNudgeBanner";
 import { SWRegister } from "@/components/pwa/SWRegister";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { getISOWeek } from "@/lib/date";
@@ -118,10 +118,10 @@ export default async function DashboardLayout({
       products={sidebarProducts}
       departments={sidebarDepartments}
     >
+      {vapidPublicKey && <PushNudgeBanner vapidPublicKey={vapidPublicKey} />}
       {children}
       <SWRegister />
       <InstallPrompt />
-      {vapidPublicKey && <PushPermissionModal vapidPublicKey={vapidPublicKey} />}
     </DashboardShell>
   );
 }
