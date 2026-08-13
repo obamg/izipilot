@@ -110,10 +110,10 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
   if (!visible) return null;
 
   return (
-    <div className="mb-4 rounded-[10px] border border-teal-md bg-teal-lt/60 px-4 py-3">
+    <div className="mb-4 rounded-[10px] border border-red/40 bg-red-lt px-4 py-3">
       <div className="flex items-start gap-3">
         <div
-          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-teal"
+          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-red"
           aria-hidden="true"
         >
           <svg
@@ -152,7 +152,7 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
             type="button"
             onClick={enable}
             disabled={busy}
-            className="rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
+            className="rounded-[7px] bg-red px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#c0392b] transition-colors disabled:opacity-50"
           >
             {busy ? "Activation…" : "Activer"}
           </button>
