@@ -151,6 +151,13 @@ enum SessionStatus {
   REVIEWED // CODIR tenu
 }
 
+enum AppraisalStatus {
+  SELF_ASSESSMENT // Le collègue remplit son auto-évaluation
+  MANAGER_ASSESSMENT // Le manager remplit son évaluation
+  SHARED // Finalisé et partagé avec le collègue
+  ACKNOWLEDGED // Signé / accusé de réception par le collègue
+}
+
 // ============================================================================
 // ORGANISATION (Multi-tenant root)
 // ============================================================================
@@ -187,6 +194,7 @@ model Organization {
   sprintTaskSteps    SprintTaskStep[]
   recurringTasks     RecurringTask[]
   evaluations        Evaluation[]
+  appraisals         Appraisal[]
 
   @@map("organizations")
 }
@@ -240,6 +248,8 @@ model User {
   recurringTasksAssigned     RecurringTask[]         @relation("RecurringTaskAssignee")
   evaluationsReceived        Evaluation[]            @relation("EvaluationSubject")
   evaluationsGiven           Evaluation[]            @relation("EvaluationEvaluator")
+  appraisalsAsSubject        Appraisal[]             @relation("AppraisalSubject")
+  appraisalsAsManager        Appraisal[]             @relation("AppraisalManager")
 
   @@index([orgId])
   @@index([email])
@@ -1161,4 +1171,52 @@ model Evaluation {
   @@index([orgId, periodYear, periodMonth])
   @@index([subjectId])
   @@map("evaluations")
+}
+
+// Bilan trimestriel (performance appraisal) — revue formelle self + manager,
+// bâtie sur les évaluations mensuelles (rollup) : un par collègue par trimestre.
+model Appraisal {
+  id        String          @id @default(cuid())
+  orgId     String
+  subjectId String // personne évaluée
+  managerId String // évaluateur / manager
+  quarter   Quarter
+  year      Int
+  status    AppraisalStatus @default(SELF_ASSESSMENT)
+
+  // Auto-évaluation (côté collègue)
+  selfCompetencies Json? // { [competencyKey]: 1–5 }
+  selfComment      String?   @db.Text
+  selfSubmittedAt  DateTime?
+
+  // Évaluation manager
+  managerCompetencies Json? // { [competencyKey]: 1–5 }
+  strengths           String?   @db.Text // Points forts
+  improvements        String?   @db.Text // Axes d'amélioration
+  developmentPlan     String?   @db.Text // Plan de développement
+  managerComment      String?   @db.Text
+  managerSubmittedAt  DateTime?
+
+  // Objectifs de la période (partagés self + manager)
+  goals Json? // [{ id, title, selfRating, selfComment, managerRating, managerComment }]
+
+  // Synthèse
+  monthlyRollup Json? // instantané des moyennes mensuelles du trimestre (figé à la finalisation)
+  overall       Decimal? @db.Decimal(3, 1)
+
+  // Signature du collègue
+  acknowledgedAt     DateTime?
+  acknowledgeComment String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  subject User         @relation("AppraisalSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  manager User         @relation("AppraisalManager", fields: [managerId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, quarter, year])
+  @@index([orgId, year, quarter])
+  @@index([managerId])
+  @@map("appraisals")
 }
