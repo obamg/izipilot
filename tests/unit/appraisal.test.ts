@@ -7,6 +7,8 @@ import {
   overallScore,
   aggregateMonthlyRollup,
   avgDefined,
+  previousQuarter,
+  totalAppraisalTasks,
   APPRAISAL_MONTHLY_WEIGHT,
   type AppraisalGoal,
 } from '@/lib/appraisal'
@@ -75,6 +77,23 @@ describe('overallScore', () => {
 
   it('returns null when there is nothing to score', () => {
     expect(overallScore({ managerCompetencies: null, goals: [], monthlyAvg: null })).toBeNull()
+  })
+})
+
+describe('previousQuarter', () => {
+  it('goes back one quarter within the year', () => {
+    expect(previousQuarter('Q3', 2026)).toEqual({ quarter: 'Q2', year: 2026 })
+    expect(previousQuarter('Q2', 2026)).toEqual({ quarter: 'Q1', year: 2026 })
+  })
+  it('wraps Q1 to Q4 of the previous year', () => {
+    expect(previousQuarter('Q1', 2026)).toEqual({ quarter: 'Q4', year: 2025 })
+  })
+})
+
+describe('totalAppraisalTasks', () => {
+  it('sums the four pending buckets', () => {
+    expect(totalAppraisalTasks({ toOpen: 2, toComplete: 1, selfPending: 0, signPending: 1 })).toBe(4)
+    expect(totalAppraisalTasks({ toOpen: 0, toComplete: 0, selfPending: 0, signPending: 0 })).toBe(0)
   })
 })
 
