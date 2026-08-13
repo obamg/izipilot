@@ -121,6 +121,28 @@ export function quarterLabel(q: Quarter, year: number): string {
   return `${q} ${year}`;
 }
 
+/** Le trimestre précédent (Q1 → Q4 de l'année d'avant). */
+export function previousQuarter(q: Quarter, year: number): { quarter: Quarter; year: number } {
+  const idx = QUARTERS.indexOf(q);
+  if (idx === 0) return { quarter: "Q4", year: year - 1 };
+  return { quarter: QUARTERS[idx - 1], year };
+}
+
+// ---------------------------------------------------------------------------
+// Rappel trimestriel — décompte des actions en attente par personne
+// ---------------------------------------------------------------------------
+
+export interface AppraisalTaskCounts {
+  toOpen: number; // manager : membres de l'équipe sans bilan ouvert
+  toComplete: number; // manager : bilans en attente de mon évaluation (auto-éval soumise)
+  selfPending: number; // moi : auto-évaluations à remplir
+  signPending: number; // moi : bilans partagés à signer
+}
+
+export function totalAppraisalTasks(t: AppraisalTaskCounts): number {
+  return t.toOpen + t.toComplete + t.selfPending + t.signPending;
+}
+
 // ---------------------------------------------------------------------------
 // Rollup des évaluations mensuelles du trimestre
 // ---------------------------------------------------------------------------

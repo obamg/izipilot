@@ -142,6 +142,7 @@ enum NotificationType {
   DECISION_DUE // Décision à rendre
   EVAL_REMINDER // Rappel mensuel — évaluez votre équipe
   DAILY_REPORT_REMINDER // Rappel quotidien — remplir le rapport (standup)
+  APPRAISAL_REMINDER // Rappel trimestriel — bilans de performance
 }
 
 enum SessionStatus {
