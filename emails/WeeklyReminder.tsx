@@ -11,6 +11,7 @@ import {
   Text,
 } from "@react-email/components";
 import * as React from "react";
+import { PushEnableNote } from "./PushEnableNote";
 
 interface WeeklyReminderProps {
   name: string;
@@ -80,6 +81,8 @@ export default function WeeklyReminder({
               ⚠️ Les saisies manquantes après {deadline} déclenchent une alerte
               automatique auprès du Management.
             </Text>
+
+            <PushEnableNote appUrl={appUrl} />
           </Section>
 
           {/* Footer */}

@@ -11,6 +11,7 @@ import {
   Text,
 } from "@react-email/components";
 import * as React from "react";
+import { PushEnableNote } from "./PushEnableNote";
 
 export interface DigestKr {
   title: string;
@@ -180,6 +181,8 @@ export default function WeeklyDigest({
                 Voir la synthèse complète
               </Button>
             </Section>
+
+            <PushEnableNote appUrl={appUrl} />
           </Section>
 
           {/* Footer */}
