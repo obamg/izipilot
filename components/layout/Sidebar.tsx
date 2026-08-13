@@ -257,8 +257,8 @@ export function Sidebar({
               onClick={onClose}
               className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                 isNavActive("/push-adoption")
-                  ? "bg-teal/[0.18] text-[#7dd8d8]"
-                  : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  ? "bg-red/[0.20] text-[#ff8585]"
+                  : "text-[#ff6b6b] hover:bg-red/[0.12] hover:text-[#ff8585]"
               }`}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
