@@ -1,26 +1,26 @@
 import { NextRequest } from "next/server";
-import * as React from "react";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
 import { sendPushToUser } from "@/lib/push";
 import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
 import { filterRecipientsByPref } from "@/lib/notification-prefs";
 import { watDateOnly, watDayStartUtc, toDateKey } from "@/lib/standup";
 import { pendingStandupTargets, type SprintRoster } from "@/lib/daily-report";
-import DailyReportReminder from "@/emails/DailyReportReminder";
 
 const logger = log.child("cron/daily-report-reminder");
-
-const APP_URL = process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "https://izipilote.com";
 
 /**
  * GET /api/cron/daily-report-reminder
  * Fires every working day (Mon–Fri) at 09:00 WAT (08:00 UTC). Reminds every
  * member of an ACTIVE sprint (task assignees + capacity members) who has not
  * yet filed today's daily report (standup) to do so. Skips VIEWERs, users who
- * already reported everywhere, and anyone who opted out. Idempotent per WAT day
- * via the DAILY_REPORT_REMINDER notification. Secured by CRON_SECRET.
+ * already reported everywhere, and anyone who opted out.
+ *
+ * Delivery is WEB PUSH ONLY — no email, by design (daily email volume is
+ * costly). Users who haven't enabled browser notifications simply aren't
+ * reached; the in-app nudge drives adoption. Idempotent per WAT day via a
+ * DAILY_REPORT_REMINDER notification row (dedup/audit marker, not user-facing).
+ * Secured by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
       select: { id: true },
     });
 
-    let sent = 0;
-    let skipped = 0;
-    let failed = 0;
+    let notified = 0; // reminder recorded for this user
+    let pushed = 0; // push reached at least one device
+    let skipped = 0; // already reminded today (dedup)
 
     for (const org of orgs) {
       const sprints = await prisma.sprint.findMany({
@@ -96,13 +96,13 @@ export async function GET(request: NextRequest) {
       const opted = await filterRecipientsByPref(targetUsers, "dailyReportReminder");
 
       for (const target of opted) {
-        // Idempotency — one reminder per user per WAT day.
+        // Idempotency — one reminder per user per WAT day (regardless of
+        // whether the push reached a device, so re-runs don't re-notify).
         const already = await prisma.notification.findFirst({
           where: {
             userId: target.id,
             type: "DAILY_REPORT_REMINDER",
             createdAt: { gte: dayStart },
-            isSent: true,
           },
           select: { id: true },
         });
@@ -113,44 +113,8 @@ export async function GET(request: NextRequest) {
 
         const first = target.sprints[0];
         const sprintCount = target.sprints.length;
-        const href = `${APP_URL}/sprints/${first.sprintId}`;
 
-        const result = await sendEmail({
-          to: target.email,
-          subject: `Rapport quotidien du ${dateLabel} — à remplir`,
-          react: React.createElement(DailyReportReminder, {
-            name: target.name,
-            dateLabel,
-            sprintName: first.sprintName,
-            sprintCount,
-            href,
-          }),
-        });
-
-        await prisma.notification.create({
-          data: {
-            userId: target.id,
-            channel: "EMAIL",
-            type: "DAILY_REPORT_REMINDER",
-            subject: `Rapport quotidien du ${dateLabel}`,
-            body: `Rappel envoyé à ${target.email} — ${sprintCount} sprint(s) actif(s) en attente le ${dateKey}`,
-            isSent: result.success,
-            sentAt: result.success ? new Date() : null,
-          },
-        });
-
-        if (result.success) {
-          sent++;
-        } else {
-          failed++;
-          logger.error("failed to send daily report reminder", {
-            email: target.email,
-            userId: target.id,
-            reason: result.error,
-          });
-        }
-
-        await sendPushToUser(target.id, {
+        const push = await sendPushToUser(target.id, {
           title: "Rapport quotidien",
           body:
             sprintCount > 1
@@ -159,11 +123,30 @@ export async function GET(request: NextRequest) {
           url: `/sprints/${first.sprintId}`,
           tag: `daily-report:${dateKey}`,
         });
+
+        // Per-day dedup marker + audit log (push-only; not user-facing).
+        await prisma.notification.create({
+          data: {
+            userId: target.id,
+            channel: "IN_APP",
+            type: "DAILY_REPORT_REMINDER",
+            subject: `Rapport quotidien du ${dateLabel}`,
+            body: `Push à ${target.name} — ${sprintCount} sprint(s) actif(s) le ${dateKey} (${push.sent} device(s))`,
+            isSent: push.sent > 0,
+            sentAt: push.sent > 0 ? new Date() : null,
+          },
+        });
+
+        notified++;
+        if (push.sent > 0) pushed++;
+        if (push.failed > 0) {
+          logger.warn("push had failures", { userId: target.id, failed: push.failed });
+        }
       }
     }
 
-    logger.info("run complete", { dateKey, sent, skipped, failed });
-    return Response.json({ ok: true, date: dateKey, sent, skipped, failed });
+    logger.info("run complete", { dateKey, notified, pushed, skipped });
+    return Response.json({ ok: true, date: dateKey, notified, pushed, skipped });
   } catch (err) {
     logger.error("unexpected error", undefined, err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
