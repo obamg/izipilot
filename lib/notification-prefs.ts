@@ -5,7 +5,8 @@ export type NotificationEvent =
   | "weeklyDigest"
   | "krBlockedManual"
   | "escalation48h"
-  | "entryMissing";
+  | "entryMissing"
+  | "dailyReportReminder";
 
 export const NOTIFICATION_EVENTS: ReadonlyArray<{
   key: NotificationEvent;
@@ -47,6 +48,13 @@ export const NOTIFICATION_EVENTS: ReadonlyArray<{
     description:
       "Un PO n'a pas soumis sa revue avant la deadline. Désactivé par défaut.",
     default: false,
+  },
+  {
+    key: "dailyReportReminder",
+    label: "Rappel rapport quotidien",
+    description:
+      "Rappel chaque jour ouvré (lun–ven, 9h) tant que votre rapport quotidien (standup) du sprint actif n'est pas rempli.",
+    default: true,
   },
 ];
 

@@ -141,6 +141,7 @@ enum NotificationType {
   WEEKLY_DIGEST // Digest hebdo Management
   DECISION_DUE // Décision à rendre
   EVAL_REMINDER // Rappel mensuel — évaluez votre équipe
+  DAILY_REPORT_REMINDER // Rappel quotidien — remplir le rapport (standup)
 }
 
 enum SessionStatus {
@@ -683,11 +684,12 @@ model NotificationPreference {
   userId String @unique
   orgId  String
 
-  weeklyReminder  Boolean @default(true) // Sunday 20h reminder to POs
-  weeklyDigest    Boolean @default(true) // Monday 10h digest to Mgmt/CEO
-  krBlockedManual Boolean @default(true) // Manual KR alert raised by a user
-  escalation48h   Boolean @default(false) // Auto — currently never emails
-  entryMissing    Boolean @default(false) // Auto — currently never emails
+  weeklyReminder      Boolean @default(true) // Sunday 20h reminder to POs
+  weeklyDigest        Boolean @default(true) // Monday 10h digest to Mgmt/CEO
+  krBlockedManual     Boolean @default(true) // Manual KR alert raised by a user
+  escalation48h       Boolean @default(false) // Auto — currently never emails
+  entryMissing        Boolean @default(false) // Auto — currently never emails
+  dailyReportReminder Boolean @default(true) // Working-day standup reminder
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
