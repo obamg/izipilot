@@ -13,6 +13,15 @@ export function watDateOnly(now: Date = new Date()): Date {
   return new Date(Date.UTC(wat.getUTCFullYear(), wat.getUTCMonth(), wat.getUTCDate()));
 }
 
+/**
+ * The real UTC instant at which the current WAT calendar day begins
+ * (WAT 00:00 = UTC 23:00 the previous day). Use this as a `createdAt >= …`
+ * threshold to dedup "already done today" against real timestamps.
+ */
+export function watDayStartUtc(now: Date = new Date()): Date {
+  return new Date(watDateOnly(now).getTime() - WAT_OFFSET_MS);
+}
+
 /** yyyy-mm-dd key for a UTC-midnight date. */
 export function toDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
