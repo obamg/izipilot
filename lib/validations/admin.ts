@@ -53,6 +53,10 @@ export const createDepartmentSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   description: z.string().max(500).nullable().optional(),
   ownerId: z.string(),
+  // Guichet de demandes internes + agent traiteur qui les reçoit en
+  // auto-affectation (null = repli sur le responsable du département).
+  acceptsRequests: z.boolean().optional(),
+  supportUserId: z.string().nullable().optional(),
 });
 
 export const updateDepartmentSchema = z.object({
@@ -62,6 +66,8 @@ export const updateDepartmentSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   ownerId: z.string().optional(),
   isActive: z.boolean().optional(),
+  acceptsRequests: z.boolean().optional(),
+  supportUserId: z.string().nullable().optional(),
 });
 
 // ── Objectives ───────────────────────────────────────────────────────────
