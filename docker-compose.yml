@@ -23,6 +23,10 @@ services:
       - "3000:3000"
     env_file:
       - .env.docker
+    environment:
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -46,3 +50,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

@@ -89,6 +89,10 @@ async function main() {
         data: {
           orgId: org.id, code: d.code, name: d.name, color: d.color,
           ownerId: d.owner.id, sortOrder: i,
+          // Guichet de demandes internes ouvert sur l'IT uniquement au lancement.
+          // Le owner fait office de support tant qu'aucun supportUser n'est désigné.
+          acceptsRequests: d.code === "D2",
+          supportUserId: d.code === "D2" ? d.owner.id : null,
         },
       })
     )

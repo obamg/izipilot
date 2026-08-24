@@ -49,3 +49,6 @@ next-env.d.ts
 /mcp-server/node_modules
 /mcp-server/dist
 /mcp-server/prisma
+
+# uploaded attachments (local dev — prod uses a Docker volume)
+/var/uploads

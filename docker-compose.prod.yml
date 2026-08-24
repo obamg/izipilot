@@ -40,6 +40,11 @@ services:
       GLEAP_PROJECT_ID_TRADING: ${GLEAP_PROJECT_ID_TRADING}
       GLEAP_API_KEY_AFRICAPART: ${GLEAP_API_KEY_AFRICAPART}
       GLEAP_PROJECT_ID_AFRICAPART: ${GLEAP_PROJECT_ID_AFRICAPART}
+      # Pièces jointes des demandes internes — doit pointer sur le volume
+      # `uploads` ci-dessous, sinon les fichiers partent au prochain recreate.
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -78,6 +83,7 @@ services:
 
 volumes:
   pgdata:
+  uploads:
 
 networks:
   internal:
