@@ -45,6 +45,38 @@ export async function requestableDepartments(orgId: string) {
 }
 
 /**
+ * Équipe d'un guichet : agent traiteur, responsable et membres, actifs
+ * uniquement. C'est la liste des personnes qu'un demandeur peut viser — on ne
+ * laisse pas adresser une demande IT à quelqu'un de la compta.
+ */
+export async function departmentTeam(orgId: string, departmentId: string) {
+  return prisma.user.findMany({
+    where: {
+      orgId,
+      isActive: true,
+      OR: [
+        { supportedDepartments: { some: { id: departmentId } } },
+        { ownedDepartments: { some: { id: departmentId } } },
+        { departmentMembers: { some: { departmentId } } },
+      ],
+    },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+/** Équipes de tous les guichets ouverts, indexées par département. */
+export async function requestableDepartmentsWithTeams(orgId: string) {
+  const departments = await requestableDepartments(orgId);
+  return Promise.all(
+    departments.map(async (d) => ({
+      ...d,
+      team: await departmentTeam(orgId, d.id),
+    }))
+  );
+}
+
+/**
  * Personne à qui la demande revient par défaut : le support désigné du
  * département, à défaut son responsable. Renvoie null si le département a
  * disparu (le guichet reste alors non assigné plutôt que de bloquer le dépôt).
@@ -132,6 +164,7 @@ export async function accessFor(
 export const supportRequestInclude = {
   requester: { select: { id: true, name: true, email: true } },
   assignee: { select: { id: true, name: true, email: true } },
+  requestedAssignee: { select: { id: true, name: true } },
   department: { select: { id: true, code: true, name: true, color: true } },
   task: { select: { id: true, title: true, status: true, sprintId: true } },
   _count: { select: { comments: true, attachments: true } },

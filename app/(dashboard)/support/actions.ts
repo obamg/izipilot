@@ -15,6 +15,7 @@ import {
 } from "@/lib/validations/support-request";
 import {
   accessFor,
+  departmentTeam,
   loadRequestForViewer,
   nextReference,
   resolveAutoAssignee,
@@ -60,7 +61,8 @@ export async function createSupportRequest(input: unknown) {
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides");
   }
-  const { departmentId, category, priority, title, description } = parsed.data;
+  const { departmentId, category, priority, title, description, requestedAssigneeId } =
+    parsed.data;
 
   const department = await prisma.department.findFirst({
     where: { id: departmentId, orgId: viewer.orgId, acceptsRequests: true, isActive: true },
@@ -68,8 +70,21 @@ export async function createSupportRequest(input: unknown) {
   });
   if (!department) return fail("Ce département n'accepte pas de demandes");
 
+  // Le destinataire souhaité doit appartenir à l'équipe du guichet visé —
+  // sinon n'importe qui pourrait s'adresser à n'importe qui dans l'org, ce qui
+  // vide le guichet de son sens et envoie des demandes IT à la compta.
+  if (requestedAssigneeId) {
+    const team = await departmentTeam(viewer.orgId, department.id);
+    if (!team.some((u) => u.id === requestedAssigneeId)) {
+      return fail("Cette personne ne fait pas partie de l'équipe de ce guichet");
+    }
+  }
+
   const now = new Date();
-  const assigneeId = await resolveAutoAssignee(viewer.orgId, department.id);
+  // Le souhait du demandeur l'emporte sur l'auto-affectation ; à défaut, on
+  // retombe sur l'agent traiteur du guichet.
+  const assigneeId =
+    requestedAssigneeId ?? (await resolveAutoAssignee(viewer.orgId, department.id));
 
   let created: { id: string } | null = null;
   for (let attempt = 0; attempt < 5 && !created; attempt++) {
@@ -87,6 +102,7 @@ export async function createSupportRequest(input: unknown) {
           requesterId: viewer.id,
           departmentId: department.id,
           assigneeId,
+          requestedAssigneeId: requestedAssigneeId ?? null,
           category,
           priority,
           status: "SUBMITTED",

@@ -29,6 +29,9 @@ export const createSupportRequestSchema = z.object({
   priority: z.enum(PRIORITIES).default("NORMAL"),
   title: z.string().trim().min(4, "Titre trop court").max(160),
   description: z.string().trim().min(10, "Décrivez le besoin en quelques mots").max(8000),
+  // Personne visée par le demandeur. null / absent = auto-affectation à l'agent
+  // traiteur du guichet.
+  requestedAssigneeId: z.string().min(1).nullable().optional(),
 });
 
 /** Champs de qualification, réservés au support. */

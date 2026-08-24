@@ -10,6 +10,8 @@ interface DepartmentOption {
   id: string;
   code: string;
   name: string;
+  /** Personnes du guichet qu'on peut viser explicitement. */
+  team: Array<{ id: string; name: string }>;
 }
 
 const CATEGORIES = Object.keys(SUPPORT_CATEGORY_META) as SupportRequestCategory[];
@@ -24,6 +26,7 @@ export function CreateSupportRequestForm({
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
   const [departmentId, setDepartmentId] = useState(departments[0]?.id ?? "");
+  const [requestedAssigneeId, setRequestedAssigneeId] = useState("");
   const [category, setCategory] = useState<SupportRequestCategory>("INCIDENT");
   const [priority, setPriority] = useState<SupportRequestPriority>("NORMAL");
   const [title, setTitle] = useState("");
@@ -47,6 +50,7 @@ export function CreateSupportRequestForm({
         priority,
         title,
         description,
+        requestedAssigneeId: requestedAssigneeId || null,
       });
       if (!res.ok) {
         setError(res.error);
@@ -55,6 +59,8 @@ export function CreateSupportRequestForm({
       router.push(`/support/${res.data.id}`);
     });
   }
+
+  const selectedTeam = departments.find((d) => d.id === departmentId)?.team ?? [];
 
   const field =
     "w-full rounded-[8px] border border-border-soft bg-white px-3 py-2 text-[15px] text-dark focus:outline-none focus:border-teal";
@@ -93,7 +99,12 @@ export function CreateSupportRequestForm({
           <span className={label}>Guichet</span>
           <select
             value={departmentId}
-            onChange={(e) => setDepartmentId(e.target.value)}
+            onChange={(e) => {
+              setDepartmentId(e.target.value);
+              // L'équipe change avec le guichet : une personne visée sur
+              // l'ancien guichet n'a plus de sens ici.
+              setRequestedAssigneeId("");
+            }}
             className={field}
             aria-label="Département destinataire"
           >
@@ -124,6 +135,29 @@ export function CreateSupportRequestForm({
           </span>
         </label>
       </div>
+
+      {selectedTeam.length > 0 && (
+        <label className="block">
+          <span className={label}>Destinataire souhaité</span>
+          <select
+            value={requestedAssigneeId}
+            onChange={(e) => setRequestedAssigneeId(e.target.value)}
+            className={field}
+            aria-label="Personne à qui la demande s'adresse"
+          >
+            <option value="">Peu importe — le guichet s&apos;organise</option>
+            {selectedTeam.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-[11px] text-izi-gray">
+            Si vous savez qui s&apos;en occupe, la demande lui est affectée
+            directement. Le guichet reste prévenu et peut réattribuer.
+          </span>
+        </label>
+      )}
 
       <label className="block">
         <span className={label}>Objet</span>
