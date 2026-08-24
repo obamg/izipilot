@@ -42,6 +42,12 @@ RUN npm install --no-save prisma
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
+# Point de montage des pièces jointes (UPLOAD_DIR). Créé et donné à `nextjs`
+# ICI et pas au runtime : Docker recopie le propriétaire du répertoire de
+# l'image dans un volume nommé vide au premier montage. Sans ça le volume naît
+# root:root et l'app, qui tourne en uid 1001, ne peut pas y écrire.
+RUN mkdir -p /data/uploads && chown -R nextjs:nodejs /data/uploads
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
