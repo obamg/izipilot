@@ -6,7 +6,8 @@ export type NotificationEvent =
   | "krBlockedManual"
   | "escalation48h"
   | "entryMissing"
-  | "dailyReportReminder";
+  | "dailyReportReminder"
+  | "supportRequest";
 
 export const NOTIFICATION_EVENTS: ReadonlyArray<{
   key: NotificationEvent;
@@ -54,6 +55,13 @@ export const NOTIFICATION_EVENTS: ReadonlyArray<{
     label: "Rappel rapport quotidien",
     description:
       "Rappel chaque jour ouvré (lun–ven, 9h) tant que votre rapport quotidien (standup) du sprint actif n'est pas rempli.",
+    default: true,
+  },
+  {
+    key: "supportRequest",
+    label: "Demandes internes",
+    description:
+      "Nouvelle demande adressée à votre guichet, réponse ou changement de statut sur vos demandes, et relance des demandes en retard.",
     default: true,
   },
 ];

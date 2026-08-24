@@ -15,3 +15,5 @@
 0 8 * * 1-5 . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/daily-report-reminder > /dev/null 2>&1
 # Rappel bilans trimestriels : 5 de Jan/Avr/Jui/Oct 07h WAT = 06h UTC (trimestre écoulé)
 0 6 5 1,4,7,10 * . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/quarterly-appraisal-reminder > /dev/null 2>&1
+# Relance demandes internes en retard : jours ouvrés (lun–ven) 09h WAT = 08h UTC
+0 8 * * 1-5 . /etc/cron.env; wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://app:3000/api/cron/overdue-support-requests > /dev/null 2>&1

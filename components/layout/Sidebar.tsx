@@ -115,6 +115,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/support",
+    label: "Demandes internes",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="3.5" />
+        <path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9" />
+      </svg>
+    ),
+  },
+  {
     href: "/evaluations",
     label: "Évaluations",
     icon: (

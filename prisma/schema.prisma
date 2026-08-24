@@ -143,6 +143,9 @@ enum NotificationType {
   EVAL_REMINDER // Rappel mensuel — évaluez votre équipe
   DAILY_REPORT_REMINDER // Rappel quotidien — remplir le rapport (standup)
   APPRAISAL_REMINDER // Rappel trimestriel — bilans de performance
+  SUPPORT_REQUEST_NEW // Nouvelle demande interne adressée au support
+  SUPPORT_REQUEST_UPDATE // Changement de statut / réponse sur une demande
+  SUPPORT_REQUEST_OVERDUE // Relance — demande dont l'échéance est dépassée
 }
 
 enum SessionStatus {
@@ -157,6 +160,37 @@ enum AppraisalStatus {
   MANAGER_ASSESSMENT // Le manager remplit son évaluation
   SHARED // Finalisé et partagé avec le collègue
   ACKNOWLEDGED // Signé / accusé de réception par le collègue
+}
+
+// Demandes internes adressées à un département support (IT en premier).
+enum SupportRequestCategory {
+  INCIDENT // Panne / bug bloquant
+  ACCESS // Compte, droits, accès à un outil
+  EQUIPMENT // Matériel (poste, écran, téléphone)
+  SOFTWARE // Logiciel, licence, installation
+  DATA // Extraction, rapport, correction de données
+  IMPROVEMENT // Évolution / nouvelle fonctionnalité
+  OTHER
+}
+
+enum SupportRequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// Cycle de vie d'une demande. Les états terminaux (RESOLVED → CLOSED, REJECTED,
+// CANCELLED) figent la demande : plus d'assignation ni de changement d'échéance.
+enum SupportRequestStatus {
+  SUBMITTED // Déposée, pas encore prise en charge
+  TRIAGED // Prise en charge / assignée
+  IN_PROGRESS // Traitement en cours
+  ON_HOLD // En attente (info du demandeur ou d'un tiers)
+  RESOLVED // Traitée — en attente de clôture du demandeur
+  CLOSED // Clôturée
+  REJECTED // Refusée par le support
+  CANCELLED // Annulée par le demandeur
 }
 
 // ============================================================================
@@ -196,6 +230,7 @@ model Organization {
   recurringTasks     RecurringTask[]
   evaluations        Evaluation[]
   appraisals         Appraisal[]
+  supportRequests    SupportRequest[]
 
   @@map("organizations")
 }
@@ -219,38 +254,44 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   // Relations
-  org                        Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  ownedDepartments           Department[]            @relation("DepartmentOwner")
-  ownedProducts              Product[]               @relation("ProductOwner")
-  ownedKeyResults            KeyResult[]             @relation("KrOwner")
+  org                        Organization               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ownedDepartments           Department[]               @relation("DepartmentOwner")
+  ownedProducts              Product[]                  @relation("ProductOwner")
+  ownedKeyResults            KeyResult[]                @relation("KrOwner")
   weeklyEntries              WeeklyEntry[]
-  alerts                     Alert[]                 @relation("AlertTriggeredBy")
-  resolvedAlerts             Alert[]                 @relation("AlertResolvedBy")
-  decisions                  Decision[]              @relation("DecisionOwner")
+  alerts                     Alert[]                    @relation("AlertTriggeredBy")
+  resolvedAlerts             Alert[]                    @relation("AlertResolvedBy")
+  decisions                  Decision[]                 @relation("DecisionOwner")
   notifications              Notification[]
   sessions                   Session[]
   pushSubscriptions          PushSubscription[]
-  assignedActions            Action[]                @relation("ActionAssignee")
-  createdActions             Action[]                @relation("ActionCreator")
-  actionComments             ActionComment[]         @relation("ActionCommentAuthor")
+  assignedActions            Action[]                   @relation("ActionAssignee")
+  createdActions             Action[]                   @relation("ActionCreator")
+  actionComments             ActionComment[]            @relation("ActionCommentAuthor")
   departmentMembers          DepartmentMember[]
   notificationPrefs          NotificationPreference?
-  createdSprints             Sprint[]                @relation("SprintCreator")
-  assignedSprintTasks        SprintTask[]            @relation("SprintTaskAssignee")
-  createdSprintTasks         SprintTask[]            @relation("SprintTaskCreator")
-  sprintTaskComments         SprintTaskComment[]     @relation("SprintTaskCommentAuthor")
-  sprintCapacities           SprintCapacity[]        @relation("SprintCapacityUser")
-  standupEntries             StandupEntry[]          @relation("StandupAuthor")
-  sprintTaskRequestsMade     SprintTaskRequest[]     @relation("SprintTaskRequestRequester")
-  sprintTaskRequestsResolved SprintTaskRequest[]     @relation("SprintTaskRequestResolver")
-  sprintTaskRequestsReceived SprintTaskRequest[]     @relation("SprintTaskRequestTargetUser")
-  createdSprintTaskSteps     SprintTaskStep[]        @relation("SprintTaskStepCreator")
-  recurringTasksCreated      RecurringTask[]         @relation("RecurringTaskCreator")
-  recurringTasksAssigned     RecurringTask[]         @relation("RecurringTaskAssignee")
-  evaluationsReceived        Evaluation[]            @relation("EvaluationSubject")
-  evaluationsGiven           Evaluation[]            @relation("EvaluationEvaluator")
-  appraisalsAsSubject        Appraisal[]             @relation("AppraisalSubject")
-  appraisalsAsManager        Appraisal[]             @relation("AppraisalManager")
+  createdSprints             Sprint[]                   @relation("SprintCreator")
+  assignedSprintTasks        SprintTask[]               @relation("SprintTaskAssignee")
+  createdSprintTasks         SprintTask[]               @relation("SprintTaskCreator")
+  sprintTaskComments         SprintTaskComment[]        @relation("SprintTaskCommentAuthor")
+  sprintCapacities           SprintCapacity[]           @relation("SprintCapacityUser")
+  standupEntries             StandupEntry[]             @relation("StandupAuthor")
+  sprintTaskRequestsMade     SprintTaskRequest[]        @relation("SprintTaskRequestRequester")
+  sprintTaskRequestsResolved SprintTaskRequest[]        @relation("SprintTaskRequestResolver")
+  sprintTaskRequestsReceived SprintTaskRequest[]        @relation("SprintTaskRequestTargetUser")
+  createdSprintTaskSteps     SprintTaskStep[]           @relation("SprintTaskStepCreator")
+  recurringTasksCreated      RecurringTask[]            @relation("RecurringTaskCreator")
+  recurringTasksAssigned     RecurringTask[]            @relation("RecurringTaskAssignee")
+  evaluationsReceived        Evaluation[]               @relation("EvaluationSubject")
+  evaluationsGiven           Evaluation[]               @relation("EvaluationEvaluator")
+  appraisalsAsSubject        Appraisal[]                @relation("AppraisalSubject")
+  appraisalsAsManager        Appraisal[]                @relation("AppraisalManager")
+  supportRequestsMade        SupportRequest[]           @relation("SupportRequestRequester")
+  supportRequestsAssigned    SupportRequest[]           @relation("SupportRequestAssignee")
+  supportRequestsClosed      SupportRequest[]           @relation("SupportRequestClosedBy")
+  supportedDepartments       Department[]               @relation("DepartmentSupport")
+  supportRequestComments     SupportRequestComment[]    @relation("SupportRequestCommentAuthor")
+  supportRequestAttachments  SupportRequestAttachment[] @relation("SupportRequestAttachmentUploader")
 
   @@index([orgId])
   @@index([email])
@@ -313,26 +354,33 @@ model LoginOtp {
 // ============================================================================
 
 model Department {
-  id          String   @id @default(cuid())
-  orgId       String
-  code        String // Ex: "D1", "D2"
-  name        String // Ex: "Communication & Marketing"
-  color       String // Hex IziChange palette
-  description String?
-  ownerId     String // Responsable département
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  orgId           String
+  code            String // Ex: "D1", "D2"
+  name            String // Ex: "Communication & Marketing"
+  color           String // Hex IziChange palette
+  description     String?
+  ownerId         String // Responsable département
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  // Guichet de demandes internes : quand true, tout le monde peut adresser une
+  // demande à ce département (activé pour l'IT). supportUserId = la personne du
+  // support qui reçoit les demandes en auto-affectation ; à défaut, le owner.
+  acceptsRequests Boolean  @default(false)
+  supportUserId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   owner              User                @relation("DepartmentOwner", fields: [ownerId], references: [id])
+  supportUser        User?               @relation("DepartmentSupport", fields: [supportUserId], references: [id], onDelete: SetNull)
   objectives         Objective[]
   members            DepartmentMember[]
   sprintTasks        SprintTask[]        @relation("SprintTaskDept")
   sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetDept")
   recurringTasks     RecurringTask[]     @relation("RecurringTaskDept")
+  supportRequests    SupportRequest[]    @relation("SupportRequestDept")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -455,13 +503,13 @@ model KeyResult {
   updatedAt DateTime  @updatedAt
 
   // Relations
-  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  objective     Objective     @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  owner         User          @relation("KrOwner", fields: [ownerId], references: [id])
-  weeklyEntries WeeklyEntry[]
-  alerts        Alert[]
-  actions       Action[]
-  sprintTasks   SprintTask[]  @relation("SprintTaskKr")
+  org            Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  objective      Objective       @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  owner          User            @relation("KrOwner", fields: [ownerId], references: [id])
+  weeklyEntries  WeeklyEntry[]
+  alerts         Alert[]
+  actions        Action[]
+  sprintTasks    SprintTask[]    @relation("SprintTaskKr")
   recurringTasks RecurringTask[] @relation("RecurringTaskKr")
 
   @@index([orgId])
@@ -701,6 +749,7 @@ model NotificationPreference {
   escalation48h       Boolean @default(false) // Auto — currently never emails
   entryMissing        Boolean @default(false) // Auto — currently never emails
   dailyReportReminder Boolean @default(true) // Working-day standup reminder
+  supportRequest      Boolean @default(true) // Demandes internes : nouvelle demande, suivi, relance
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -768,21 +817,21 @@ model ActionComment {
 // ============================================================================
 
 model Sprint {
-  id          String       @id @default(cuid())
-  orgId       String
-  number      Int // Numéro auto-incrémenté par org (ex: "Sprint 12")
-  name        String
-  goal        String?      @db.Text
-  status      SprintStatus @default(PLANNED)
-  startDate   DateTime
-  endDate     DateTime
-  createdById String
-  completedAt DateTime?
+  id            String       @id @default(cuid())
+  orgId         String
+  number        Int // Numéro auto-incrémenté par org (ex: "Sprint 12")
+  name          String
+  goal          String?      @db.Text
+  status        SprintStatus @default(PLANNED)
+  startDate     DateTime
+  endDate       DateTime
+  createdById   String
+  completedAt   DateTime?
   // Stats frozen at close (SprintStats shape) so committed/done figures survive
   // unfinished tasks being carried out to the next sprint. Null until closed.
   statsSnapshot Json?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   // Relations
   org        Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -797,39 +846,40 @@ model Sprint {
 }
 
 model SprintTask {
-  id           String         @id @default(cuid())
-  orgId        String
-  sprintId     String? // null = backlog (pas encore dans un sprint)
-  krId         String? // Lien optionnel vers un Key Result
-  departmentId String? // Tag équipe (filtre board)
-  productId    String? // Tag équipe (filtre board)
+  id              String         @id @default(cuid())
+  orgId           String
+  sprintId        String? // null = backlog (pas encore dans un sprint)
+  krId            String? // Lien optionnel vers un Key Result
+  departmentId    String? // Tag équipe (filtre board)
+  productId       String? // Tag équipe (filtre board)
   recurringTaskId String? // Origine : généré par un modèle récurrent
-  title        String
-  description  String?        @db.Text
-  reportUrl    String? // Lien vers le rapport de tâche (document externe)
-  status       ActionStatus   @default(TODO)
-  priority     ActionPriority @default(MEDIUM)
-  storyPoints  Int? // Estimation (capacité / vélocité)
-  assigneeId   String?
-  createdById  String
-  sortOrder    Int            @default(0) // Ordre dans une colonne du board
-  dueDate      DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  title           String
+  description     String?        @db.Text
+  reportUrl       String? // Lien vers le rapport de tâche (document externe)
+  status          ActionStatus   @default(TODO)
+  priority        ActionPriority @default(MEDIUM)
+  storyPoints     Int? // Estimation (capacité / vélocité)
+  assigneeId      String?
+  createdById     String
+  sortOrder       Int            @default(0) // Ordre dans une colonne du board
+  dueDate         DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   // Relations
-  org        Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  sprint     Sprint?             @relation(fields: [sprintId], references: [id], onDelete: SetNull)
-  keyResult  KeyResult?          @relation("SprintTaskKr", fields: [krId], references: [id], onDelete: SetNull)
-  department Department?         @relation("SprintTaskDept", fields: [departmentId], references: [id], onDelete: SetNull)
-  product    Product?            @relation("SprintTaskProduct", fields: [productId], references: [id], onDelete: SetNull)
-  assignee   User?               @relation("SprintTaskAssignee", fields: [assigneeId], references: [id])
-  createdBy  User                @relation("SprintTaskCreator", fields: [createdById], references: [id])
-  comments      SprintTaskComment[]
-  requests      SprintTaskRequest[]
-  steps         SprintTaskStep[]
-  recurringTask RecurringTask?      @relation("SprintTaskRecurring", fields: [recurringTaskId], references: [id], onDelete: SetNull)
+  org             Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sprint          Sprint?             @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  keyResult       KeyResult?          @relation("SprintTaskKr", fields: [krId], references: [id], onDelete: SetNull)
+  department      Department?         @relation("SprintTaskDept", fields: [departmentId], references: [id], onDelete: SetNull)
+  product         Product?            @relation("SprintTaskProduct", fields: [productId], references: [id], onDelete: SetNull)
+  assignee        User?               @relation("SprintTaskAssignee", fields: [assigneeId], references: [id])
+  createdBy       User                @relation("SprintTaskCreator", fields: [createdById], references: [id])
+  comments        SprintTaskComment[]
+  requests        SprintTaskRequest[]
+  steps           SprintTaskStep[]
+  supportRequests SupportRequest[]    @relation("SupportRequestTask")
+  recurringTask   RecurringTask?      @relation("SprintTaskRecurring", fields: [recurringTaskId], references: [id], onDelete: SetNull)
 
   @@index([orgId, sprintId, status])
   @@index([assigneeId])
@@ -928,14 +978,14 @@ enum RecurrenceFrequency {
 // à chaque échéance (quotidienne / hebdo / mensuelle). La tâche générée atterrit
 // dans le sprint ACTIF de l'org, sinon dans le backlog.
 model RecurringTask {
-  id           String              @id @default(cuid())
+  id           String         @id @default(cuid())
   orgId        String
   title        String
-  description  String?             @db.Text
+  description  String?        @db.Text
   krId         String?
   departmentId String?
   productId    String?
-  priority     ActionPriority      @default(MEDIUM)
+  priority     ActionPriority @default(MEDIUM)
   storyPoints  Int?
   assigneeId   String?
   createdById  String
@@ -1220,4 +1270,109 @@ model Appraisal {
   @@index([orgId, year, quarter])
   @@index([managerId])
   @@map("appraisals")
+}
+
+// ============================================================================
+// DEMANDES INTERNES (guichet support — IT en premier)
+// ============================================================================
+// Une demande est déposée par n'importe quel utilisateur et adressée à un
+// département ouvert aux demandes (`Department.acceptsRequests`). Elle est
+// auto-affectée au `supportUser` du département, à défaut à son `owner`.
+// Traitée par : l'assigné, le support/owner du département, ses membres,
+// et le CEO/MANAGEMENT. Le demandeur garde la lecture + l'annulation + la
+// clôture de sa propre demande.
+
+model SupportRequest {
+  id        String @id @default(cuid())
+  orgId     String
+  // Référence lisible affichée aux utilisateurs, ex "IT-2026-0042". Unique par
+  // org : c'est ce que les gens citent en réunion ou dans un message.
+  reference String
+
+  requesterId  String
+  departmentId String // Département destinataire (IT)
+  assigneeId   String? // Personne du support en charge
+
+  category SupportRequestCategory @default(OTHER)
+  priority SupportRequestPriority @default(NORMAL)
+  status   SupportRequestStatus   @default(SUBMITTED)
+
+  title       String
+  description String @db.Text
+
+  // SLA : échéance cible dérivée de la priorité à la création, ajustable par le
+  // support. `firstResponseAt` est figé au premier commentaire du support ou à
+  // la prise en charge — sert au délai de première réponse dans les stats.
+  dueAt                 DateTime?
+  firstResponseAt       DateTime?
+  resolvedAt            DateTime?
+  closedAt              DateTime?
+  closedById            String?
+  resolutionNote        String?   @db.Text
+  // Dernière relance de retard envoyée — dédup du cron quotidien.
+  lastOverdueNotifiedAt DateTime?
+
+  // Chantier réel : la demande a été convertie en tâche de sprint.
+  taskId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org         Organization               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requester   User                       @relation("SupportRequestRequester", fields: [requesterId], references: [id])
+  department  Department                 @relation("SupportRequestDept", fields: [departmentId], references: [id], onDelete: Cascade)
+  assignee    User?                      @relation("SupportRequestAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  closedBy    User?                      @relation("SupportRequestClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  task        SprintTask?                @relation("SupportRequestTask", fields: [taskId], references: [id], onDelete: SetNull)
+  comments    SupportRequestComment[]
+  attachments SupportRequestAttachment[]
+
+  @@unique([orgId, reference])
+  @@index([orgId, status])
+  @@index([orgId, departmentId, status])
+  @@index([requesterId])
+  @@index([assigneeId])
+  // Le cron de relance filtre les demandes ouvertes dont l'échéance est passée.
+  @@index([orgId, dueAt])
+  @@index([taskId])
+  @@map("support_requests")
+}
+
+// Fil d'échange demandeur ↔ support. `isInternal` = note interne au support,
+// jamais renvoyée au demandeur (filtrée côté serveur, pas seulement à l'affichage).
+model SupportRequestComment {
+  id         String   @id @default(cuid())
+  requestId  String
+  authorId   String
+  content    String   @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  request SupportRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User           @relation("SupportRequestCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([requestId])
+  @@index([authorId])
+  @@map("support_request_comments")
+}
+
+// Pièce jointe stockée sur le volume de l'app (voir lib/storage.ts).
+// `storageKey` est un chemin relatif opaque — jamais le nom de fichier fourni
+// par l'utilisateur, qui reste affiché tel quel via `filename`.
+model SupportRequestAttachment {
+  id           String   @id @default(cuid())
+  requestId    String
+  uploadedById String
+  filename     String
+  mimeType     String
+  size         Int
+  storageKey   String   @unique
+  createdAt    DateTime @default(now())
+
+  request    SupportRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploadedBy User           @relation("SupportRequestAttachmentUploader", fields: [uploadedById], references: [id])
+
+  @@index([requestId])
+  @@map("support_request_attachments")
 }
