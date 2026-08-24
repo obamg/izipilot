@@ -36,6 +36,18 @@ export async function PUT(request: Request, { params }: Params) {
     }
   }
 
+  // L'agent traiteur re\u00e7oit les demandes en auto-affectation : il doit \u00eatre de
+  // l'org et actif, sinon les demandes atterrissent chez quelqu'un qui est parti.
+  if (parsed.data.supportUserId) {
+    const agent = await prisma.user.findFirst({
+      where: { id: parsed.data.supportUserId, orgId, isActive: true },
+      select: { id: true },
+    });
+    if (!agent) {
+      return Response.json({ error: "Agent traiteur introuvable" }, { status: 400 });
+    }
+  }
+
   const updated = await prisma.department.update({
     where: { id: departmentId },
     data: parsed.data,

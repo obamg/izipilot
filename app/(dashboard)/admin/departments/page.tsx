@@ -15,6 +15,7 @@ export default async function AdminDepartmentsPage() {
       where: { orgId },
       include: {
         owner: { select: { id: true, name: true } },
+        supportUser: { select: { id: true, name: true } },
         _count: { select: { objectives: { where: { isActive: true } } } },
         members: {
           include: { user: { select: { id: true, name: true, email: true, role: true } } },
@@ -40,6 +41,9 @@ export default async function AdminDepartmentsPage() {
     ownerId: d.owner.id,
     ownerName: d.owner.name,
     objectiveCount: d._count.objectives,
+    acceptsRequests: d.acceptsRequests,
+    supportUserId: d.supportUser?.id ?? null,
+    supportUserName: d.supportUser?.name ?? null,
     members: d.members.map((m) => ({
       id: m.id,
       userId: m.user.id,

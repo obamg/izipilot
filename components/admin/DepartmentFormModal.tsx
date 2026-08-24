@@ -14,6 +14,8 @@ interface DepartmentFormModalProps {
     color: string;
     description: string | null;
     ownerId: string;
+    acceptsRequests: boolean;
+    supportUserId: string | null;
   } | null;
   users: { id: string; name: string }[];
 }
@@ -40,6 +42,10 @@ export function DepartmentFormModal({
       color: form.get("color") as string,
       description: (form.get("description") as string) || null,
       ownerId: form.get("ownerId") as string,
+      acceptsRequests: form.get("acceptsRequests") === "on",
+      // Chaîne vide = pas d'agent désigné → l'API stocke null et les demandes
+      // retombent sur le responsable.
+      supportUserId: (form.get("supportUserId") as string) || null,
     };
 
     try {
@@ -138,6 +144,46 @@ export function DepartmentFormModal({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Guichet de demandes internes */}
+        <div className="border-t border-border-soft pt-3 space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="acceptsRequests"
+              defaultChecked={department?.acceptsRequests ?? false}
+              className="accent-[color:var(--teal)]"
+            />
+            <span className="text-[11px] font-medium text-dark">
+              Guichet de demandes internes
+            </span>
+          </label>
+          <p className="text-[10px] text-izi-gray">
+            Quand c&apos;est activ&eacute;, tout le monde peut adresser une demande
+            &agrave; ce d&eacute;partement depuis &laquo;&nbsp;Demandes internes&nbsp;&raquo;.
+          </p>
+
+          <div>
+            <label className="text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray mb-1 block">
+              Agent traiteur
+            </label>
+            <select
+              name="supportUserId"
+              defaultValue={department?.supportUserId ?? ""}
+              className="izi-form-input w-full px-[9px] py-[7px] border border-teal-md rounded-[7px] text-dark bg-white font-sans"
+            >
+              <option value="">Aucun &mdash; le responsable re&ccedil;oit les demandes</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-izi-gray mt-1">
+              Re&ccedil;oit les nouvelles demandes en auto-affectation.
+            </p>
+          </div>
         </div>
 
         {error && (

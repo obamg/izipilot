@@ -24,6 +24,9 @@ interface DeptData {
   ownerId: string;
   ownerName: string;
   objectiveCount: number;
+  acceptsRequests: boolean;
+  supportUserId: string | null;
+  supportUserName: string | null;
   members: MemberData[];
 }
 
@@ -148,9 +151,23 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
               </p>
             )}
 
-            <div className="text-[10px] text-izi-gray mb-3">
+            <div className="text-[10px] text-izi-gray mb-2">
               Resp: {d.ownerName} &middot; {d.objectiveCount} objectif(s)
             </div>
+
+            {d.acceptsRequests && (
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[8px] font-semibold px-[5px] py-[1px] rounded bg-teal-lt text-teal-dk">
+                  GUICHET
+                </span>
+                <span className="text-[10px] text-izi-gray">
+                  Agent traiteur&nbsp;:{" "}
+                  <span className="font-medium text-dark">
+                    {d.supportUserName ?? `${d.ownerName} (responsable)`}
+                  </span>
+                </span>
+              </div>
+            )}
 
             {/* Members section */}
             <div className="border-t border-border-soft pt-3 mb-3">
