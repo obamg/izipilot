@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   isSupportAdmin,
-  requestableDepartments,
+  requestableDepartmentsWithTeams,
   supportedDepartmentIds,
   supportRequestInclude,
 } from "@/lib/support-request-server";
@@ -26,7 +26,7 @@ export default async function SupportPage() {
   };
 
   const [departments, mine, supported] = await Promise.all([
-    requestableDepartments(viewer.orgId),
+    requestableDepartmentsWithTeams(viewer.orgId),
     prisma.supportRequest.findMany({
       where: { orgId: viewer.orgId, requesterId: viewer.id },
       include: supportRequestInclude,

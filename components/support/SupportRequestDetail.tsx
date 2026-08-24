@@ -145,6 +145,15 @@ export function SupportRequestDetail({
         <dl className="mt-3 grid gap-x-6 gap-y-1 text-[12px] sm:grid-cols-2">
           <Row term="Demandeur" desc={request.requester.name} />
           <Row term="En charge" desc={request.assignee?.name ?? "Non assignée"} />
+          {/* Le souhait initial ne s'affiche que s'il diverge de la réalité —
+              sinon c'est la même ligne écrite deux fois. */}
+          {request.requestedAssignee &&
+            request.requestedAssignee.id !== request.assignee?.id && (
+              <Row
+                term="Adressée à"
+                desc={`${request.requestedAssignee.name} (souhait du demandeur)`}
+              />
+            )}
           <Row term="Déposée le" desc={dateFmt.format(new Date(request.createdAt))} />
           <Row
             term="Échéance"

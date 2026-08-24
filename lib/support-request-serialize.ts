@@ -18,6 +18,8 @@ export interface SerializedSupportRequest {
   status: SupportRequestStatus;
   requester: { id: string; name: string };
   assignee: { id: string; name: string } | null;
+  /** Personne visée par le demandeur au dépôt (trace, même après réassignation). */
+  requestedAssignee: { id: string; name: string } | null;
   department: { id: string; code: string; name: string; color: string };
   task: { id: string; title: string } | null;
   dueAt: string | null;
@@ -35,6 +37,8 @@ export interface SerializedSupportRequest {
 type RequestWithRelations = SupportRequest & {
   requester: { id: string; name: string };
   assignee: { id: string; name: string } | null;
+  /** Personne visée par le demandeur au dépôt (trace, même après réassignation). */
+  requestedAssignee: { id: string; name: string } | null;
   department: { id: string; code: string; name: string; color: string };
   task: { id: string; title: string } | null;
   _count?: { comments: number; attachments: number };
@@ -54,6 +58,9 @@ export function serializeSupportRequest(
     status: r.status,
     requester: { id: r.requester.id, name: r.requester.name },
     assignee: r.assignee ? { id: r.assignee.id, name: r.assignee.name } : null,
+    requestedAssignee: r.requestedAssignee
+      ? { id: r.requestedAssignee.id, name: r.requestedAssignee.name }
+      : null,
     department: r.department,
     task: r.task ? { id: r.task.id, title: r.task.title } : null,
     dueAt: r.dueAt?.toISOString() ?? null,
