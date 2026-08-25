@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { updateActionSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
 import { actionVisibilityWhere } from "@/lib/visibility";
+import { resolveActionColumn } from "@/lib/board-column-server";
 
 export async function GET(
   _request: NextRequest,
@@ -126,14 +127,42 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = { ...parsed.data };
 
+  // ── Colonne du tableau et statut ───────────────────────────────────────────
+  // Le statut est la projection de la catégorie de la colonne. Quand le client
+  // envoie une colonne, c'est elle qui fait foi : on relit la catégorie en base
+  // plutôt que de faire confiance au statut envoyé, sinon un client obsolète
+  // pourrait poser un statut qui contredit la colonne affichée.
+  if (parsed.data.columnId) {
+    const column = await prisma.boardColumn.findFirst({
+      where: { id: parsed.data.columnId, orgId: session.user.orgId },
+      select: { id: true, category: true },
+    });
+    if (!column) {
+      return Response.json({ error: "Colonne introuvable" }, { status: 404 });
+    }
+    updateData.columnId = column.id;
+    updateData.status = column.category;
+  } else if (parsed.data.status !== undefined) {
+    // Statut sans colonne : on replace la carte dans la colonne équivalente du
+    // flux de son équipe (null si ce flux n'a pas cette catégorie — l'action
+    // atterrit alors dans « Hors flux » plutôt que dans la mauvaise colonne).
+    updateData.columnId = await resolveActionColumn(
+      session.user.orgId,
+      existing.krId,
+      parsed.data.status
+    );
+  }
+
+  const nextStatus = (updateData.status as typeof existing.status) ?? existing.status;
+
   // Handle status → DONE: set completedAt and weekCompleted
-  if (parsed.data.status === "DONE" && existing.status !== "DONE") {
+  if (nextStatus === "DONE" && existing.status !== "DONE") {
     updateData.completedAt = new Date();
     updateData.weekCompleted = getISOWeek(new Date()).weekNumber;
   }
 
   // Handle status changed away from DONE: clear completion fields
-  if (parsed.data.status && parsed.data.status !== "DONE" && existing.status === "DONE") {
+  if (nextStatus !== "DONE" && existing.status === "DONE") {
     updateData.completedAt = null;
     updateData.weekCompleted = null;
   }

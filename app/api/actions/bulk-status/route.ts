@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { bulkActionStatusSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
 import { actionVisibilityWhere } from "@/lib/visibility";
+import { resolveActionColumn } from "@/lib/board-column-server";
 
 export async function PATCH(request: NextRequest) {
   const session = await auth();
@@ -64,10 +65,26 @@ export async function PATCH(request: NextRequest) {
   // Build a map for quick lookup
   const actionMap = new Map(actions.map((a) => [a.id, a]));
 
+  // Colonne cible de chaque action dans le flux de SON équipe. Résolu avant la
+  // transaction (ce sont des lectures) pour ne pas allonger le verrou. Sans ce
+  // recalcul, le statut changerait mais la carte resterait dans son ancienne
+  // colonne sur le tableau.
+  const columnByAction = new Map<string, string | null>();
+  for (const u of updates) {
+    const existing = actionMap.get(u.actionId)!;
+    columnByAction.set(
+      u.actionId,
+      await resolveActionColumn(session.user.orgId, existing.krId, u.status)
+    );
+  }
+
   await prisma.$transaction(
     updates.map((u) => {
       const existing = actionMap.get(u.actionId)!;
-      const data: Record<string, unknown> = { status: u.status };
+      const data: Record<string, unknown> = {
+        status: u.status,
+        columnId: columnByAction.get(u.actionId) ?? null,
+      };
 
       // Set completedAt when transitioning to DONE
       if (u.status === "DONE" && existing.status !== "DONE") {

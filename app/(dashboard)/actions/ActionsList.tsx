@@ -8,6 +8,7 @@ import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { ActionEditModal, type EditableAction } from "@/components/ui/ActionEditModal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { ActionsKanban, type KanbanAction } from "./ActionsKanban";
+import type { BoardWorkflowDef } from "@/lib/board-column";
 
 type ViewMode = "list" | "kanban";
 const VIEW_STORAGE_KEY = "izipilot.actions.view";
@@ -31,6 +32,9 @@ interface ActionItem {
   krTitle: string;
   entityCode: string;
   entityName: string;
+  /** Clé d'équipe du KR porteur ("P:<id>" / "D:<id>") — pilote le flux. */
+  entityKey: string | null;
+  columnId: string | null;
   title: string;
   description: string | null;
   assigneeId: string;
@@ -50,6 +54,9 @@ interface ActionsListProps {
   users: { id: string; name: string }[];
   currentUserRole: UserRole;
   defaultAssigneeId?: string | null;
+  /** Flux de colonnes de l'org + affectation des équipes (pilotent le kanban). */
+  workflows: BoardWorkflowDef[];
+  teamWorkflows: { defaultWorkflowId: string; byTeam: Record<string, string> };
 }
 
 const STATUS_FILTERS: { value: ActionStatus | "ALL"; label: string }[] = [
@@ -69,7 +76,14 @@ const PRIORITY_FILTERS: { value: ActionPriority | "ALL"; label: string }[] = [
   { value: "LOW", label: "Basse" },
 ];
 
-export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId = null }: ActionsListProps) {
+export function ActionsList({
+  actions,
+  users,
+  currentUserRole,
+  defaultAssigneeId = null,
+  workflows,
+  teamWorkflows,
+}: ActionsListProps) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<ActionStatus | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<ActionPriority | "ALL">("ALL");
@@ -141,12 +155,22 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
     return true;
   });
 
+  // Le filtre « entité » porte sur le code (P1, D2…) ; le flux se résout par
+  // clé d'équipe. On prend la clé de la première action correspondante — toutes
+  // celles d'un même code partagent forcément la même.
+  const activeTeamKey =
+    entityFilter === "ALL"
+      ? null
+      : actions.find((a) => a.entityCode === entityFilter)?.entityKey ?? null;
+
   const kanbanActions: KanbanAction[] = filtered.map((a) => ({
     id: a.id,
     krId: a.krId,
     krTitle: a.krTitle,
     entityCode: a.entityCode,
     entityName: a.entityName,
+    entityKey: a.entityKey,
+    columnId: a.columnId,
     title: a.title,
     description: a.description,
     assigneeId: a.assigneeId,
@@ -288,6 +312,9 @@ export function ActionsList({ actions, users, currentUserRole, defaultAssigneeId
         <ActionsKanban
           actions={kanbanActions}
           currentUserRole={currentUserRole}
+          workflows={workflows}
+          teamWorkflows={teamWorkflows}
+          activeTeamKey={activeTeamKey}
           onCardClick={canEdit ? openEditFromAction : undefined}
         />
       )}
