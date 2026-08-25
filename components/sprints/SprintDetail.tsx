@@ -16,6 +16,7 @@ import { RecurringTasksButton } from "./RecurringTasksButton";
 import { TaskScopeFilters } from "./TaskScopeFilters";
 import { computeBurndown } from "@/lib/sprint";
 import type { RosterMember, StandupRecord } from "@/lib/standup";
+import type { BoardWorkflowDef } from "@/lib/board-column";
 import type {
   SprintSummary,
   SprintTaskItem,
@@ -25,6 +26,7 @@ import type {
   AvailabilityMemberVM,
   TaskRequestItem,
   RecurringTaskItem,
+  TeamWorkflowMap,
 } from "./types";
 
 type Tab =
@@ -66,6 +68,9 @@ interface SprintDetailProps {
   standupRoster: RosterMember[];
   initialStandups: StandupRecord[];
   recurringTemplates: RecurringTaskItem[];
+  /** Flux de colonnes de l'org + affectation des équipes (pilotent le tableau). */
+  workflows: BoardWorkflowDef[];
+  teamWorkflows: TeamWorkflowMap;
 }
 
 export function SprintDetail({
@@ -88,6 +93,8 @@ export function SprintDetail({
   standupRoster,
   initialStandups,
   recurringTemplates,
+  workflows,
+  teamWorkflows,
 }: SprintDetailProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("board");
@@ -310,6 +317,9 @@ export function SprintDetail({
             tasks={filteredTasks}
             currentUserRole={currentUserRole}
             currentUserId={currentUserId}
+            workflows={workflows}
+            teamWorkflows={teamWorkflows}
+            teamFilter={teamFilter}
             onCardClick={canOpenCards ? openCard : undefined}
           />
         </div>

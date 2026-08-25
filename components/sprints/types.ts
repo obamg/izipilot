@@ -46,6 +46,15 @@ export interface TeamTag {
   color: string;
 }
 
+// Quelle équipe suit quel flux de colonnes. Les clés de `byTeam` reprennent
+// celles du filtre équipe du tableau ("P:<id>" / "D:<id>") pour que le board
+// résolve le flux à afficher sans aller-retour serveur.
+// Miroir client de lib/board-column-server#TeamWorkflowMap.
+export interface TeamWorkflowMap {
+  defaultWorkflowId: string;
+  byTeam: Record<string, string>;
+}
+
 // Client mirror of lib/sprint-serialize#serializeTaskStep.
 export interface TaskStepItem {
   id: string;
@@ -75,6 +84,8 @@ export interface SprintTaskItem {
   title: string;
   description: string | null;
   reportUrl: string | null;
+  // Colonne du flux de l'équipe ; null = jamais placée, rangée par `status`.
+  columnId: string | null;
   status: ActionStatus;
   priority: ActionPriority;
   storyPoints: number | null;

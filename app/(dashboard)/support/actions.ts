@@ -26,6 +26,7 @@ import {
 import { canTransition, computeDueAt, isOpenStatus, SUPPORT_STATUS_META } from "@/lib/support-request";
 import { notifySupportRequest } from "@/lib/support-notify";
 import { deleteAttachment } from "@/lib/storage";
+import { resolveInitialColumn } from "@/lib/board-column-server";
 import { log } from "@/lib/log";
 
 const logger = log.child("support/actions");
@@ -356,11 +357,17 @@ export async function convertSupportRequestToTask(input: unknown) {
   const taskPriority =
     request.priority === "URGENT" ? "URGENT" : request.priority === "HIGH" ? "HIGH" : request.priority === "LOW" ? "LOW" : "MEDIUM";
 
+  const taskDepartmentId = departmentId ?? request.departmentId;
+  const columnId = await resolveInitialColumn(viewer.orgId, {
+    departmentId: taskDepartmentId,
+  });
+
   const task = await prisma.sprintTask.create({
     data: {
       orgId: viewer.orgId,
       sprintId: sprintId ?? null,
-      departmentId: departmentId ?? request.departmentId,
+      departmentId: taskDepartmentId,
+      columnId,
       title: request.title,
       description: `Demande ${request.reference} — déposée par ${request.requester.name}\n\n${request.description}`,
       priority: taskPriority,

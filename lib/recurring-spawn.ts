@@ -10,6 +10,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { resolveInitialColumn } from "@/lib/board-column-server";
 
 /** The template fields copied onto each generated SprintTask. */
 export interface SpawnableTemplate {
@@ -37,6 +38,14 @@ export async function spawnPerSprintTask(
   template: SpawnableTemplate,
   sprintId: string
 ): Promise<boolean> {
+  // Colonne de départ dans le flux de l'équipe du modèle. Résolue hors
+  // transaction : c'est une lecture, et la garder dedans allongerait le verrou
+  // sans rien garantir de plus.
+  const columnId = await resolveInitialColumn(template.orgId, {
+    departmentId: template.departmentId,
+    productId: template.productId,
+  });
+
   return prisma.$transaction(async (tx) => {
     const existing = await tx.sprintTask.findFirst({
       where: {
@@ -59,6 +68,7 @@ export async function spawnPerSprintTask(
         krId: template.krId,
         departmentId: template.departmentId,
         productId: template.productId,
+        columnId,
         title: template.title,
         description: template.description,
         priority: template.priority,

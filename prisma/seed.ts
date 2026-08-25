@@ -1,6 +1,7 @@
 import { PrismaClient, UserRole, EntityType, Quarter, KrType, KrStatus, ProductStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { computeNextRun } from "../lib/recurring-task";
+import { DEFAULT_COLUMNS } from "../lib/board-column";
 
 const prisma = new PrismaClient();
 
@@ -914,6 +915,31 @@ async function main() {
     actionCount++;
   }
 
+  // ── Flux de tableau ───────────────────────────────────────────
+  // Le flux par défaut reproduit les cinq colonnes historiques. Toute équipe
+  // sans flux dédié l'utilise ; l'admin peut ensuite en créer d'autres.
+  const defaultWorkflow = await prisma.boardWorkflow.create({
+    data: {
+      orgId: org.id,
+      name: "Flux par défaut",
+      description: "Colonnes standard appliquées à toute équipe sans flux dédié.",
+      isDefault: true,
+      columns: {
+        create: DEFAULT_COLUMNS.map((c, i) => ({
+          orgId: org.id,
+          label: c.label,
+          color: c.color,
+          category: c.category,
+          sortOrder: i,
+        })),
+      },
+    },
+    include: { columns: true },
+  });
+  const columnIdByCategory = Object.fromEntries(
+    defaultWorkflow.columns.map((c) => [c.category, c.id])
+  ) as Record<string, string>;
+
   // ── Sprints (sample data) ─────────────────────────────────────
   // Org-wide sprints with a standalone SprintTask backlog. Tasks can tag a
   // team (product/department) and optionally link a KR. Dates are relative to
@@ -1015,6 +1041,7 @@ async function main() {
         departmentId: t.deptIdx !== undefined ? departments[t.deptIdx].id : null,
         title: t.title,
         status: t.status,
+        columnId: columnIdByCategory[t.status] ?? null,
         priority: t.priority,
         storyPoints: t.points,
         assigneeId: t.assigneeId,

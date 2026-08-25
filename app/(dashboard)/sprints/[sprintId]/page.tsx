@@ -22,6 +22,7 @@ import {
   serializeRecurringTask,
 } from "@/lib/sprint-serialize";
 import { canManageRecurring } from "@/lib/recurring-task";
+import { loadWorkflows, loadTeamWorkflowMap } from "@/lib/board-column-server";
 import { loadViewerTeams } from "@/lib/sprint-request-server";
 import { watDateOnly, toDateKey } from "@/lib/standup";
 import { SprintDetail } from "@/components/sprints/SprintDetail";
@@ -180,6 +181,13 @@ export default async function SprintDetailPage({
   rosterMap.set(session.user.id, session.user.name);
   const standupRoster = [...rosterMap.entries()].map(([id, name]) => ({ id, name }));
 
+  // Flux de colonnes : le tableau affiche celui de l'équipe filtrée, donc il
+  // faut les charger tous plus la table d'affectation.
+  const [workflows, teamWorkflows] = await Promise.all([
+    loadWorkflows(orgId),
+    loadTeamWorkflowMap(orgId),
+  ]);
+
   const initialStandups = standupsToday.map((s) => ({
     userId: s.userId,
     yesterday: s.yesterday,
@@ -219,6 +227,8 @@ export default async function SprintDetailPage({
       standupRoster={standupRoster}
       initialStandups={initialStandups}
       recurringTemplates={recurringTemplates}
+      workflows={workflows}
+      teamWorkflows={teamWorkflows}
     />
   );
 }

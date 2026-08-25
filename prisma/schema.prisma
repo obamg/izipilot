@@ -231,6 +231,8 @@ model Organization {
   evaluations        Evaluation[]
   appraisals         Appraisal[]
   supportRequests    SupportRequest[]
+  boardWorkflows     BoardWorkflow[]
+  boardColumns       BoardColumn[]
 
   @@map("organizations")
 }
@@ -369,6 +371,8 @@ model Department {
   // support qui reçoit les demandes en auto-affectation ; à défaut, le owner.
   acceptsRequests Boolean  @default(false)
   supportUserId   String?
+  // Flux de colonnes du tableau pour cette équipe ; null → flux par défaut.
+  workflowId      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -376,6 +380,7 @@ model Department {
   org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   owner              User                @relation("DepartmentOwner", fields: [ownerId], references: [id])
   supportUser        User?               @relation("DepartmentSupport", fields: [supportUserId], references: [id], onDelete: SetNull)
+  workflow           BoardWorkflow?      @relation("DepartmentWorkflow", fields: [workflowId], references: [id], onDelete: SetNull)
   objectives         Objective[]
   members            DepartmentMember[]
   sprintTasks        SprintTask[]        @relation("SprintTaskDept")
@@ -419,12 +424,15 @@ model Product {
   ownerId     String // PO du produit
   sortOrder   Int           @default(0)
   isActive    Boolean       @default(true)
+  // Flux de colonnes du tableau pour cette équipe ; null → flux par défaut.
+  workflowId  String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   // Relations
   org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   owner              User                @relation("ProductOwner", fields: [ownerId], references: [id])
+  workflow           BoardWorkflow?      @relation("ProductWorkflow", fields: [workflowId], references: [id], onDelete: SetNull)
   objectives         Objective[]
   sprintTasks        SprintTask[]        @relation("SprintTaskProduct")
   sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetProduct")
@@ -854,9 +862,15 @@ model SprintTask {
   departmentId    String? // Tag équipe (filtre board)
   productId       String? // Tag équipe (filtre board)
   recurringTaskId String? // Origine : généré par un modèle récurrent
+  // Colonne du tableau (flux de l'équipe). Null = tâche non encore placée : le
+  // board la range alors dans la première colonne de sa catégorie `status`.
+  columnId        String?
   title           String
   description     String?        @db.Text
   reportUrl       String? // Lien vers le rapport de tâche (document externe)
+  // Projection dénormalisée de column.category, réécrite à chaque déplacement.
+  // Source unique pour toutes les métriques (voir lib/sprint.ts) : garder le
+  // scalaire évite un join sur chaque calcul et préserve l'index ci-dessous.
   status          ActionStatus   @default(TODO)
   priority        ActionPriority @default(MEDIUM)
   storyPoints     Int? // Estimation (capacité / vélocité)
@@ -881,8 +895,10 @@ model SprintTask {
   steps           SprintTaskStep[]
   supportRequests SupportRequest[]    @relation("SupportRequestTask")
   recurringTask   RecurringTask?      @relation("SprintTaskRecurring", fields: [recurringTaskId], references: [id], onDelete: SetNull)
+  column          BoardColumn?        @relation(fields: [columnId], references: [id], onDelete: SetNull)
 
   @@index([orgId, sprintId, status])
+  @@index([columnId])
   @@index([assigneeId])
   @@index([krId])
   @@index([departmentId])
@@ -966,6 +982,74 @@ model SprintTaskStep {
   @@index([taskId])
   @@index([orgId])
   @@map("sprint_task_steps")
+}
+
+// ============================================================================
+// FLUX DE TRAVAIL (colonnes de tableau configurables par équipe)
+// ============================================================================
+
+// Le « seau » sémantique d'une colonne. Une équipe crée autant de colonnes
+// qu'elle veut, mais chacune retombe dans l'une de ces cinq catégories — et
+// c'est la catégorie, jamais le libellé, que lisent les métriques (stats de
+// sprint, burndown, vélocité, report au sprint suivant, évaluation).
+// Volontairement aligné sur ActionStatus : SprintTask.status en est la
+// projection dénormalisée, entretenue à chaque déplacement de carte.
+enum BoardColumnCategory {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+// Un jeu de colonnes partageable. Chaque département / produit pointe vers un
+// flux ; ceux qui n'en désignent aucun utilisent le flux par défaut de l'org.
+// L'indirection évite de dupliquer 15 jeux de colonnes quasi identiques quand
+// trois équipes travaillent de la même façon.
+model BoardWorkflow {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String // Ex: "Flux par défaut", "Flux IT"
+  description String?
+  // Exactement un par org (app-enforced) : filet de sécurité pour toute équipe
+  // sans flux désigné, et indestructible pour cette raison.
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  columns     BoardColumn[]
+  departments Department[]  @relation("DepartmentWorkflow")
+  products    Product[]     @relation("ProductWorkflow")
+
+  @@unique([orgId, name])
+  @@index([orgId])
+  @@map("board_workflows")
+}
+
+// Une colonne du tableau. `label` et `color` sont libres ; `category` porte le
+// sens. wipLimit = nombre max de cartes avant alerte visuelle (0/null = aucune).
+model BoardColumn {
+  id         String              @id @default(cuid())
+  orgId      String
+  workflowId String
+  label      String
+  color      String              @default("#5f6e7a")
+  category   BoardColumnCategory
+  sortOrder  Int                 @default(0)
+  wipLimit   Int?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  // Relations
+  org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  workflow BoardWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tasks    SprintTask[]
+
+  @@index([workflowId, sortOrder])
+  @@index([orgId])
+  @@map("board_columns")
 }
 
 enum RecurrenceFrequency {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
 import { advancePastNow } from "@/lib/recurring-task";
+import { resolveInitialColumn } from "@/lib/board-column-server";
 
 const logger = log.child("cron/spawn-recurring");
 
@@ -60,6 +61,12 @@ export async function GET(request: NextRequest) {
           t.monthDay
         );
 
+        // Colonne de départ dans le flux de l'équipe du modèle.
+        const columnId = await resolveInitialColumn(t.orgId, {
+          departmentId: t.departmentId,
+          productId: t.productId,
+        });
+
         await prisma.$transaction(async (tx) => {
           const sortOrder = await tx.sprintTask.count({
             where: { orgId: t.orgId, sprintId },
@@ -72,6 +79,7 @@ export async function GET(request: NextRequest) {
               krId: t.krId,
               departmentId: t.departmentId,
               productId: t.productId,
+              columnId,
               title: t.title,
               description: t.description,
               priority: t.priority,

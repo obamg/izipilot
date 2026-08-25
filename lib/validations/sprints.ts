@@ -59,6 +59,11 @@ export const updateSprintTaskSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
   reportUrl: reportUrlSchema,
+  // Déplacement sur le tableau : columnId est la forme préférée — la route en
+  // dérive le statut depuis la catégorie de la colonne, pour que le libellé et
+  // la sémantique ne puissent pas diverger. `status` reste accepté pour les
+  // tâches sans colonne (flux dépourvu de cette catégorie) et pour l'API.
+  columnId: z.string().nullable().optional(),
   status: taskStatusEnum.optional(),
   priority: taskPriorityEnum.optional(),
   storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
