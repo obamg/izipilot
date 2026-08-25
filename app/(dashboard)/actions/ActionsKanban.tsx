@@ -16,6 +16,15 @@ import {
 } from "@dnd-kit/core";
 import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  equivalentColumn,
+  groupTasksByColumn,
+  wipState,
+  type BoardColumnDef,
+  type BoardWorkflowDef,
+} from "@/lib/board-column";
 
 export interface KanbanAction {
   id: string;
@@ -27,6 +36,9 @@ export interface KanbanAction {
   description: string | null;
   assigneeId: string;
   assigneeName: string;
+  /** Clé d'équipe du KR porteur ("P:<id>" / "D:<id>") — pilote le flux. */
+  entityKey: string | null;
+  columnId: string | null;
   status: ActionStatus;
   priority: ActionPriority;
   dueDate: string | null;
@@ -36,16 +48,26 @@ export interface KanbanAction {
 interface ActionsKanbanProps {
   actions: KanbanAction[];
   currentUserRole: UserRole;
+  /** Tous les flux de l'org, colonnes incluses. */
+  workflows: BoardWorkflowDef[];
+  /** Quelle équipe utilise quel flux. */
+  teamWorkflows: { defaultWorkflowId: string; byTeam: Record<string, string> };
+  /** Clé de l'équipe filtrée, ou null si le filtre est sur « toutes ». */
+  activeTeamKey: string | null;
   onCardClick?: (action: KanbanAction) => void;
 }
 
-const COLUMNS: { id: ActionStatus; label: string; accent: string }[] = [
-  { id: "TODO", label: "À faire", accent: "#5f6e7a" },
-  { id: "IN_PROGRESS", label: "En cours", accent: "#185FA5" },
-  { id: "BLOCKED", label: "Bloquée", accent: "#e23c4a" },
-  { id: "DONE", label: "Terminée", accent: "#1d9e75" },
-  { id: "CANCELLED", label: "Annulée", accent: "#8a9aa5" },
-];
+// Colonnes de repli quand le filtre porte sur plusieurs équipes : chacune a
+// son flux, aucun ne serait honnête ici. On retombe sur les cinq catégories —
+// exactement ce que lisent les statistiques.
+const CATEGORY_COLUMNS: BoardColumnDef[] = CATEGORY_ORDER.map((category, i) => ({
+  id: `cat:${category}`,
+  label: CATEGORY_META[category].label,
+  color: CATEGORY_META[category].color,
+  category,
+  sortOrder: i,
+  wipLimit: null,
+}));
 
 const PRIORITY_RANK: Record<ActionPriority, number> = {
   URGENT: 0,
@@ -54,7 +76,14 @@ const PRIORITY_RANK: Record<ActionPriority, number> = {
   LOW: 3,
 };
 
-export function ActionsKanban({ actions: serverActions, currentUserRole, onCardClick }: ActionsKanbanProps) {
+export function ActionsKanban({
+  actions: serverActions,
+  currentUserRole,
+  workflows,
+  teamWorkflows,
+  activeTeamKey,
+  onCardClick,
+}: ActionsKanbanProps) {
   const router = useRouter();
   const canDrag = currentUserRole !== "VIEWER";
 
@@ -64,25 +93,50 @@ export function ActionsKanban({ actions: serverActions, currentUserRole, onCardC
   // automatically — no manual resync needed.
   const [actions, applyOptimistic] = useOptimistic<
     KanbanAction[],
-    { id: string; status: ActionStatus }
+    { id: string; columnId: string | null; status: ActionStatus }
   >(serverActions, (state, change) =>
-    state.map((a) => (a.id === change.id ? { ...a, status: change.status } : a))
+    state.map((a) =>
+      a.id === change.id
+        ? { ...a, columnId: change.columnId, status: change.status }
+        : a
+    )
   );
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const columns = useMemo(() => {
-    const groups: Record<ActionStatus, KanbanAction[]> = {
-      TODO: [],
-      IN_PROGRESS: [],
-      BLOCKED: [],
-      DONE: [],
-      CANCELLED: [],
-    };
-    for (const a of actions) groups[a.status].push(a);
-    for (const status of Object.keys(groups) as ActionStatus[]) {
-      groups[status].sort((a, b) => {
+  const byWorkflowId = useMemo(
+    () => new Map(workflows.map((w) => [w.id, w])),
+    [workflows]
+  );
+
+  // Le flux d'une action, via l'équipe de son KR.
+  const workflowForAction = useMemo(
+    () =>
+      (a: KanbanAction): BoardWorkflowDef | null => {
+        const id =
+          (a.entityKey ? teamWorkflows.byTeam[a.entityKey] : undefined) ??
+          teamWorkflows.defaultWorkflowId;
+        return byWorkflowId.get(id) ?? null;
+      },
+    [byWorkflowId, teamWorkflows]
+  );
+
+  // Filtre sur une équipe → son flux réel. Sinon → les cinq catégories.
+  const activeWorkflow = useMemo(() => {
+    if (!activeTeamKey) return null;
+    const id = teamWorkflows.byTeam[activeTeamKey] ?? teamWorkflows.defaultWorkflowId;
+    return byWorkflowId.get(id) ?? null;
+  }, [activeTeamKey, teamWorkflows, byWorkflowId]);
+
+  const displayColumns = activeWorkflow?.columns.length
+    ? activeWorkflow.columns
+    : CATEGORY_COLUMNS;
+
+  const { byColumn, orphans } = useMemo(() => {
+    const grouped = groupTasksByColumn(displayColumns, actions);
+    for (const key of Object.keys(grouped.byColumn)) {
+      grouped.byColumn[key].sort((a, b) => {
         const p = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
         if (p !== 0) return p;
         const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
@@ -90,8 +144,8 @@ export function ActionsKanban({ actions: serverActions, currentUserRole, onCardC
         return aDue - bDue;
       });
     }
-    return groups;
-  }, [actions]);
+    return grouped;
+  }, [displayColumns, actions]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -112,19 +166,35 @@ export function ActionsKanban({ actions: serverActions, currentUserRole, onCardC
     const current = actions.find((a) => a.id === actionId);
     if (!current) return;
 
-    const newStatus = (COLUMNS.find((c) => c.id === overId)?.id ?? null) as ActionStatus | null;
-    if (!newStatus || current.status === newStatus) return;
+    const target = displayColumns.find((c) => c.id === overId);
+    if (!target) return;
+
+    // En vue multi-équipes la colonne visée n'est qu'une catégorie : on renvoie
+    // l'action vers la colonne équivalente de SON propre flux plutôt que de
+    // l'arracher au flux de son équipe.
+    const resolved = activeWorkflow
+      ? target
+      : equivalentColumn(workflowForAction(current)?.columns ?? [], target.category);
+
+    const nextColumnId = resolved?.id ?? null;
+    const nextStatus = target.category;
+    if (current.columnId === nextColumnId && current.status === nextStatus) return;
 
     // useOptimistic mutations must happen inside a transition. On error the
     // optimistic value is automatically discarded on the next render, so we
     // only need to surface the message — no manual rollback.
     startTransition(async () => {
-      applyOptimistic({ id: actionId, status: newStatus });
+      applyOptimistic({ id: actionId, columnId: nextColumnId, status: nextStatus });
       try {
+        // columnId quand la colonne cible est connue (le serveur en dérive le
+        // statut) ; sinon le statut seul, pour une action hors flux.
+        const payload = nextColumnId
+          ? { columnId: nextColumnId }
+          : { columnId: null, status: nextStatus };
         const res = await fetch(`/api/actions/${actionId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -153,23 +223,51 @@ export function ActionsKanban({ actions: serverActions, currentUserRole, onCardC
           {errorMsg}
         </div>
       )}
+      <div className="mb-2 text-[11px] text-izi-gray">
+        {activeWorkflow ? (
+          <span>
+            Flux <span className="font-medium text-dark">{activeWorkflow.name}</span>
+          </span>
+        ) : (
+          <span>
+            Plusieurs équipes — colonnes regroupées par catégorie. Filtrez sur une
+            entité pour voir son flux.
+          </span>
+        )}
+      </div>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {COLUMNS.map((col) => (
+        {/* Colonne unique sur mobile, rail scrollable dès sm : le nombre de
+            colonnes est libre, la grille fixe à 5 ne tient plus. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:overflow-x-auto sm:pb-2">
+          {displayColumns.map((col) => (
             <KanbanColumn
               key={col.id}
-              id={col.id}
-              label={col.label}
-              accent={col.accent}
-              cards={columns[col.id]}
+              column={col}
+              cards={byColumn[col.id] ?? []}
               canDrag={canDrag}
               onCardClick={onCardClick}
             />
           ))}
+          {orphans.length > 0 && (
+            <KanbanColumn
+              column={{
+                id: "orphans",
+                label: "Hors flux",
+                color: "#8a9aa5",
+                category: "TODO",
+                sortOrder: 999,
+                wipLimit: null,
+              }}
+              cards={orphans}
+              canDrag={false}
+              onCardClick={onCardClick}
+              hint="Ces actions ont une catégorie sans colonne dans ce flux. Déposez-les dans une colonne pour les réintégrer."
+            />
+          )}
         </div>
         <DragOverlay dropAnimation={null}>
           {draggingAction && (
@@ -182,36 +280,59 @@ export function ActionsKanban({ actions: serverActions, currentUserRole, onCardC
 }
 
 interface KanbanColumnProps {
-  id: ActionStatus;
-  label: string;
-  accent: string;
+  column: BoardColumnDef;
   cards: KanbanAction[];
   canDrag: boolean;
   onCardClick?: (action: KanbanAction) => void;
+  /** La colonne « Hors flux » se vide mais ne se remplit pas. */
+  hint?: string;
 }
 
-function KanbanColumn({ id, label, accent, cards, canDrag, onCardClick }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+function KanbanColumn({ column, cards, canDrag, onCardClick, hint }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id, disabled: !!hint });
+  const wip = wipState(cards.length, column.wipLimit);
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-[10px] border bg-izi-gray-lt/40 transition-colors ${
+      className={`flex flex-col rounded-[10px] border bg-izi-gray-lt/40 transition-colors sm:w-[260px] sm:shrink-0 ${
         isOver ? "border-teal bg-teal-lt/60" : "border-border-soft"
       }`}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-soft">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: accent }}
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: column.color }}
             aria-hidden
           />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-dark">
-            {label}
+          <span
+            className="truncate text-[11px] font-semibold uppercase tracking-[0.05em] text-dark"
+            title={hint ?? column.label}
+          >
+            {column.label}
           </span>
         </div>
-        <span className="font-mono text-[10px] text-izi-gray">{cards.length}</span>
+        <span
+          className={`shrink-0 font-mono text-[10px] ${
+            wip === "OVER"
+              ? "font-semibold text-[var(--red)]"
+              : wip === "AT"
+              ? "font-semibold text-gold"
+              : "text-izi-gray"
+          }`}
+          title={
+            column.wipLimit
+              ? `Limite d'encours : ${cards.length}/${column.wipLimit}`
+              : undefined
+          }
+        >
+          {cards.length}
+          {column.wipLimit ? `/${column.wipLimit}` : ""}
+        </span>
       </div>
+      {hint && (
+        <p className="px-3 pt-2 text-[10px] leading-snug text-izi-gray">{hint}</p>
+      )}
       <div className="flex flex-col gap-2 p-2 min-h-[120px]">
         {cards.length === 0 && (
           <div className="text-center text-[10px] text-izi-gray py-4 italic">

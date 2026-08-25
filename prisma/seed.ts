@@ -841,6 +841,31 @@ async function main() {
     companyObjCount++;
   }
 
+  // ── Flux de tableau ───────────────────────────────────────────
+  // Le flux par défaut reproduit les cinq colonnes historiques. Toute équipe
+  // sans flux dédié l'utilise ; l'admin peut ensuite en créer d'autres.
+  const defaultWorkflow = await prisma.boardWorkflow.create({
+    data: {
+      orgId: org.id,
+      name: "Flux par défaut",
+      description: "Colonnes standard appliquées à toute équipe sans flux dédié.",
+      isDefault: true,
+      columns: {
+        create: DEFAULT_COLUMNS.map((c, i) => ({
+          orgId: org.id,
+          label: c.label,
+          color: c.color,
+          category: c.category,
+          sortOrder: i,
+        })),
+      },
+    },
+    include: { columns: true },
+  });
+  const columnIdByCategory = Object.fromEntries(
+    defaultWorkflow.columns.map((c) => [c.category, c.id])
+  ) as Record<string, string>;
+
   // ── Actions (sample data) ──────────────────────────────────────
   // Fetch some KRs to attach actions to
   const sampleKrs = await prisma.keyResult.findMany({
@@ -894,6 +919,7 @@ async function main() {
         assigneeId: kr.ownerId,
         createdById: kr.ownerId,
         status: a.status,
+        columnId: columnIdByCategory[a.status] ?? null,
         priority: a.priority,
         dueDate: a.dueDate ?? null,
         completedAt: a.status === "DONE" ? new Date() : null,
@@ -914,31 +940,6 @@ async function main() {
     }
     actionCount++;
   }
-
-  // ── Flux de tableau ───────────────────────────────────────────
-  // Le flux par défaut reproduit les cinq colonnes historiques. Toute équipe
-  // sans flux dédié l'utilise ; l'admin peut ensuite en créer d'autres.
-  const defaultWorkflow = await prisma.boardWorkflow.create({
-    data: {
-      orgId: org.id,
-      name: "Flux par défaut",
-      description: "Colonnes standard appliquées à toute équipe sans flux dédié.",
-      isDefault: true,
-      columns: {
-        create: DEFAULT_COLUMNS.map((c, i) => ({
-          orgId: org.id,
-          label: c.label,
-          color: c.color,
-          category: c.category,
-          sortOrder: i,
-        })),
-      },
-    },
-    include: { columns: true },
-  });
-  const columnIdByCategory = Object.fromEntries(
-    defaultWorkflow.columns.map((c) => [c.category, c.id])
-  ) as Record<string, string>;
 
   // ── Sprints (sample data) ─────────────────────────────────────
   // Org-wide sprints with a standalone SprintTask backlog. Tasks can tag a

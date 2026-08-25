@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ActionsList } from "./ActionsList";
 import { actionVisibilityWhere } from "@/lib/visibility";
+import { loadWorkflows, loadTeamWorkflowMap } from "@/lib/board-column-server";
 
 export default async function ActionsPage({
   searchParams,
@@ -19,7 +20,7 @@ export default async function ActionsPage({
   // dropdown stays fully user-controlled.
   const defaultAssigneeId = params.assignee === "me" ? session.user.id : null;
 
-  const [actions, orgUsers] = await Promise.all([
+  const [actions, orgUsers, workflows, teamWorkflows] = await Promise.all([
     prisma.action.findMany({
       where: { orgId, ...actionVisibilityWhere(session.user.role) },
       include: {
@@ -32,8 +33,8 @@ export default async function ActionsPage({
             objective: {
               select: {
                 title: true,
-                product: { select: { code: true, name: true } },
-                department: { select: { code: true, name: true } },
+                product: { select: { id: true, code: true, name: true } },
+                department: { select: { id: true, code: true, name: true } },
               },
             },
           },
@@ -47,6 +48,9 @@ export default async function ActionsPage({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    // Flux de colonnes : le kanban affiche celui de l'entité filtrée.
+    loadWorkflows(orgId),
+    loadTeamWorkflowMap(orgId),
   ]);
 
   const actionsData = actions.map((a) => ({
@@ -55,6 +59,13 @@ export default async function ActionsPage({
     krTitle: a.keyResult.title,
     entityCode: a.keyResult.objective.product?.code ?? a.keyResult.objective.department?.code ?? "",
     entityName: a.keyResult.objective.product?.name ?? a.keyResult.objective.department?.name ?? "",
+    // Clé d'équipe du KR porteur — le produit prime, comme partout ailleurs.
+    entityKey: a.keyResult.objective.product
+      ? `P:${a.keyResult.objective.product.id}`
+      : a.keyResult.objective.department
+      ? `D:${a.keyResult.objective.department.id}`
+      : null,
+    columnId: a.columnId,
     title: a.title,
     description: a.description,
     assigneeId: a.assignee.id,
@@ -86,6 +97,8 @@ export default async function ActionsPage({
         users={orgUsers}
         currentUserRole={session.user.role}
         defaultAssigneeId={defaultAssigneeId}
+        workflows={workflows}
+        teamWorkflows={teamWorkflows}
       />
     </div>
   );

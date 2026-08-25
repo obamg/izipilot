@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { resolveActionColumn } from "@/lib/board-column-server";
 import { createActionSchema } from "@/lib/validations/actions";
 import { getISOWeek } from "@/lib/date";
 import { actionVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
@@ -129,10 +130,14 @@ export async function POST(request: NextRequest) {
 
   const { weekNumber } = getISOWeek(new Date());
 
+  // Première colonne « À faire » du flux de l'équipe portant le KR.
+  const columnId = await resolveActionColumn(session.user.orgId, krId, "TODO");
+
   const action = await prisma.action.create({
     data: {
       orgId: session.user.orgId,
       krId,
+      columnId,
       title,
       description: description ?? null,
       assigneeId,

@@ -782,6 +782,11 @@ model Action {
   description   String?        @db.Text
   assigneeId    String
   createdById   String
+  // Colonne du tableau. L'équipe d'une action n'est pas portée directement :
+  // elle vient de son KR (keyResult → objective → product | department), et
+  // c'est le flux de cette équipe qui s'applique.
+  columnId      String?
+  // Projection dénormalisée de column.category — même contrat que SprintTask.
   status        ActionStatus   @default(TODO)
   priority      ActionPriority @default(MEDIUM)
   dueDate       DateTime?
@@ -797,12 +802,14 @@ model Action {
   assignee  User            @relation("ActionAssignee", fields: [assigneeId], references: [id])
   createdBy User            @relation("ActionCreator", fields: [createdById], references: [id])
   comments  ActionComment[]
+  column    BoardColumn?    @relation(fields: [columnId], references: [id], onDelete: SetNull)
 
   @@index([orgId])
   @@index([krId])
   @@index([assigneeId])
   @@index([orgId, status])
   @@index([createdById])
+  @@index([columnId])
   @@map("actions")
 }
 
@@ -1053,6 +1060,7 @@ model BoardColumn {
   org      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   workflow BoardWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   tasks    SprintTask[]
+  actions  Action[]
 
   @@index([workflowId, sortOrder])
   @@index([orgId])

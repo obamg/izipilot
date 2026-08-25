@@ -15,6 +15,10 @@ export const updateActionSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   description: z.string().max(500).nullable().optional(),
   assigneeId: z.string().optional(),
+  // Déplacement sur le tableau : columnId est la forme préférée — la route en
+  // dérive le statut depuis la catégorie de la colonne, pour que le libellé et
+  // la sémantique ne puissent pas diverger.
+  columnId: z.string().nullable().optional(),
   status: z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   dueDate: z.string().nullable().optional(),

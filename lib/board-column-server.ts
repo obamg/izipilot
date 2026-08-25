@@ -218,6 +218,37 @@ export async function teamKeysByWorkflow(
   return out;
 }
 
+/**
+ * L'équipe d'une action, déduite de son KR : action → keyResult → objective →
+ * produit ou département. Contrairement à une tâche de sprint, une action ne
+ * porte pas d'étiquette d'équipe ; son KR est obligatoire, donc l'équipe est
+ * toujours déterminable.
+ */
+export async function teamOfKr(
+  orgId: string,
+  krId: string
+): Promise<{ departmentId: string | null; productId: string | null }> {
+  const kr = await prisma.keyResult.findFirst({
+    where: { id: krId, orgId },
+    select: {
+      objective: { select: { departmentId: true, productId: true } },
+    },
+  });
+  return {
+    departmentId: kr?.objective.departmentId ?? null,
+    productId: kr?.objective.productId ?? null,
+  };
+}
+
+/** La colonne d'une action pour une catégorie donnée, via l'équipe de son KR. */
+export async function resolveActionColumn(
+  orgId: string,
+  krId: string,
+  category: BoardColumnCategory
+): Promise<string | null> {
+  return resolveColumnFor(orgId, await teamOfKr(orgId, krId), category);
+}
+
 /** Colonne de départ d'une tâche fraîchement créée (première colonne « À faire »). */
 export function resolveInitialColumn(
   orgId: string,
