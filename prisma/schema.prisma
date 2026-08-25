@@ -259,6 +259,7 @@ model User {
   org                        Organization               @relation(fields: [orgId], references: [id], onDelete: Cascade)
   ownedDepartments           Department[]               @relation("DepartmentOwner")
   ownedProducts              Product[]                  @relation("ProductOwner")
+  createdBoardWorkflows      BoardWorkflow[]            @relation("BoardWorkflowCreator")
   ownedKeyResults            KeyResult[]                @relation("KrOwner")
   weeklyEntries              WeeklyEntry[]
   alerts                     Alert[]                    @relation("AlertTriggeredBy")
@@ -1014,11 +1015,17 @@ model BoardWorkflow {
   // Exactement un par org (app-enforced) : filet de sécurité pour toute équipe
   // sans flux désigné, et indestructible pour cette raison.
   isDefault   Boolean  @default(false)
+  // Auteur du flux. Sert à trancher les droits d'un PO sur un flux qui n'est
+  // encore rattaché à aucune équipe : sans équipe, la règle « toutes les
+  // équipes m'appartiennent » serait vraie pour tout le monde. Null pour le
+  // flux par défaut (créé par la migration ou le seed, pas par une personne).
+  createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
   org         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy   User?         @relation("BoardWorkflowCreator", fields: [createdById], references: [id], onDelete: SetNull)
   columns     BoardColumn[]
   departments Department[]  @relation("DepartmentWorkflow")
   products    Product[]     @relation("ProductWorkflow")
