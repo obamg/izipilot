@@ -170,6 +170,54 @@ export async function resolveColumnFor(
   return column?.id ?? null;
 }
 
+/**
+ * Les équipes dont la personne est responsable, sous forme de clés de filtre
+ * ("P:<id>" / "D:<id>"). C'est le périmètre d'un PO sur les flux.
+ */
+export async function ownedTeamKeys(
+  orgId: string,
+  userId: string
+): Promise<string[]> {
+  const [products, departments] = await Promise.all([
+    prisma.product.findMany({
+      where: { orgId, ownerId: userId },
+      select: { id: true },
+    }),
+    prisma.department.findMany({
+      where: { orgId, ownerId: userId },
+      select: { id: true },
+    }),
+  ]);
+  return [
+    ...products.map((p) => `P:${p.id}`),
+    ...departments.map((d) => `D:${d.id}`),
+  ];
+}
+
+/** Les clés d'équipe rattachées à chaque flux — nécessaire pour trancher les droits. */
+export async function teamKeysByWorkflow(
+  orgId: string
+): Promise<Record<string, string[]>> {
+  const [products, departments] = await Promise.all([
+    prisma.product.findMany({
+      where: { orgId, workflowId: { not: null } },
+      select: { id: true, workflowId: true },
+    }),
+    prisma.department.findMany({
+      where: { orgId, workflowId: { not: null } },
+      select: { id: true, workflowId: true },
+    }),
+  ]);
+
+  const out: Record<string, string[]> = {};
+  const push = (workflowId: string, key: string) => {
+    (out[workflowId] ??= []).push(key);
+  };
+  for (const p of products) if (p.workflowId) push(p.workflowId, `P:${p.id}`);
+  for (const d of departments) if (d.workflowId) push(d.workflowId, `D:${d.id}`);
+  return out;
+}
+
 /** Colonne de départ d'une tâche fraîchement créée (première colonne « À faire »). */
 export function resolveInitialColumn(
   orgId: string,

@@ -9,6 +9,15 @@ import {
   DEFAULT_COLUMNS,
   checkRequiredCategories,
 } from "@/lib/board-column";
+import { ownedTeamKeys, teamKeysByWorkflow } from "@/lib/board-column-server";
+import {
+  canAssignTeam,
+  canCreateWorkflow,
+  canDeleteWorkflow,
+  canEditWorkflow,
+  canViewWorkflows,
+  type WorkflowViewer,
+} from "@/lib/workflow-access";
 
 export interface ActionResult {
   ok: boolean;
@@ -20,21 +29,63 @@ function fail(error: string): ActionResult {
 }
 
 /**
- * Configurer les flux touche la façon dont TOUTES les équipes voient leur
- * travail — réservé au CEO, comme le reste de /admin (le layout l'impose déjà ;
- * on le revérifie ici car une Server Action est appelable directement).
+ * Le viewer et son périmètre d'équipes. CEO / management passent partout ; un
+ * PO n'agit que sur les flux de ses propres équipes (voir lib/workflow-access).
+ * Revérifié ici car une Server Action est appelable directement, sans passer
+ * par la page.
  */
-async function requireAdmin(): Promise<
-  { ok: true; orgId: string } | { ok: false; error: string }
+async function requireViewer(): Promise<
+  { ok: true; viewer: WorkflowViewer; orgId: string } | { ok: false; error: string }
 > {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié" };
-  if (session.user.role !== "CEO") return { ok: false, error: "Accès refusé" };
-  return { ok: true, orgId: session.user.orgId };
+  if (!canViewWorkflows(session.user.role)) {
+    return { ok: false, error: "Accès refusé" };
+  }
+  const orgId = session.user.orgId;
+  return {
+    ok: true,
+    orgId,
+    viewer: {
+      id: session.user.id,
+      role: session.user.role,
+      ownedTeamKeys: await ownedTeamKeys(orgId, session.user.id),
+    },
+  };
+}
+
+/**
+ * Charge un flux et vérifie que le viewer a le droit de le modifier. Toutes les
+ * mutations de flux et de colonnes passent par là — un seul endroit à auditer.
+ */
+async function requireEditableWorkflow(
+  viewer: WorkflowViewer,
+  orgId: string,
+  workflowId: string
+): Promise<{ ok: true; isDefault: boolean } | { ok: false; error: string }> {
+  const wf = await prisma.boardWorkflow.findFirst({
+    where: { id: workflowId, orgId },
+    select: { id: true, isDefault: true, createdById: true },
+  });
+  if (!wf) return { ok: false, error: "Flux introuvable" };
+
+  const byWorkflow = await teamKeysByWorkflow(orgId);
+  const allowed = canEditWorkflow(viewer, {
+    isDefault: wf.isDefault,
+    createdById: wf.createdById,
+    teamKeys: byWorkflow[wf.id] ?? [],
+  });
+  if (!allowed) {
+    return {
+      ok: false,
+      error: "Ce flux est utilisé par une équipe que vous ne pilotez pas",
+    };
+  }
+  return { ok: true, isDefault: wf.isDefault };
 }
 
 function revalidate() {
-  revalidatePath("/admin/workflows");
+  revalidatePath("/workflows");
   revalidatePath("/sprints");
 }
 
@@ -48,8 +99,10 @@ export async function createWorkflow(
   name: string,
   description: string | null
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
+  if (!canCreateWorkflow(viewer)) return fail("Accès refusé");
 
   const trimmed = name.trim();
   if (trimmed.length < 2) return fail("Nom trop court");
@@ -61,13 +114,16 @@ export async function createWorkflow(
     // inutilisable.
     await prisma.boardWorkflow.create({
       data: {
-        orgId: admin.orgId,
+        orgId,
         name: trimmed,
         description: description?.trim() || null,
         isDefault: false,
+        // Trace l'auteur : tant que le flux n'a pas d'équipe, c'est lui seul
+        // qui peut y toucher (voir lib/workflow-access).
+        createdById: viewer.id,
         columns: {
           create: DEFAULT_COLUMNS.map((c, i) => ({
-            orgId: admin.orgId,
+            orgId,
             label: c.label,
             color: c.color,
             category: c.category,
@@ -92,17 +148,14 @@ export async function updateWorkflow(
   name: string,
   description: string | null
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
 
   const trimmed = name.trim();
   if (trimmed.length < 2) return fail("Nom trop court");
 
-  const existing = await prisma.boardWorkflow.findFirst({
-    where: { id, orgId: admin.orgId },
-    select: { id: true },
-  });
-  if (!existing) return fail("Flux introuvable");
+  const guard = await requireEditableWorkflow(auth_.viewer, auth_.orgId, id);
+  if (!guard.ok) return fail(guard.error);
 
   try {
     await prisma.boardWorkflow.update({
@@ -121,18 +174,29 @@ export async function updateWorkflow(
 }
 
 export async function deleteWorkflow(id: string): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
 
   const wf = await prisma.boardWorkflow.findFirst({
-    where: { id, orgId: admin.orgId },
-    select: { id: true, isDefault: true },
+    where: { id, orgId },
+    select: { id: true, isDefault: true, createdById: true },
   });
   if (!wf) return fail("Flux introuvable");
   if (wf.isDefault) {
     return fail(
       "Le flux par défaut ne peut pas être supprimé — c'est le filet de sécurité des équipes sans flux dédié"
     );
+  }
+
+  const byWorkflow = await teamKeysByWorkflow(orgId);
+  const allowed = canDeleteWorkflow(viewer, {
+    isDefault: wf.isDefault,
+    createdById: wf.createdById,
+    teamKeys: byWorkflow[wf.id] ?? [],
+  });
+  if (!allowed) {
+    return fail("Ce flux est utilisé par une équipe que vous ne pilotez pas");
   }
 
   // Les colonnes tombent en cascade et les tâches concernées repassent à
@@ -181,31 +245,31 @@ export async function createColumn(
   workflowId: string,
   input: { label: string; color: string; category: string; wipLimit: number | null }
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
 
   const label = input.label.trim();
   if (label.length < 1) return fail("Libellé requis");
   if (label.length > 40) return fail("Libellé trop long (40 caractères max)");
   if (!isCategory(input.category)) return fail("Catégorie inconnue");
 
-  const wf = await prisma.boardWorkflow.findFirst({
-    where: { id: workflowId, orgId: admin.orgId },
-    select: { id: true, _count: { select: { columns: true } } },
-  });
-  if (!wf) return fail("Flux introuvable");
-  if (wf._count.columns >= 12) {
+  const guard = await requireEditableWorkflow(viewer, orgId, workflowId);
+  if (!guard.ok) return fail(guard.error);
+
+  const count = await prisma.boardColumn.count({ where: { workflowId } });
+  if (count >= 12) {
     return fail("12 colonnes maximum par flux — au-delà le tableau devient illisible");
   }
 
   await prisma.boardColumn.create({
     data: {
-      orgId: admin.orgId,
+      orgId,
       workflowId,
       label,
       color: input.color,
       category: input.category,
-      sortOrder: wf._count.columns,
+      sortOrder: count,
       wipLimit: input.wipLimit && input.wipLimit > 0 ? input.wipLimit : null,
     },
   });
@@ -218,18 +282,22 @@ export async function updateColumn(
   id: string,
   input: { label: string; color: string; category: string; wipLimit: number | null }
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
 
   const label = input.label.trim();
   if (label.length < 1) return fail("Libellé requis");
   if (!isCategory(input.category)) return fail("Catégorie inconnue");
 
   const column = await prisma.boardColumn.findFirst({
-    where: { id, orgId: admin.orgId },
+    where: { id, orgId },
     select: { id: true, category: true, workflowId: true },
   });
   if (!column) return fail("Colonne introuvable");
+
+  const guard = await requireEditableWorkflow(viewer, orgId, column.workflowId);
+  if (!guard.ok) return fail(guard.error);
 
   // Changer de catégorie ne doit pas priver le flux de son entrée ou de sa
   // sortie.
@@ -258,7 +326,7 @@ export async function updateColumn(
     if (column.category !== input.category) {
       await applyCategory(
         tx,
-        { orgId: admin.orgId, columnId: id },
+        { orgId, columnId: id },
         input.category as BoardColumnCategory,
         id
       );
@@ -273,14 +341,18 @@ export async function deleteColumn(
   id: string,
   moveToColumnId: string
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
 
   const column = await prisma.boardColumn.findFirst({
-    where: { id, orgId: admin.orgId },
+    where: { id, orgId },
     select: { id: true, workflowId: true },
   });
   if (!column) return fail("Colonne introuvable");
+
+  const guard = await requireEditableWorkflow(viewer, orgId, column.workflowId);
+  if (!guard.ok) return fail(guard.error);
 
   const siblings = await prisma.boardColumn.findMany({
     where: { workflowId: column.workflowId },
@@ -295,12 +367,7 @@ export async function deleteColumn(
   if (!target) return fail("Choisissez une colonne de destination dans ce flux");
 
   await prisma.$transaction(async (tx) => {
-    await applyCategory(
-      tx,
-      { orgId: admin.orgId, columnId: id },
-      target.category,
-      target.id
-    );
+    await applyCategory(tx, { orgId, columnId: id }, target.category, target.id);
     await tx.boardColumn.delete({ where: { id } });
   });
 
@@ -312,11 +379,15 @@ export async function reorderColumns(
   workflowId: string,
   orderedIds: string[]
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
+
+  const guard = await requireEditableWorkflow(viewer, orgId, workflowId);
+  if (!guard.ok) return fail(guard.error);
 
   const columns = await prisma.boardColumn.findMany({
-    where: { workflowId, orgId: admin.orgId },
+    where: { workflowId, orgId },
     select: { id: true },
   });
   const known = new Set(columns.map((c) => c.id));
@@ -343,21 +414,30 @@ export async function reorderColumns(
  * Les tâches déjà en cours sont replacées dans la colonne équivalente du
  * nouveau flux, à catégorie constante : changer de flux ne doit jamais faire
  * reculer une tâche ni fausser le sprint en cours.
+ *
+ * Le droit porte ici sur L'ÉQUIPE, pas sur le flux : un PO choisit le flux de
+ * son produit même si ce flux appartient à quelqu'un d'autre. Il pourra alors
+ * ne plus avoir le droit de l'éditer — l'écran l'annonce avant le choix.
  */
 export async function assignTeamWorkflow(
   teamKey: string,
   workflowId: string | null
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return fail(admin.error);
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
 
   const [kind, teamId] = [teamKey.slice(0, 1), teamKey.slice(2)];
   if ((kind !== "P" && kind !== "D") || !teamId) return fail("Équipe inconnue");
 
+  if (!canAssignTeam(viewer, teamKey)) {
+    return fail("Vous ne pilotez pas cette équipe");
+  }
+
   let targetWorkflowId = workflowId;
   if (targetWorkflowId) {
     const wf = await prisma.boardWorkflow.findFirst({
-      where: { id: targetWorkflowId, orgId: admin.orgId },
+      where: { id: targetWorkflowId, orgId },
       select: { id: true },
     });
     if (!wf) return fail("Flux introuvable");
@@ -365,7 +445,7 @@ export async function assignTeamWorkflow(
 
   if (kind === "P") {
     const p = await prisma.product.findFirst({
-      where: { id: teamId, orgId: admin.orgId },
+      where: { id: teamId, orgId },
       select: { id: true },
     });
     if (!p) return fail("Produit introuvable");
@@ -375,7 +455,7 @@ export async function assignTeamWorkflow(
     });
   } else {
     const d = await prisma.department.findFirst({
-      where: { id: teamId, orgId: admin.orgId },
+      where: { id: teamId, orgId },
       select: { id: true },
     });
     if (!d) return fail("Département introuvable");
@@ -388,7 +468,7 @@ export async function assignTeamWorkflow(
   // Flux effectif après changement (null → celui par défaut).
   if (!targetWorkflowId) {
     const def = await prisma.boardWorkflow.findFirst({
-      where: { orgId: admin.orgId, isDefault: true },
+      where: { orgId, isDefault: true },
       select: { id: true },
     });
     targetWorkflowId = def?.id ?? null;
@@ -406,8 +486,8 @@ export async function assignTeamWorkflow(
     // qui portent aussi un produit, sinon on les arracherait au flux du produit.
     const scope: Prisma.SprintTaskWhereInput =
       kind === "P"
-        ? { orgId: admin.orgId, productId: teamId }
-        : { orgId: admin.orgId, departmentId: teamId, productId: null };
+        ? { orgId, productId: teamId }
+        : { orgId, departmentId: teamId, productId: null };
 
     for (const category of CATEGORY_ORDER) {
       const target = columns.find((c) => c.category === category);

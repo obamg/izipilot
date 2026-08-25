@@ -283,6 +283,26 @@ export function Sidebar({
             );
           })}
 
+          {/* Flux de tableau — CEO, Management et PO (périmètre limité pour un PO) */}
+          {(userRole === "CEO" || userRole === "MANAGEMENT" || userRole === "PO") && (
+            <Link
+              href="/workflows"
+              onClick={onClose}
+              className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                isNavActive("/workflows")
+                  ? "bg-teal/[0.18] text-[#7dd8d8]"
+                  : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                <rect x="3" y="4" width="4" height="16" rx="1" />
+                <rect x="10" y="4" width="4" height="10" rx="1" />
+                <rect x="17" y="4" width="4" height="13" rx="1" />
+              </svg>
+              Flux de tableau
+            </Link>
+          )}
+
           {/* Push-adoption panel — CEO + Management only */}
           {(userRole === "CEO" || userRole === "MANAGEMENT") && (
             <Link

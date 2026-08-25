@@ -13,7 +13,7 @@ import {
   reorderColumns,
   updateColumn,
   updateWorkflow,
-} from "@/app/(dashboard)/admin/workflows/actions";
+} from "@/app/(dashboard)/workflows/actions";
 
 export interface AdminColumn {
   id: string;
@@ -30,6 +30,12 @@ export interface AdminWorkflow {
   name: string;
   description: string | null;
   isDefault: boolean;
+  createdByName: string | null;
+  /** Droits résolus côté serveur — le client ne les recalcule jamais. */
+  canEdit: boolean;
+  canDelete: boolean;
+  /** Pourquoi ce flux est en lecture seule, à afficher tel quel. */
+  lockedReason: string | null;
   columns: AdminColumn[];
 }
 
@@ -45,6 +51,9 @@ export interface AdminTeam {
 interface Props {
   workflows: AdminWorkflow[];
   teams: AdminTeam[];
+  canCreate: boolean;
+  /** CEO / management : voit et pilote tout. Sinon, périmètre limité. */
+  isFullAccess: boolean;
 }
 
 const INPUT =
@@ -65,7 +74,12 @@ const SWATCHES = [
   "#D85A30",
 ];
 
-export function WorkflowsManager({ workflows, teams }: Props) {
+export function WorkflowsManager({
+  workflows,
+  teams,
+  canCreate,
+  isFullAccess,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +114,13 @@ export function WorkflowsManager({ workflows, teams }: Props) {
           suivant et l&apos;évaluation. Vous pouvez donc créer « En revue » ou
           « Chez le client » sans jamais fausser une statistique.
         </p>
+        {!isFullAccess && (
+          <p className="mt-2 text-[11px] leading-relaxed text-izi-gray">
+            Vous pilotez les flux de vos équipes. Un flux partagé avec une équipe que
+            vous ne pilotez pas reste visible mais verrouillé — le modifier changerait
+            le tableau de quelqu&apos;un d&apos;autre.
+          </p>
+        )}
       </section>
 
       {/* ── Flux ─────────────────────────────────────────────────────────── */}
@@ -113,48 +134,55 @@ export function WorkflowsManager({ workflows, teams }: Props) {
         />
       ))}
 
-      <section className="rounded-[10px] border border-dashed border-border-soft bg-white px-4 py-3">
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-izi-gray">
-          Nouveau flux
-        </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Ex : Flux IT"
-            aria-label="Nom du nouveau flux"
-            className={`${INPUT} min-w-[200px] flex-1`}
-          />
-          <button
-            type="button"
-            disabled={pending || newName.trim().length < 2}
-            className={BTN_PRIMARY}
-            onClick={() =>
-              run(async () => {
-                const res = await createWorkflow(newName, null);
-                if (res.ok) setNewName("");
-                return res;
-              })
-            }
-          >
-            Créer
-          </button>
-        </div>
-        <p className="mt-1.5 text-[11px] text-izi-gray">
-          Le nouveau flux démarre avec les cinq colonnes standard — personnalisez-le
-          ensuite.
-        </p>
-      </section>
+      {canCreate && (
+        <section className="rounded-[10px] border border-dashed border-border-soft bg-white px-4 py-3">
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-izi-gray">
+            Nouveau flux
+          </h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Ex : Flux IT"
+              aria-label="Nom du nouveau flux"
+              className={`${INPUT} min-w-[200px] flex-1`}
+            />
+            <button
+              type="button"
+              disabled={pending || newName.trim().length < 2}
+              className={BTN_PRIMARY}
+              onClick={() =>
+                run(async () => {
+                  const res = await createWorkflow(newName, null);
+                  if (res.ok) setNewName("");
+                  return res;
+                })
+              }
+            >
+              Créer
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-izi-gray">
+            Le nouveau flux démarre avec les cinq colonnes standard — personnalisez-le
+            ensuite, puis rattachez-y vos équipes.
+          </p>
+        </section>
+      )}
 
       {/* ── Affectation des équipes ──────────────────────────────────────── */}
       <section className="rounded-[10px] border border-border-soft bg-white px-4 py-3">
         <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-izi-gray">
-          Flux par équipe
+          {isFullAccess ? "Flux par équipe" : "Mes équipes"}
         </h3>
         <p className="mb-3 text-[11px] text-izi-gray">
           Les tâches en cours sont replacées dans la colonne équivalente du nouveau
           flux — un changement ne fait jamais reculer une tâche.
         </p>
+        {teams.length === 0 && (
+          <p className="text-[12px] italic text-izi-gray">
+            Vous ne pilotez aucun produit ni département pour l&apos;instant.
+          </p>
+        )}
         <div className="grid gap-2 sm:grid-cols-2">
           {teams.map((team) => (
             <div
@@ -265,15 +293,23 @@ function WorkflowCard({ workflow, teams, pending, run }: WorkflowCardProps) {
                   par défaut
                 </span>
               )}
+              {!workflow.canEdit && (
+                <span
+                  className="inline-flex items-center gap-1 rounded bg-izi-gray-lt px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-izi-gray"
+                  title={workflow.lockedReason ?? undefined}
+                >
+                  <span aria-hidden>🔒</span> lecture seule
+                </span>
+              )}
             </>
           )}
         </div>
-        {!renaming && (
+        {!renaming && workflow.canEdit && (
           <div className="flex items-center gap-2">
             <button type="button" className={BTN} onClick={() => setRenaming(true)}>
               Renommer
             </button>
-            {!workflow.isDefault && (
+            {workflow.canDelete && (
               <button
                 type="button"
                 className={`${BTN} text-[var(--red)]`}
@@ -287,6 +323,12 @@ function WorkflowCard({ workflow, teams, pending, run }: WorkflowCardProps) {
         )}
       </header>
 
+      {workflow.lockedReason && (
+        <p className="border-b border-border-soft bg-izi-gray-lt/50 px-4 py-2 text-[11px] leading-snug text-izi-gray">
+          {workflow.lockedReason}
+        </p>
+      )}
+
       <div className="px-4 py-3">
         <p className="mb-2 text-[11px] text-izi-gray">
           {teams.length > 0 ? (
@@ -294,7 +336,10 @@ function WorkflowCard({ workflow, teams, pending, run }: WorkflowCardProps) {
           ) : workflow.isDefault ? (
             <>Appliqué à toute équipe sans flux dédié</>
           ) : (
-            <>Aucune équipe rattachée pour l&apos;instant</>
+            <>
+              Aucune équipe rattachée pour l&apos;instant
+              {workflow.createdByName && <> · créé par {workflow.createdByName}</>}
+            </>
           )}
         </p>
 
@@ -307,34 +352,36 @@ function WorkflowCard({ workflow, teams, pending, run }: WorkflowCardProps) {
               index={i}
               total={workflow.columns.length}
               pending={pending}
+              editable={workflow.canEdit}
               run={run}
               onMove={move}
             />
           ))}
         </ul>
 
-        {adding ? (
-          <ColumnForm
-            pending={pending}
-            onCancel={() => setAdding(false)}
-            onSubmit={(input) =>
-              run(async () => {
-                const res = await createColumn(workflow.id, input);
-                if (res.ok) setAdding(false);
-                return res;
-              })
-            }
-          />
-        ) : (
-          <button
-            type="button"
-            className={`${BTN} mt-2`}
-            onClick={() => setAdding(true)}
-            disabled={workflow.columns.length >= 12}
-          >
-            + Ajouter une colonne
-          </button>
-        )}
+        {workflow.canEdit &&
+          (adding ? (
+            <ColumnForm
+              pending={pending}
+              onCancel={() => setAdding(false)}
+              onSubmit={(input) =>
+                run(async () => {
+                  const res = await createColumn(workflow.id, input);
+                  if (res.ok) setAdding(false);
+                  return res;
+                })
+              }
+            />
+          ) : (
+            <button
+              type="button"
+              className={`${BTN} mt-2`}
+              onClick={() => setAdding(true)}
+              disabled={workflow.columns.length >= 12}
+            >
+              + Ajouter une colonne
+            </button>
+          ))}
       </div>
     </section>
   );
@@ -348,6 +395,8 @@ interface ColumnRowProps {
   index: number;
   total: number;
   pending: boolean;
+  /** Faux sur un flux verrouillé : la ligne reste lisible, sans action. */
+  editable: boolean;
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void;
   onMove: (index: number, delta: number) => void;
 }
@@ -358,6 +407,7 @@ function ColumnRow({
   index,
   total,
   pending,
+  editable,
   run,
   onMove,
 }: ColumnRowProps) {
@@ -410,37 +460,39 @@ function ColumnRow({
           {column.taskCount} tâche{column.taskCount > 1 ? "s" : ""}
         </span>
 
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            className={`${BTN} px-2`}
-            aria-label={`Monter ${column.label}`}
-            disabled={pending || index === 0}
-            onClick={() => onMove(index, -1)}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            className={`${BTN} px-2`}
-            aria-label={`Descendre ${column.label}`}
-            disabled={pending || index === total - 1}
-            onClick={() => onMove(index, 1)}
-          >
-            ↓
-          </button>
-          <button type="button" className={BTN} onClick={() => setEditing(true)}>
-            Modifier
-          </button>
-          <button
-            type="button"
-            className={`${BTN} text-[var(--red)]`}
-            disabled={total <= 1}
-            onClick={() => setConfirming((v) => !v)}
-          >
-            Supprimer
-          </button>
-        </div>
+        {editable && (
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              className={`${BTN} px-2`}
+              aria-label={`Monter ${column.label}`}
+              disabled={pending || index === 0}
+              onClick={() => onMove(index, -1)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className={`${BTN} px-2`}
+              aria-label={`Descendre ${column.label}`}
+              disabled={pending || index === total - 1}
+              onClick={() => onMove(index, 1)}
+            >
+              ↓
+            </button>
+            <button type="button" className={BTN} onClick={() => setEditing(true)}>
+              Modifier
+            </button>
+            <button
+              type="button"
+              className={`${BTN} text-[var(--red)]`}
+              disabled={total <= 1}
+              onClick={() => setConfirming((v) => !v)}
+            >
+              Supprimer
+            </button>
+          </div>
+        )}
       </div>
 
       {confirming && (
