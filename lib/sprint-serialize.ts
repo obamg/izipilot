@@ -84,6 +84,7 @@ export function serializeSprintTask(t: SprintTaskWithRelations) {
     title: t.title,
     description: t.description,
     reportUrl: t.reportUrl,
+    columnId: t.columnId,
     status: t.status,
     priority: t.priority,
     storyPoints: t.storyPoints,

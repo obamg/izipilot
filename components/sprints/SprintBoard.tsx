@@ -16,22 +16,29 @@ import {
 } from "@dnd-kit/core";
 import type { ActionStatus, ActionPriority, UserRole } from "@prisma/client";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
-import type { SprintTaskItem } from "./types";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  equivalentColumn,
+  groupTasksByColumn,
+  wipState,
+  type BoardColumnDef,
+  type BoardWorkflowDef,
+} from "@/lib/board-column";
+import type { SprintTaskItem, TeamWorkflowMap } from "./types";
 
 interface SprintBoardProps {
   tasks: SprintTaskItem[];
   currentUserRole: UserRole;
   currentUserId: string;
+  /** Tous les flux de l'org, colonnes incluses. */
+  workflows: BoardWorkflowDef[];
+  /** Quelle équipe utilise quel flux. */
+  teamWorkflows: TeamWorkflowMap;
+  /** Filtre équipe courant ("ALL" | "P:<id>" | "D:<id>") — pilote les colonnes. */
+  teamFilter: string;
   onCardClick?: (task: SprintTaskItem) => void;
 }
-
-const COLUMNS: { id: ActionStatus; label: string; accent: string }[] = [
-  { id: "TODO", label: "À faire", accent: "#5f6e7a" },
-  { id: "IN_PROGRESS", label: "En cours", accent: "#185FA5" },
-  { id: "BLOCKED", label: "Bloquée", accent: "#e23c4a" },
-  { id: "DONE", label: "Terminée", accent: "#1d9e75" },
-  { id: "CANCELLED", label: "Annulée", accent: "#8a9aa5" },
-];
 
 const PRIORITY_RANK: Record<ActionPriority, number> = {
   URGENT: 0,
@@ -39,6 +46,19 @@ const PRIORITY_RANK: Record<ActionPriority, number> = {
   MEDIUM: 2,
   LOW: 3,
 };
+
+// Colonnes de la vue « toutes les équipes ». On ne peut pas y afficher le flux
+// d'une équipe en particulier — chacune a le sien — donc on retombe sur les
+// cinq catégories, exactement ce que lisent les métriques. Les libellés sont
+// génériques mais la lecture reste juste, quel que soit le flux d'origine.
+const CATEGORY_COLUMNS: BoardColumnDef[] = CATEGORY_ORDER.map((category, i) => ({
+  id: `cat:${category}`,
+  label: CATEGORY_META[category].label,
+  color: CATEGORY_META[category].color,
+  category,
+  sortOrder: i,
+  wipLimit: null,
+}));
 
 // Can the current user drag this card? CONTRIBUTOR may only move their own
 // assigned tasks; VIEWER never drags; everyone else can.
@@ -52,37 +72,72 @@ export function SprintBoard({
   tasks: serverTasks,
   currentUserRole,
   currentUserId,
+  workflows,
+  teamWorkflows,
+  teamFilter,
   onCardClick,
 }: SprintBoardProps) {
   const router = useRouter();
 
   const [tasks, applyOptimistic] = useOptimistic<
     SprintTaskItem[],
-    { id: string; status: ActionStatus }
+    { id: string; columnId: string | null; status: ActionStatus }
   >(serverTasks, (state, change) =>
-    state.map((t) => (t.id === change.id ? { ...t, status: change.status } : t))
+    state.map((t) =>
+      t.id === change.id
+        ? { ...t, columnId: change.columnId, status: change.status }
+        : t
+    )
   );
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const columns = useMemo(() => {
-    const groups: Record<ActionStatus, SprintTaskItem[]> = {
-      TODO: [],
-      IN_PROGRESS: [],
-      BLOCKED: [],
-      DONE: [],
-      CANCELLED: [],
-    };
-    for (const t of tasks) groups[t.status].push(t);
-    for (const status of Object.keys(groups) as ActionStatus[]) {
-      groups[status].sort((a, b) => {
+  const byId = useMemo(
+    () => new Map(workflows.map((w) => [w.id, w])),
+    [workflows]
+  );
+
+  // Le flux d'une tâche, d'après ses étiquettes d'équipe. Même ordre de
+  // priorité que le serveur (produit avant département) pour que le tableau et
+  // la base rangent toujours la carte au même endroit.
+  const workflowForTask = useMemo(
+    () =>
+      (t: SprintTaskItem): BoardWorkflowDef | null => {
+        const key = t.productId
+          ? `P:${t.productId}`
+          : t.departmentId
+          ? `D:${t.departmentId}`
+          : null;
+        const id =
+          (key ? teamWorkflows.byTeam[key] : undefined) ??
+          teamWorkflows.defaultWorkflowId;
+        return byId.get(id) ?? null;
+      },
+    [byId, teamWorkflows]
+  );
+
+  // Filtre sur une équipe → son flux réel. Sinon → les cinq catégories.
+  const activeWorkflow = useMemo(() => {
+    if (teamFilter === "ALL") return null;
+    const id = teamWorkflows.byTeam[teamFilter] ?? teamWorkflows.defaultWorkflowId;
+    return byId.get(id) ?? null;
+  }, [teamFilter, teamWorkflows, byId]);
+
+  const displayColumns = activeWorkflow?.columns.length
+    ? activeWorkflow.columns
+    : CATEGORY_COLUMNS;
+
+  const { byColumn, orphans } = useMemo(() => {
+    const grouped = groupTasksByColumn(displayColumns, tasks);
+    for (const key of Object.keys(grouped.byColumn)) {
+      grouped.byColumn[key].sort((a, b) => {
         if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
         return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
       });
     }
-    return groups;
-  }, [tasks]);
+    return grouped;
+  }, [displayColumns, tasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -103,16 +158,33 @@ export function SprintBoard({
     const current = tasks.find((t) => t.id === taskId);
     if (!current) return;
 
-    const newStatus = (COLUMNS.find((c) => c.id === overId)?.id ?? null) as ActionStatus | null;
-    if (!newStatus || current.status === newStatus) return;
+    const target = displayColumns.find((c) => c.id === overId);
+    if (!target) return;
+
+    // En vue « toutes les équipes » la colonne visée n'est qu'une catégorie :
+    // on renvoie la tâche vers la colonne équivalente de SON propre flux plutôt
+    // que de l'arracher au flux de son équipe.
+    const resolved =
+      teamFilter === "ALL"
+        ? equivalentColumn(workflowForTask(current)?.columns ?? [], target.category)
+        : target;
+
+    const nextColumnId = resolved?.id ?? null;
+    const nextStatus = target.category;
+    if (current.columnId === nextColumnId && current.status === nextStatus) return;
 
     startTransition(async () => {
-      applyOptimistic({ id: taskId, status: newStatus });
+      applyOptimistic({ id: taskId, columnId: nextColumnId, status: nextStatus });
       try {
+        // columnId quand on connaît la colonne cible (le serveur en dérive le
+        // statut) ; sinon le statut seul, pour une tâche hors flux.
+        const payload = nextColumnId
+          ? { columnId: nextColumnId }
+          : { columnId: null, status: nextStatus };
         const res = await fetch(`/api/sprint-tasks/${taskId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -139,20 +211,52 @@ export function SprintBoard({
           {errorMsg}
         </div>
       )}
+
+      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-izi-gray">
+        {activeWorkflow ? (
+          <span>
+            Flux <span className="font-medium text-dark">{activeWorkflow.name}</span>
+          </span>
+        ) : (
+          <span>
+            Vue toutes équipes — colonnes regroupées par catégorie. Choisissez une
+            équipe pour voir son flux.
+          </span>
+        )}
+      </div>
+
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {COLUMNS.map((col) => (
+        {/* Colonne unique sur mobile, rail scrollable dès sm : le nombre de
+            colonnes est libre, la grille fixe ne tient plus. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:overflow-x-auto sm:pb-2">
+          {displayColumns.map((col) => (
             <BoardColumn
               key={col.id}
-              id={col.id}
-              label={col.label}
-              accent={col.accent}
-              cards={columns[col.id]}
+              column={col}
+              cards={byColumn[col.id] ?? []}
               currentUserRole={currentUserRole}
               currentUserId={currentUserId}
               onCardClick={onCardClick}
             />
           ))}
+          {orphans.length > 0 && (
+            <BoardColumn
+              column={{
+                id: "orphans",
+                label: "Hors flux",
+                color: "#8a9aa5",
+                category: "TODO",
+                sortOrder: 999,
+                wipLimit: null,
+              }}
+              cards={orphans}
+              currentUserRole={currentUserRole}
+              currentUserId={currentUserId}
+              onCardClick={onCardClick}
+              droppable={false}
+              hint="Ces tâches ont une catégorie sans colonne dans ce flux. Déposez-les dans une colonne pour les réintégrer."
+            />
+          )}
         </div>
         <DragOverlay dropAnimation={null}>
           {draggingTask && <CardSurface task={draggingTask} dragging />}
@@ -163,44 +267,71 @@ export function SprintBoard({
 }
 
 interface BoardColumnProps {
-  id: ActionStatus;
-  label: string;
-  accent: string;
+  column: BoardColumnDef;
   cards: SprintTaskItem[];
   currentUserRole: UserRole;
   currentUserId: string;
   onCardClick?: (task: SprintTaskItem) => void;
+  /** La colonne « Hors flux » se vide mais ne se remplit pas. */
+  droppable?: boolean;
+  hint?: string;
 }
 
 function BoardColumn({
-  id,
-  label,
-  accent,
+  column,
   cards,
   currentUserRole,
   currentUserId,
   onCardClick,
+  droppable = true,
+  hint,
 }: BoardColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id: column.id, disabled: !droppable });
   const totalPoints = cards.reduce((s, c) => s + (c.storyPoints ?? 1), 0);
+  const wip = wipState(cards.length, column.wipLimit);
+
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-[10px] border bg-izi-gray-lt/40 transition-colors ${
+      className={`flex flex-col rounded-[10px] border bg-izi-gray-lt/40 transition-colors sm:w-[260px] sm:shrink-0 ${
         isOver ? "border-teal bg-teal-lt/60" : "border-border-soft"
       }`}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-soft">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accent }} aria-hidden />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-dark">
-            {label}
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: column.color }}
+            aria-hidden
+          />
+          <span
+            className="truncate text-[11px] font-semibold uppercase tracking-[0.05em] text-dark"
+            title={hint ?? column.label}
+          >
+            {column.label}
           </span>
         </div>
-        <span className="font-mono text-[10px] text-izi-gray">
-          {cards.length} · {totalPoints}pts
+        <span
+          className={`shrink-0 font-mono text-[10px] ${
+            wip === "OVER"
+              ? "font-semibold text-[var(--red)]"
+              : wip === "AT"
+              ? "font-semibold text-gold"
+              : "text-izi-gray"
+          }`}
+          title={
+            column.wipLimit
+              ? `Limite d'encours : ${cards.length}/${column.wipLimit}`
+              : undefined
+          }
+        >
+          {cards.length}
+          {column.wipLimit ? `/${column.wipLimit}` : ""} · {totalPoints}pts
         </span>
       </div>
+      {hint && (
+        <p className="px-3 pt-2 text-[10px] leading-snug text-izi-gray">{hint}</p>
+      )}
       <div className="flex flex-col gap-2 p-2 min-h-[120px]">
         {cards.length === 0 && (
           <div className="text-center text-[10px] text-izi-gray py-4 italic">Aucune tâche</div>

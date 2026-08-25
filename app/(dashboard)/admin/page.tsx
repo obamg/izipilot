@@ -111,6 +111,12 @@ export default async function AdminOverviewPage() {
             G&eacute;rer les OKRs
           </Link>
           <Link
+            href="/admin/workflows"
+            className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal no-underline hover:bg-teal-lt transition-colors"
+          >
+            Flux de tableau
+          </Link>
+          <Link
             href="/admin/organization"
             className="px-[14px] py-[7px] rounded-[7px] text-[11px] font-medium bg-transparent border border-teal-md text-teal no-underline hover:bg-teal-lt transition-colors"
           >

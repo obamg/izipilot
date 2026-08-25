@@ -8,6 +8,7 @@ import {
   serializeSprintTask,
 } from "@/lib/sprint-serialize";
 import { validateTeamAndAssignee } from "@/lib/sprint-refs";
+import { resolveInitialColumn } from "@/lib/board-column-server";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -117,6 +118,12 @@ export async function POST(request: NextRequest) {
     where: { orgId, sprintId: d.sprintId ?? null },
   });
 
+  // Première colonne « À faire » du flux de l'équipe visée.
+  const columnId = await resolveInitialColumn(orgId, {
+    departmentId: d.departmentId ?? null,
+    productId: d.productId ?? null,
+  });
+
   const task = await prisma.sprintTask.create({
     data: {
       orgId,
@@ -124,6 +131,7 @@ export async function POST(request: NextRequest) {
       krId: d.krId ?? null,
       departmentId: d.departmentId ?? null,
       productId: d.productId ?? null,
+      columnId,
       title: d.title,
       description: d.description ?? null,
       reportUrl: d.reportUrl ?? null,
