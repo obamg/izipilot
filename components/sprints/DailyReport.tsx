@@ -10,6 +10,14 @@ interface DailyReportProps {
   initialStandups: StandupRecord[]; // today's standups, server-provided
   currentUserId: string;
   canSubmit: boolean;
+  /**
+   * Personnes retenues par les filtres du sprint, ou null si aucun filtre.
+   * Calculé à partir des tâches de la sélection : filtrer sur une équipe montre
+   * les standups des gens qui y travaillent. L'appartenance vient des tâches
+   * d'aujourd'hui même quand on remonte à un jour passé — les tâches n'ont pas
+   * d'historique d'affectation.
+   */
+  visibleMemberIds?: readonly string[] | null;
 }
 
 function shiftDate(key: string, deltaDays: number): string {
@@ -34,6 +42,7 @@ export function DailyReport({
   initialStandups,
   currentUserId,
   canSubmit,
+  visibleMemberIds = null,
 }: DailyReportProps) {
   const [date, setDate] = useState(today);
   const [standups, setStandups] = useState<StandupRecord[]>(initialStandups);
@@ -64,7 +73,21 @@ export function DailyReport({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
-  const report = useMemo(() => mergeStandups(roster, standups), [roster, standups]);
+  // Filtrer le roster AVANT la fusion : compteurs, blocages et lignes restent
+  // ainsi cohérents entre eux sans code de comptage séparé.
+  const visibleRoster = useMemo(() => {
+    if (!visibleMemberIds) return roster;
+    const keep = new Set(visibleMemberIds);
+    return roster.filter((m) => keep.has(m.id));
+  }, [roster, visibleMemberIds]);
+  const filtered = visibleMemberIds != null;
+
+  const report = useMemo(
+    () => mergeStandups(visibleRoster, standups),
+    [visibleRoster, standups]
+  );
+  // Mon formulaire ne dépend pas du filtre : filtrer une vue ne doit jamais
+  // m'empêcher de saisir mon propre standup.
   const mine = standups.find((s) => s.userId === currentUserId) ?? null;
 
   return (
@@ -106,6 +129,11 @@ export function DailyReport({
         <span className="text-[11px] text-izi-gray">
           {report.submittedCount}/{report.totalCount} standup
           {report.totalCount > 1 ? "s" : ""}
+          {filtered && (
+            <span className="ml-1">· {report.totalCount} membre
+              {report.totalCount > 1 ? "s" : ""} sur {roster.length}
+            </span>
+          )}
         </span>
       </div>
 
@@ -139,7 +167,9 @@ export function DailyReport({
         <p className="text-[13px] text-izi-gray py-6 text-center">Chargement…</p>
       ) : report.rows.length === 0 ? (
         <p className="text-[13px] text-izi-gray py-6 text-center">
-          Aucun membre rattaché à ce sprint.
+          {filtered
+            ? "Aucun membre ne correspond aux filtres."
+            : "Aucun membre rattaché à ce sprint."}
         </p>
       ) : (
         <div className="space-y-2">

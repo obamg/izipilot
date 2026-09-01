@@ -1,13 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { UserRole } from "@prisma/client";
 import { computeAvailability, type SprintTaskLike } from "@/lib/sprint";
-import type { AvailabilityMemberVM, SprintTaskItem, TeamTag } from "./types";
+import type { AvailabilityMemberVM, SprintTaskItem, TeamOption } from "./types";
 
 interface AvailabilityPanelProps {
   members: AvailabilityMemberVM[];
-  tasks: SprintTaskItem[];
+  /**
+   * Tâches DÉJÀ restreintes par les filtres du sprint. L'onglet avait son propre
+   * filtre équipe, indépendant : filtrer sur le tableau puis venir ici retombait
+   * sur « toutes les équipes » sans le dire. Un seul état, une seule vérité —
+   * les contrôles sont désormais ceux, partagés, rendus au-dessus du panneau.
+   */
+  scopedTasks: SprintTaskItem[];
+  /** Sert uniquement à nommer le périmètre dans les titres ("sur D2 — IT"). */
+  teamFilter: string;
+  products: TeamOption[];
+  departments: TeamOption[];
 }
 
 // Doers first (they're the ones who actually need work), then the rest.
@@ -81,33 +91,13 @@ function toLike(t: SprintTaskItem): SprintTaskLike {
   };
 }
 
-function matchesTeam(t: SprintTaskItem, filter: string): boolean {
-  if (filter === "ALL") return true;
-  const id = filter.slice(2);
-  return filter.startsWith("P:") ? t.productId === id : t.departmentId === id;
-}
-
-export function AvailabilityPanel({ members, tasks }: AvailabilityPanelProps) {
-  const [teamFilter, setTeamFilter] = useState("ALL");
-
-  // Team options derived from the sprint's own tasks (deduped) — only teams
-  // that actually carry work show up.
-  const { products, departments } = useMemo(() => {
-    const prod = new Map<string, TeamTag>();
-    const dept = new Map<string, TeamTag>();
-    for (const t of tasks) {
-      if (!t.team) continue;
-      if (t.team.type === "PRODUCT") prod.set(t.team.id, t.team);
-      else dept.set(t.team.id, t.team);
-    }
-    const byCode = (a: TeamTag, b: TeamTag) => a.code.localeCompare(b.code);
-    return {
-      products: [...prod.values()].sort(byCode),
-      departments: [...dept.values()].sort(byCode),
-    };
-  }, [tasks]);
-  const hasTeams = products.length > 0 || departments.length > 0;
-
+export function AvailabilityPanel({
+  members,
+  scopedTasks,
+  teamFilter,
+  products,
+  departments,
+}: AvailabilityPanelProps) {
   const nameRole = useMemo(
     () => new Map(members.map((m) => [m.userId, { userName: m.userName, role: m.role }])),
     [members]
@@ -120,7 +110,6 @@ export function AvailabilityPanel({ members, tasks }: AvailabilityPanelProps) {
 
   const { noTask, noOngoing, activeCount } = useMemo(() => {
     const roster = members.map((m) => ({ id: m.userId }));
-    const scopedTasks = tasks.filter((t) => matchesTeam(t, teamFilter));
     const report = computeAvailability(roster, scopedTasks.map(toLike));
     const vms: AvailabilityMemberVM[] = report.members.map((m) => {
       const nr = nameRole.get(m.userId);
@@ -141,7 +130,7 @@ export function AvailabilityPanel({ members, tasks }: AvailabilityPanelProps) {
       noOngoing: vms.filter((m) => m.state === "NO_ONGOING").sort(byRoleThenName),
       activeCount: vms.filter((m) => m.state === "ACTIVE").length,
     };
-  }, [members, tasks, teamFilter, nameRole]);
+  }, [members, scopedTasks, nameRole]);
 
   const selectedTeam = useMemo(() => {
     if (teamFilter === "ALL") return null;
@@ -161,37 +150,6 @@ export function AvailabilityPanel({ members, tasks }: AvailabilityPanelProps) {
 
   return (
     <div>
-      {hasTeams && (
-        <div className="mb-3">
-          <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal"
-            aria-label="Filtrer par équipe"
-          >
-            <option value="ALL">Toutes les équipes</option>
-            {products.length > 0 && (
-              <optgroup label="Produits">
-                {products.map((p) => (
-                  <option key={p.id} value={`P:${p.id}`}>
-                    {p.code} — {p.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {departments.length > 0 && (
-              <optgroup label="Départements">
-                {departments.map((d) => (
-                  <option key={d.id} value={`D:${d.id}`}>
-                    {d.code} — {d.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </div>
-      )}
-
       {/* Summary */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-[12px]">
         <span className="flex items-center gap-1.5">

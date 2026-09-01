@@ -17,6 +17,7 @@ import { TaskScopeFilters } from "./TaskScopeFilters";
 import { TaskFilterBar } from "./TaskFilterBar";
 import { computeBurndown } from "@/lib/sprint";
 import {
+  assigneesOf,
   filterTasks,
   isFilterActive,
   isScopeActive,
@@ -169,6 +170,14 @@ export function SprintDetail({
   const scopeActive = isScopeActive(scope);
   const filtersActive = isFilterActive(scope);
 
+  // Rapport quotidien et capacité listent des PERSONNES : on garde qui porte au
+  // moins une tâche de la sélection. Un membre sans tâche du périmètre sort dès
+  // qu'un filtre est posé — sous « équipe D2 », on veut les gens de D2.
+  const visibleMemberIds = useMemo<string[] | null>(
+    () => (scopeActive ? assigneesOf(scopeFilteredTasks) : null),
+    [scopeActive, scopeFilteredTasks]
+  );
+
   // Burndown reflects the scope filters (not the board-only text search):
   // recompute client-side from the filtered subset, else use the server view.
   const displayBurndown = useMemo<BurndownDatum[]>(() => {
@@ -194,6 +203,34 @@ export function SprintDetail({
   function refresh() {
     router.refresh();
   }
+
+  // Ligne de filtres des onglets sans recherche texte (une courbe, une capacité
+  // ou un standup ne se cherchent pas par mot-clé de tâche).
+  const scopeRow = (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <TaskScopeFilters
+        currentUserId={currentUserId}
+        assigneeFilter={assigneeFilter}
+        setAssigneeFilter={setAssigneeFilter}
+        teamFilter={teamFilter}
+        setTeamFilter={setTeamFilter}
+        priorityFilter={priorityFilter}
+        setPriorityFilter={setPriorityFilter}
+        assigneeOptions={assigneeOptions}
+        products={products}
+        departments={departments}
+      />
+      {scopeActive && (
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="text-[11px] text-teal hover:text-teal-dk underline"
+        >
+          Réinitialiser
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div>
@@ -317,29 +354,7 @@ export function SprintDetail({
           <p className="text-[11px] text-izi-gray mb-3">
             Points restants vs trajectoire idéale.
           </p>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <TaskScopeFilters
-              currentUserId={currentUserId}
-              assigneeFilter={assigneeFilter}
-              setAssigneeFilter={setAssigneeFilter}
-              teamFilter={teamFilter}
-              setTeamFilter={setTeamFilter}
-              priorityFilter={priorityFilter}
-              setPriorityFilter={setPriorityFilter}
-              assigneeOptions={assigneeOptions}
-              products={products}
-              departments={departments}
-            />
-            {scopeActive && (
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="text-[11px] text-teal hover:text-teal-dk underline"
-              >
-                Réinitialiser
-              </button>
-            )}
-          </div>
+          {scopeRow}
           {scopeActive && (
             <p className="mb-2 text-[11px] text-izi-gray">
               Burndown filtré · {scopeFilteredTasks.length} tâche
@@ -351,16 +366,29 @@ export function SprintDetail({
       )}
 
       {tab === "capacity" && (
-        <CapacityPanel
-          rows={capacityRows}
-          allUsers={users}
-          sprintId={sprint.id}
-          canEdit={isManagement}
-        />
+        <div>
+          {scopeRow}
+          <CapacityPanel
+            rows={capacityRows}
+            allUsers={users}
+            sprintId={sprint.id}
+            canEdit={isManagement}
+            visibleMemberIds={visibleMemberIds}
+          />
+        </div>
       )}
 
       {tab === "availability" && (
-        <AvailabilityPanel members={availability} tasks={tasks} />
+        <div>
+          {scopeRow}
+          <AvailabilityPanel
+            members={availability}
+            scopedTasks={scopeFilteredTasks}
+            teamFilter={teamFilter}
+            products={products}
+            departments={departments}
+          />
+        </div>
       )}
 
       {tab === "requests" && (
@@ -372,14 +400,18 @@ export function SprintDetail({
       )}
 
       {tab === "standup" && (
-        <DailyReport
-          sprintId={sprint.id}
-          today={standupToday}
-          roster={standupRoster}
-          initialStandups={initialStandups}
-          currentUserId={currentUserId}
-          canSubmit={currentUserRole !== "VIEWER"}
-        />
+        <div>
+          {scopeRow}
+          <DailyReport
+            sprintId={sprint.id}
+            today={standupToday}
+            roster={standupRoster}
+            initialStandups={initialStandups}
+            currentUserId={currentUserId}
+            canSubmit={currentUserRole !== "VIEWER"}
+            visibleMemberIds={visibleMemberIds}
+          />
+        </div>
       )}
 
       {creating && (

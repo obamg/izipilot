@@ -17,6 +17,8 @@ interface CapacityPanelProps {
   allUsers: UserOption[];
   sprintId: string;
   canEdit: boolean;
+  /** Personnes retenues par les filtres du sprint, ou null si aucun filtre. */
+  visibleMemberIds?: readonly string[] | null;
 }
 
 function barColor(util: number): string {
@@ -26,18 +28,31 @@ function barColor(util: number): string {
   return "#e23c4a"; // overcommitted
 }
 
-export function CapacityPanel({ rows, allUsers, sprintId, canEdit }: CapacityPanelProps) {
+export function CapacityPanel({
+  rows,
+  allUsers,
+  sprintId,
+  canEdit,
+  visibleMemberIds = null,
+}: CapacityPanelProps) {
   const router = useRouter();
   const byUser = new Map(rows.map((r) => [r.userId, r]));
+  const filtered = visibleMemberIds != null;
 
   // When editing, surface every org member so capacity can be set for anyone.
   // Otherwise only show members with capacity or assigned work.
-  const displayUsers = canEdit
+  const baseUsers = canEdit
     ? allUsers
     : allUsers.filter((u) => {
         const r = byUser.get(u.id);
         return r && (r.capacityPoints > 0 || r.assignedPoints > 0);
       });
+
+  // Les filtres du sprint priment, y compris en édition : le PO qui filtre sur
+  // son équipe veut sa charge à elle. L'enregistrement fait des upserts ligne
+  // par ligne, la capacité des membres masqués reste donc intacte.
+  const keep = visibleMemberIds ? new Set(visibleMemberIds) : null;
+  const displayUsers = keep ? baseUsers.filter((u) => keep.has(u.id)) : baseUsers;
 
   const [draft, setDraft] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -79,7 +94,9 @@ export function CapacityPanel({ rows, allUsers, sprintId, canEdit }: CapacityPan
   if (displayUsers.length === 0) {
     return (
       <p className="text-[13px] text-izi-gray py-6 text-center">
-        Aucune capacité définie pour ce sprint.
+        {filtered
+          ? "Aucun membre ne correspond aux filtres."
+          : "Aucune capacité définie pour ce sprint."}
       </p>
     );
   }
@@ -101,6 +118,15 @@ export function CapacityPanel({ rows, allUsers, sprintId, canEdit }: CapacityPan
           <span className="font-mono font-semibold text-dark">{totalCapacity} pts</span> ·
           assigné{" "}
           <span className="font-mono font-semibold text-dark">{totalAssigned} pts</span>
+          {/* Le filtre choisit QUI est listé ; la charge affichée reste celle de
+              la personne sur tout le sprint, sinon elle ne se compare plus à sa
+              capacité. On le dit plutôt que de laisser lire « 23 pts de P1 ». */}
+          {filtered && (
+            <span className="ml-1">
+              · {displayUsers.length} membre{displayUsers.length > 1 ? "s" : ""} sur{" "}
+              {baseUsers.length} · charge toutes équipes
+            </span>
+          )}
         </p>
         {canEdit && (
           <button
