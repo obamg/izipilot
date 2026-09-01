@@ -7,7 +7,10 @@ import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import type { SprintTaskItem } from "./types";
 
 interface BacklogPanelProps {
+  /** Déjà filtrées par l'appelant. */
   tasks: SprintTaskItem[];
+  /** Taille du backlog avant filtrage — sert à distinguer « vide » de « masqué ». */
+  totalCount?: number;
   targetSprintId: string;
   targetSprintName: string;
   currentUserRole: UserRole;
@@ -17,6 +20,7 @@ interface BacklogPanelProps {
 
 export function BacklogPanel({
   tasks,
+  totalCount,
   targetSprintId,
   targetSprintName,
   currentUserRole,
@@ -31,6 +35,9 @@ export function BacklogPanel({
     currentUserRole === "CEO" ||
     currentUserRole === "MANAGEMENT" ||
     currentUserRole === "PO";
+
+  const total = totalCount ?? tasks.length;
+  const hidden = total - tasks.length;
 
   async function addToSprint(taskId: string) {
     setError(null);
@@ -56,8 +63,16 @@ export function BacklogPanel({
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-[12px] text-izi-gray">
-          Backlog — {tasks.length} tâche{tasks.length > 1 ? "s" : ""} non planifiée
-          {tasks.length > 1 ? "s" : ""}
+          {hidden > 0 ? (
+            <>
+              Backlog — {tasks.length} tâche{tasks.length > 1 ? "s" : ""} sur {total}
+            </>
+          ) : (
+            <>
+              Backlog — {total} tâche{total > 1 ? "s" : ""} non planifiée
+              {total > 1 ? "s" : ""}
+            </>
+          )}
         </p>
         {canManage && onCreate && (
           <button
@@ -78,7 +93,9 @@ export function BacklogPanel({
 
       {tasks.length === 0 ? (
         <div className="rounded-[10px] border border-dashed border-border-soft p-8 text-center text-[13px] text-izi-gray">
-          Le backlog est vide.
+          {hidden > 0
+            ? "Aucune tâche du backlog ne correspond aux filtres."
+            : "Le backlog est vide."}
         </div>
       ) : (
         <ul className="space-y-2">

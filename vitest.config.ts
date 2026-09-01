@@ -5,7 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    exclude: ['tests/e2e/**', 'node_modules/**', 'mcp-server/**'],
+    // `exclude` remplace la liste par défaut de vitest : sans `**/node_modules/**`
+    // le scan descend dans mobile/node_modules et fait échouer `npm test` sur les
+    // suites de dépendances tierces. `.next/**` écarte les copies du build.
+    exclude: ['**/node_modules/**', '.next/**', 'tests/e2e/**', 'mcp-server/**'],
   },
   resolve: {
     alias: {
