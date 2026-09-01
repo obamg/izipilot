@@ -14,7 +14,15 @@ import { AvailabilityPanel } from "./AvailabilityPanel";
 import { TaskRequestsInbox } from "./TaskRequestsInbox";
 import { RecurringTasksButton } from "./RecurringTasksButton";
 import { TaskScopeFilters } from "./TaskScopeFilters";
+import { TaskFilterBar } from "./TaskFilterBar";
 import { computeBurndown } from "@/lib/sprint";
+import {
+  filterTasks,
+  isFilterActive,
+  isScopeActive,
+  matchesScope,
+  type TaskScope,
+} from "@/lib/task-filter";
 import type { RosterMember, StandupRecord } from "@/lib/standup";
 import type { BoardWorkflowDef } from "@/lib/board-column";
 import type {
@@ -120,50 +128,46 @@ export function SprintDetail({
   };
   const canOpenCards = canEdit || isContributor;
 
-  // People who actually have a task in this sprint — keeps the assignee
-  // dropdown short and relevant (vs. the full org roster).
+  // People who actually have a task here — keeps the assignee dropdown short
+  // and relevant (vs. the full org roster). Sprint AND backlog, since the same
+  // dropdown drives both tabs: dropping the backlog would make a selected name
+  // vanish from the list when switching tabs.
   const assigneeOptions = useMemo(() => {
     const m = new Map<string, string>();
-    for (const t of tasks) {
+    for (const t of [...tasks, ...backlogTasks]) {
       if (t.assigneeId && t.assigneeName) m.set(t.assigneeId, t.assigneeName);
     }
     return [...m.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, "fr"));
-  }, [tasks]);
+  }, [tasks, backlogTasks]);
 
-  // Scope filters (assignee / team / priority) — shared by the board and the
-  // burndown so a filtered view stays consistent across tabs.
-  const scopeFilteredTasks = useMemo(() => {
-    return tasks.filter((t) => {
-      if (teamFilter.startsWith("P:") && t.productId !== teamFilter.slice(2)) return false;
-      if (teamFilter.startsWith("D:") && t.departmentId !== teamFilter.slice(2)) return false;
-      if (assigneeFilter === "UNASSIGNED" && t.assigneeId) return false;
-      if (
-        assigneeFilter !== "ALL" &&
-        assigneeFilter !== "UNASSIGNED" &&
-        t.assigneeId !== assigneeFilter
-      )
-        return false;
-      if (priorityFilter !== "ALL" && t.priority !== priorityFilter) return false;
-      return true;
-    });
-  }, [tasks, teamFilter, assigneeFilter, priorityFilter]);
+  const scope = useMemo<TaskScope>(
+    () => ({
+      team: teamFilter,
+      assignee: assigneeFilter,
+      priority: priorityFilter,
+      search,
+    }),
+    [teamFilter, assigneeFilter, priorityFilter, search]
+  );
 
-  // Board additionally narrows by the free-text search box.
-  const filteredTasks = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return scopeFilteredTasks;
-    return scopeFilteredTasks.filter((t) =>
-      `${t.title} ${t.description ?? ""} ${t.krTitle ?? ""} ${t.assigneeName ?? ""}`
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [scopeFilteredTasks, search]);
+  // Scope filters (assignee / team / priority) — the burndown recomputes on
+  // these alone; a text search doesn't narrow a burndown.
+  const scopeFilteredTasks = useMemo(
+    () => tasks.filter((t) => matchesScope(t, scope)),
+    [tasks, scope]
+  );
 
-  const scopeActive =
-    teamFilter !== "ALL" || assigneeFilter !== "ALL" || priorityFilter !== "ALL";
-  const filtersActive = scopeActive || search.trim() !== "";
+  // Board and backlog both add the free-text search on top of the scope.
+  const filteredTasks = useMemo(() => filterTasks(tasks, scope), [tasks, scope]);
+  const filteredBacklog = useMemo(
+    () => filterTasks(backlogTasks, scope),
+    [backlogTasks, scope]
+  );
+
+  const scopeActive = isScopeActive(scope);
+  const filtersActive = isFilterActive(scope);
 
   // Burndown reflects the scope filters (not the board-only text search):
   // recompute client-side from the filtered subset, else use the server view.
@@ -209,9 +213,10 @@ export function SprintDetail({
             }`}
           >
             {t.label}
-            {t.id === "backlog" && backlogTasks.length > 0 && (
+            {/* Le compteur suit les filtres : il annonce ce que l'onglet montrera. */}
+            {t.id === "backlog" && filteredBacklog.length > 0 && (
               <span className="ml-1.5 font-mono text-[10px] text-izi-gray">
-                {backlogTasks.length}
+                {filteredBacklog.length}
               </span>
             )}
             {t.id === "requests" && inboxReceived.length > 0 && (
@@ -225,94 +230,43 @@ export function SprintDetail({
 
       {tab === "board" && (
         <div>
-          <div className="mb-3 space-y-2">
-            {/* Text search — the most prominent filter: type to narrow instantly. */}
-            <div className="relative">
-              <svg
-                viewBox="0 0 20 20"
-                fill="none"
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-izi-gray"
+          <TaskFilterBar
+            currentUserId={currentUserId}
+            search={search}
+            setSearch={setSearch}
+            assigneeFilter={assigneeFilter}
+            setAssigneeFilter={setAssigneeFilter}
+            teamFilter={teamFilter}
+            setTeamFilter={setTeamFilter}
+            priorityFilter={priorityFilter}
+            setPriorityFilter={setPriorityFilter}
+            assigneeOptions={assigneeOptions}
+            products={products}
+            departments={departments}
+            active={filtersActive}
+            matched={filteredTasks.length}
+            total={tasks.length}
+            onReset={resetFilters}
+          >
+            <RecurringTasksButton
+              initialTemplates={recurringTemplates}
+              users={users}
+              products={products}
+              departments={departments}
+              krs={krs}
+              currentUserId={currentUserId}
+              currentUserRole={currentUserRole}
+            />
+            {canManageTasks && (
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                className="rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors"
               >
-                <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.6" />
-                <path
-                  d="M14 14l3.5 3.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher une tâche, une personne ou un KR…"
-                aria-label="Rechercher une tâche"
-                className="w-full rounded-[8px] border border-border-soft bg-white pl-9 pr-3 py-2 text-[13px] text-dark placeholder:text-izi-gray focus:outline-none focus:border-teal focus:ring-2 focus:ring-teal/20"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  aria-label="Effacer la recherche"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-izi-gray hover:text-dark text-[15px] leading-none"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <TaskScopeFilters
-                currentUserId={currentUserId}
-                assigneeFilter={assigneeFilter}
-                setAssigneeFilter={setAssigneeFilter}
-                teamFilter={teamFilter}
-                setTeamFilter={setTeamFilter}
-                priorityFilter={priorityFilter}
-                setPriorityFilter={setPriorityFilter}
-                assigneeOptions={assigneeOptions}
-                products={products}
-                departments={departments}
-              />
-
-              <div className="ml-auto flex items-center gap-2">
-                <RecurringTasksButton
-                  initialTemplates={recurringTemplates}
-                  users={users}
-                  products={products}
-                  departments={departments}
-                  krs={krs}
-                  currentUserId={currentUserId}
-                  currentUserRole={currentUserRole}
-                />
-                {canManageTasks && (
-                  <button
-                    type="button"
-                    onClick={() => setCreating(true)}
-                    className="rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors"
-                  >
-                    + Nouvelle tâche
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {filtersActive && (
-              <div className="flex items-center gap-2 text-[11px] text-izi-gray">
-                <span>
-                  {filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""} sur{" "}
-                  {tasks.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="text-teal hover:text-teal-dk underline"
-                >
-                  Réinitialiser
-                </button>
-              </div>
+                + Nouvelle tâche
+              </button>
             )}
-          </div>
+          </TaskFilterBar>
           <SprintBoard
             tasks={filteredTasks}
             currentUserRole={currentUserRole}
@@ -326,14 +280,35 @@ export function SprintDetail({
       )}
 
       {tab === "backlog" && (
-        <BacklogPanel
-          tasks={backlogTasks}
-          targetSprintId={sprint.id}
-          targetSprintName={sprint.name}
-          currentUserRole={currentUserRole}
-          onEdit={canEdit ? (t) => setEditing(t) : undefined}
-          onCreate={canManageTasks ? () => setCreating(true) : undefined}
-        />
+        <div>
+          <TaskFilterBar
+            currentUserId={currentUserId}
+            search={search}
+            setSearch={setSearch}
+            assigneeFilter={assigneeFilter}
+            setAssigneeFilter={setAssigneeFilter}
+            teamFilter={teamFilter}
+            setTeamFilter={setTeamFilter}
+            priorityFilter={priorityFilter}
+            setPriorityFilter={setPriorityFilter}
+            assigneeOptions={assigneeOptions}
+            products={products}
+            departments={departments}
+            active={filtersActive}
+            matched={filteredBacklog.length}
+            total={backlogTasks.length}
+            onReset={resetFilters}
+          />
+          <BacklogPanel
+            tasks={filteredBacklog}
+            totalCount={backlogTasks.length}
+            targetSprintId={sprint.id}
+            targetSprintName={sprint.name}
+            currentUserRole={currentUserRole}
+            onEdit={canEdit ? (t) => setEditing(t) : undefined}
+            onCreate={canManageTasks ? () => setCreating(true) : undefined}
+          />
+        </div>
       )}
 
       {tab === "burndown" && (
