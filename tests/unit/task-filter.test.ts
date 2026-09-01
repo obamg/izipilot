@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  assigneesOf,
   EMPTY_SCOPE,
   filterTasks,
   isFilterActive,
@@ -171,5 +172,36 @@ describe("filterTasks", () => {
     const before = [...list];
     filterTasks(list, scope({ team: "D:d2" }));
     expect(list).toEqual(before);
+  });
+});
+
+describe("assigneesOf", () => {
+  it("dédoublonne en gardant l'ordre de première apparition", () => {
+    const got = assigneesOf([
+      { assigneeId: "u2" },
+      { assigneeId: "u1" },
+      { assigneeId: "u2" },
+    ]);
+    expect(got).toEqual(["u2", "u1"]);
+  });
+
+  it("ignore les tâches non assignées", () => {
+    expect(assigneesOf([{ assigneeId: null }, { assigneeId: "u1" }])).toEqual(["u1"]);
+  });
+
+  it("rend une liste vide quand personne n'est assigné", () => {
+    // Cas du filtre « Non assignées » : aucun standup ni aucune capacité ne
+    // peut correspondre, l'onglet doit le dire plutôt que d'ignorer le filtre.
+    expect(assigneesOf([{ assigneeId: null }, { assigneeId: null }])).toEqual([]);
+    expect(assigneesOf([])).toEqual([]);
+  });
+
+  it("se compose avec filterTasks pour donner les gens d'une équipe", () => {
+    const tasks = [
+      task({ departmentId: "d2", assigneeId: "u1" }),
+      task({ departmentId: "d3", assigneeId: "u2" }),
+      task({ departmentId: "d2", assigneeId: "u3" }),
+    ];
+    expect(assigneesOf(filterTasks(tasks, scope({ team: "D:d2" })))).toEqual(["u1", "u3"]);
   });
 });

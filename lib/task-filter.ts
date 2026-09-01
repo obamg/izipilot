@@ -78,3 +78,24 @@ export function filterTasks<T extends FilterableTask>(
 ): T[] {
   return tasks.filter((t) => matchesScope(t, scope) && matchesSearch(t, scope.search));
 }
+
+/**
+ * Les personnes qui portent au moins une de ces tâches, dédoublonnées et dans
+ * l'ordre de première apparition.
+ *
+ * C'est le pont entre les filtres — qui parlent de tâches — et les onglets qui
+ * listent des PERSONNES (rapport quotidien, capacité) : filtrer sur une équipe
+ * y signifie « les gens qui y travaillent ». Un membre sans aucune tâche du
+ * périmètre sort donc dès qu'un filtre est posé, ce qui est l'intention.
+ */
+export function assigneesOf(tasks: readonly { assigneeId: string | null }[]): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const t of tasks) {
+    if (t.assigneeId && !seen.has(t.assigneeId)) {
+      seen.add(t.assigneeId);
+      ids.push(t.assigneeId);
+    }
+  }
+  return ids;
+}
