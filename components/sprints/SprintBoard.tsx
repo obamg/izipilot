@@ -21,10 +21,12 @@ import {
   CATEGORY_ORDER,
   equivalentColumn,
   groupTasksByColumn,
+  inferSingleWorkflow,
   wipState,
   type BoardColumnDef,
   type BoardWorkflowDef,
 } from "@/lib/board-column";
+import { BoardColumnsLink } from "@/components/board/BoardColumnsLink";
 import type { SprintTaskItem, TeamWorkflowMap } from "./types";
 
 interface SprintBoardProps {
@@ -37,6 +39,8 @@ interface SprintBoardProps {
   teamWorkflows: TeamWorkflowMap;
   /** Filtre équipe courant ("ALL" | "P:<id>" | "D:<id>") — pilote les colonnes. */
   teamFilter: string;
+  /** Permet au tableau de proposer le filtre qui révèle le flux d'une équipe. */
+  onSelectTeam?: (teamKey: string) => void;
   onCardClick?: (task: SprintTaskItem) => void;
 }
 
@@ -75,6 +79,7 @@ export function SprintBoard({
   workflows,
   teamWorkflows,
   teamFilter,
+  onSelectTeam,
   onCardClick,
 }: SprintBoardProps) {
   const router = useRouter();
@@ -117,16 +122,39 @@ export function SprintBoard({
     [byId, teamWorkflows]
   );
 
-  // Filtre sur une équipe → son flux réel. Sinon → les cinq catégories.
+  // Filtre sur une équipe → son flux réel. Sinon, on déduit le flux des cartes
+  // visibles : tant qu'elles relèvent toutes de la même équipe, son flux est
+  // affiché sans que personne ait à toucher au filtre.
   const activeWorkflow = useMemo(() => {
-    if (teamFilter === "ALL") return null;
+    if (teamFilter === "ALL") return inferSingleWorkflow(tasks, workflowForTask);
     const id = teamWorkflows.byTeam[teamFilter] ?? teamWorkflows.defaultWorkflowId;
     return byId.get(id) ?? null;
-  }, [teamFilter, teamWorkflows, byId]);
+  }, [teamFilter, teamWorkflows, byId, tasks, workflowForTask]);
 
-  const displayColumns = activeWorkflow?.columns.length
+  // Null quand on retombe sur les catégories : le déplacement d'une carte s'en
+  // sert pour savoir s'il vise une vraie colonne ou un simple seau.
+  const workflowColumns = activeWorkflow?.columns.length
     ? activeWorkflow.columns
-    : CATEGORY_COLUMNS;
+    : null;
+  const displayColumns = workflowColumns ?? CATEGORY_COLUMNS;
+
+  // Les équipes présentes dans la vue. Quand les colonnes retombent sur les
+  // catégories, c'est la sortie : un sprint partagé mélange les flux, et sans
+  // ce raccourci il faut deviner qu'un filtre d'équipe, ailleurs sur la page,
+  // est ce qui fait apparaître ses propres colonnes.
+  const teamsInView = useMemo(() => {
+    const m = new Map<string, { key: string; code: string; name: string; color: string }>();
+    for (const t of tasks) {
+      const key = t.productId
+        ? `P:${t.productId}`
+        : t.departmentId
+        ? `D:${t.departmentId}`
+        : null;
+      if (!key || !t.team || m.has(key)) continue;
+      m.set(key, { key, code: t.team.code, name: t.team.name, color: t.team.color });
+    }
+    return [...m.values()].sort((a, b) => a.code.localeCompare(b.code, "fr"));
+  }, [tasks]);
 
   const { byColumn, orphans } = useMemo(() => {
     const grouped = groupTasksByColumn(displayColumns, tasks);
@@ -161,13 +189,13 @@ export function SprintBoard({
     const target = displayColumns.find((c) => c.id === overId);
     if (!target) return;
 
-    // En vue « toutes les équipes » la colonne visée n'est qu'une catégorie :
-    // on renvoie la tâche vers la colonne équivalente de SON propre flux plutôt
-    // que de l'arracher au flux de son équipe.
-    const resolved =
-      teamFilter === "ALL"
-        ? equivalentColumn(workflowForTask(current)?.columns ?? [], target.category)
-        : target;
+    // Sur les colonnes de catégorie, la colonne visée n'est qu'un seau : on
+    // renvoie la tâche vers la colonne équivalente de SON propre flux plutôt
+    // que de l'arracher au flux de son équipe. Sur un vrai flux — filtré ou
+    // déduit — la colonne visée est la bonne, telle quelle.
+    const resolved = workflowColumns
+      ? target
+      : equivalentColumn(workflowForTask(current)?.columns ?? [], target.category);
 
     const nextColumnId = resolved?.id ?? null;
     const nextStatus = target.category;
@@ -212,17 +240,36 @@ export function SprintBoard({
         </div>
       )}
 
-      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-izi-gray">
-        {activeWorkflow ? (
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] text-izi-gray">
+        {workflowColumns ? (
           <span>
-            Flux <span className="font-medium text-dark">{activeWorkflow.name}</span>
+            Flux <span className="font-medium text-dark">{activeWorkflow?.name}</span>
           </span>
         ) : (
-          <span>
-            Vue toutes équipes — colonnes regroupées par catégorie. Choisissez une
-            équipe pour voir son flux.
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span>
+              Plusieurs flux dans cette vue — colonnes regroupées par catégorie.
+            </span>
+            {onSelectTeam && teamsInView.length > 1 && (
+              <>
+                <span>Voir le flux de</span>
+                {teamsInView.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => onSelectTeam(t.key)}
+                    title={`Filtrer sur ${t.name} pour afficher ses colonnes`}
+                    className="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                    style={{ color: t.color, backgroundColor: `${t.color}1a` }}
+                  >
+                    {t.code}
+                  </button>
+                ))}
+              </>
+            )}
           </span>
         )}
+        <BoardColumnsLink role={currentUserRole} workflowId={activeWorkflow?.id ?? null} />
       </div>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

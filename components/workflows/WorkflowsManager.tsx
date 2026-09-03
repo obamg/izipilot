@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { BoardColumnCategory } from "@prisma/client";
 import { CATEGORY_META, CATEGORY_ORDER } from "@/lib/board-column";
@@ -8,6 +8,7 @@ import {
   assignTeamWorkflow,
   createColumn,
   createWorkflow,
+  customizeTeamWorkflow,
   deleteColumn,
   deleteWorkflow,
   reorderColumns,
@@ -84,16 +85,34 @@ export function WorkflowsManager({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   /** Toute mutation passe par ici : une seule place pour l'erreur et le refresh. */
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
+  function run(fn: () => Promise<{ ok: boolean; error?: string; workflowId?: string }>) {
     setError(null);
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) setError(res.error ?? "Échec de l'opération");
-      else router.refresh();
+      if (!res.ok) {
+        setError(res.error ?? "Échec de l'opération");
+        return;
+      }
+      // Un flux créé s'insère plus haut dans la liste, hors du champ de vision
+      // de qui vient de cliquer en bas de page : on l'y emmène.
+      if (res.workflowId) setFocusId(res.workflowId);
+      router.refresh();
     });
   }
+
+  // La carte n'existe qu'après le refresh — l'effet repasse sur `workflows`.
+  // Le surlignage retombe ensuite : il sert à retrouver la carte, pas à rester.
+  useEffect(() => {
+    if (!focusId) return;
+    const el = document.getElementById(`wf-${focusId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const timer = setTimeout(() => setFocusId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [focusId, workflows]);
 
   return (
     <div className="space-y-5">
@@ -130,6 +149,7 @@ export function WorkflowsManager({
           workflow={wf}
           teams={teams.filter((t) => t.workflowId === wf.id)}
           pending={pending}
+          highlighted={wf.id === focusId}
           run={run}
         />
       ))}
@@ -175,8 +195,11 @@ export function WorkflowsManager({
           {isFullAccess ? "Flux par équipe" : "Mes équipes"}
         </h3>
         <p className="mb-3 text-[11px] text-izi-gray">
-          Les tâches en cours sont replacées dans la colonne équivalente du nouveau
-          flux — un changement ne fait jamais reculer une tâche.
+          Une équipe sur le flux par défaut ne peut pas en modifier les colonnes —
+          il sert aussi aux autres. « Personnaliser » lui en donne une copie
+          privée, qu&apos;elle peut ensuite éditer librement. Les tâches en cours
+          sont replacées dans la colonne équivalente : un changement de flux ne
+          fait jamais reculer une tâche.
         </p>
         {teams.length === 0 && (
           <p className="text-[12px] italic text-izi-gray">
@@ -187,7 +210,7 @@ export function WorkflowsManager({
           {teams.map((team) => (
             <div
               key={team.key}
-              className="flex items-center gap-2 rounded-[8px] border border-border-soft px-2.5 py-2"
+              className="flex flex-wrap items-center gap-2 rounded-[8px] border border-border-soft px-2.5 py-2"
             >
               <span
                 className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold"
@@ -216,6 +239,19 @@ export function WorkflowsManager({
                     </option>
                   ))}
               </select>
+              {/* Le raccourci n'a de sens que sur le flux par défaut : partout
+                  ailleurs l'équipe a déjà un flux à elle, éditable au-dessus. */}
+              {!team.workflowId && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  className={BTN_PRIMARY}
+                  title={`Créer un flux propre à ${team.name}, à partir des colonnes actuelles`}
+                  onClick={() => run(() => customizeTeamWorkflow(team.key))}
+                >
+                  Personnaliser
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -230,10 +266,18 @@ interface WorkflowCardProps {
   workflow: AdminWorkflow;
   teams: AdminTeam[];
   pending: boolean;
+  /** Flux qu'on vient de créer : signalé pour qu'on le retrouve après le saut. */
+  highlighted?: boolean;
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void;
 }
 
-function WorkflowCard({ workflow, teams, pending, run }: WorkflowCardProps) {
+function WorkflowCard({
+  workflow,
+  teams,
+  pending,
+  highlighted = false,
+  run,
+}: WorkflowCardProps) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(workflow.name);
   const [adding, setAdding] = useState(false);
@@ -249,7 +293,14 @@ function WorkflowCard({ workflow, teams, pending, run }: WorkflowCardProps) {
   }
 
   return (
-    <section className="rounded-[10px] border border-border-soft bg-white">
+    // L'ancre reçoit le lien « Colonnes » posé sur les tableaux : le navigateur
+    // amène directement la carte du flux qu'on regardait, pas le haut de page.
+    <section
+      id={`wf-${workflow.id}`}
+      className={`scroll-mt-4 rounded-[10px] border bg-white transition-shadow ${
+        highlighted ? "border-teal ring-2 ring-teal/40" : "border-border-soft"
+      }`}
+    >
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border-soft px-4 py-3">
         <div className="flex items-center gap-2">
           {renaming ? (

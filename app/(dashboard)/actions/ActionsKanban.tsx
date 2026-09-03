@@ -21,10 +21,12 @@ import {
   CATEGORY_ORDER,
   equivalentColumn,
   groupTasksByColumn,
+  inferSingleWorkflow,
   wipState,
   type BoardColumnDef,
   type BoardWorkflowDef,
 } from "@/lib/board-column";
+import { BoardColumnsLink } from "@/components/board/BoardColumnsLink";
 
 export interface KanbanAction {
   id: string;
@@ -54,6 +56,8 @@ interface ActionsKanbanProps {
   teamWorkflows: { defaultWorkflowId: string; byTeam: Record<string, string> };
   /** Clé de l'équipe filtrée, ou null si le filtre est sur « toutes ». */
   activeTeamKey: string | null;
+  /** Permet au kanban de proposer le filtre qui révèle le flux d'une entité. */
+  onSelectEntity?: (entityCode: string) => void;
   onCardClick?: (action: KanbanAction) => void;
 }
 
@@ -82,6 +86,7 @@ export function ActionsKanban({
   workflows,
   teamWorkflows,
   activeTeamKey,
+  onSelectEntity,
   onCardClick,
 }: ActionsKanbanProps) {
   const router = useRouter();
@@ -122,16 +127,30 @@ export function ActionsKanban({
     [byWorkflowId, teamWorkflows]
   );
 
-  // Filtre sur une équipe → son flux réel. Sinon → les cinq catégories.
+  // Filtre sur une équipe → son flux réel. Sinon, on déduit le flux des cartes
+  // visibles : tant qu'elles relèvent toutes de la même équipe, son flux est
+  // affiché sans que personne ait à toucher au filtre.
   const activeWorkflow = useMemo(() => {
-    if (!activeTeamKey) return null;
+    if (!activeTeamKey) return inferSingleWorkflow(actions, workflowForAction);
     const id = teamWorkflows.byTeam[activeTeamKey] ?? teamWorkflows.defaultWorkflowId;
     return byWorkflowId.get(id) ?? null;
-  }, [activeTeamKey, teamWorkflows, byWorkflowId]);
+  }, [activeTeamKey, teamWorkflows, byWorkflowId, actions, workflowForAction]);
 
-  const displayColumns = activeWorkflow?.columns.length
+  // Null quand on retombe sur les catégories : le déplacement d'une carte s'en
+  // sert pour savoir s'il vise une vraie colonne ou un simple seau.
+  const workflowColumns = activeWorkflow?.columns.length
     ? activeWorkflow.columns
-    : CATEGORY_COLUMNS;
+    : null;
+  const displayColumns = workflowColumns ?? CATEGORY_COLUMNS;
+
+  // Les entités présentes dans la vue. Quand les colonnes retombent sur les
+  // catégories, c'est la sortie : un clic filtre et fait apparaître le flux de
+  // l'entité, au lieu de laisser deviner d'où vient le regroupement.
+  const entitiesInView = useMemo(() => {
+    const codes = new Set<string>();
+    for (const a of actions) if (a.entityCode) codes.add(a.entityCode);
+    return [...codes].sort((a, b) => a.localeCompare(b, "fr"));
+  }, [actions]);
 
   const { byColumn, orphans } = useMemo(() => {
     const grouped = groupTasksByColumn(displayColumns, actions);
@@ -169,10 +188,11 @@ export function ActionsKanban({
     const target = displayColumns.find((c) => c.id === overId);
     if (!target) return;
 
-    // En vue multi-équipes la colonne visée n'est qu'une catégorie : on renvoie
-    // l'action vers la colonne équivalente de SON propre flux plutôt que de
-    // l'arracher au flux de son équipe.
-    const resolved = activeWorkflow
+    // Sur les colonnes de catégorie, la colonne visée n'est qu'un seau : on
+    // renvoie l'action vers la colonne équivalente de SON propre flux plutôt
+    // que de l'arracher au flux de son équipe. Sur un vrai flux — filtré ou
+    // déduit — la colonne visée est la bonne, telle quelle.
+    const resolved = workflowColumns
       ? target
       : equivalentColumn(workflowForAction(current)?.columns ?? [], target.category);
 
@@ -223,17 +243,33 @@ export function ActionsKanban({
           {errorMsg}
         </div>
       )}
-      <div className="mb-2 text-[11px] text-izi-gray">
-        {activeWorkflow ? (
+      <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-izi-gray">
+        {workflowColumns ? (
           <span>
-            Flux <span className="font-medium text-dark">{activeWorkflow.name}</span>
+            Flux <span className="font-medium text-dark">{activeWorkflow?.name}</span>
           </span>
         ) : (
-          <span>
-            Plusieurs équipes — colonnes regroupées par catégorie. Filtrez sur une
-            entité pour voir son flux.
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span>Plusieurs flux dans cette vue — colonnes regroupées par catégorie.</span>
+            {onSelectEntity && entitiesInView.length > 1 && (
+              <>
+                <span>Voir le flux de</span>
+                {entitiesInView.map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => onSelectEntity(code)}
+                    title={`Filtrer sur ${code} pour afficher ses colonnes`}
+                    className="rounded bg-izi-gray-lt px-1.5 py-0.5 font-mono text-[10px] font-semibold text-dark transition-colors hover:bg-teal-lt hover:text-teal-dk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  >
+                    {code}
+                  </button>
+                ))}
+              </>
+            )}
           </span>
         )}
+        <BoardColumnsLink role={currentUserRole} workflowId={activeWorkflow?.id ?? null} />
       </div>
       <DndContext
         sensors={sensors}
