@@ -6,12 +6,10 @@ import {
   computeSprintStats,
   displaySprintStats,
   pickCarryTarget,
+  pickChainTarget,
   UNFINISHED_STATUSES,
 } from "@/lib/sprint";
-import {
-  spawnPerSprintTask,
-  spawnableTemplateSelect,
-} from "@/lib/recurring-spawn";
+import { onSprintActivated } from "@/lib/recurring-spawn";
 import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 import {
   sprintTaskInclude,
@@ -161,6 +159,10 @@ export async function PATCH(
     toBacklog: boolean;
   } | null = null;
 
+  // Sprint démarré dans la foulée de la clôture, le cas échéant — l'écran
+  // l'annonce plutôt que de laisser découvrir le changement.
+  let chained: { id: string; name: string } | null = null;
+
   let updated;
   if (completing) {
     const tasksNow = await prisma.sprintTask.findMany({
@@ -185,6 +187,12 @@ export async function PATCH(
     });
     const target = pickCarryTarget(candidates, existing.number);
 
+    // Le sprint suivant démarre dans la même transaction que la clôture, pour
+    // que l'org ne se retrouve jamais sans sprint actif (cf. pickChainTarget).
+    // L'invariant « un seul ACTIVE par org » tient : celui-ci se ferme au même
+    // instant.
+    const toChain = pickChainTarget(target);
+
     const [moved, u] = await prisma.$transaction([
       prisma.sprintTask.updateMany({
         where: {
@@ -199,8 +207,17 @@ export async function PATCH(
         data,
         include: { createdBy: { select: { id: true, name: true } } },
       }),
+      ...(toChain
+        ? [
+            prisma.sprint.update({
+              where: { id: toChain.id },
+              data: { status: "ACTIVE" as const, completedAt: null },
+            }),
+          ]
+        : []),
     ]);
     updated = u;
+    if (toChain) chained = { id: toChain.id, name: toChain.name };
     carry = {
       count: moved.count,
       toSprintId: target?.id ?? null,
@@ -215,25 +232,16 @@ export async function PATCH(
     });
   }
 
-  // Starting a sprint drops one task from each active PER_SPRINT template into
-  // it (idempotent — a template already present, e.g. carried over, is skipped).
+  // Démarrer un sprint — au bouton comme par enchaînement — y dépose une tâche
+  // par modèle PER_SPRINT actif (idempotent : un modèle déjà présent, reporté
+  // par exemple, est sauté) et y rapatrie les occurrences restées au backlog.
   let spawnedRecurring = 0;
-  if (activating) {
-    const perSprint = await prisma.recurringTask.findMany({
-      where: {
-        orgId: session.user.orgId,
-        isActive: true,
-        frequency: "PER_SPRINT",
-      },
-      select: spawnableTemplateSelect,
-    });
-    for (const t of perSprint) {
-      try {
-        if (await spawnPerSprintTask(t, sprintId)) spawnedRecurring++;
-      } catch {
-        // Best-effort — one bad template must not fail the activation.
-      }
-    }
+  let adoptedRecurring = 0;
+  const startedSprintId = activating ? sprintId : chained?.id ?? null;
+  if (startedSprintId) {
+    const r = await onSprintActivated(session.user.orgId, startedSprintId);
+    spawnedRecurring = r.spawned;
+    adoptedRecurring = r.adopted;
   }
 
   return Response.json({
@@ -250,6 +258,8 @@ export async function PATCH(
       createdByName: updated.createdBy.name,
     },
     spawned: spawnedRecurring,
+    adopted: adoptedRecurring,
+    chained,
     carry,
   });
 }

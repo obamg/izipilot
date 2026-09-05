@@ -143,6 +143,25 @@ export function pickCarryTarget<T extends SprintCandidate>(
   );
 }
 
+/**
+ * Le sprint à démarrer dans la foulée d'une clôture — la cible du report, si
+ * elle est encore PLANNED.
+ *
+ * L'org ne doit jamais se retrouver sans sprint actif : dans cet intervalle le
+ * cron des tâches récurrentes ne trouve aucun sprint ACTIVE et dépose ses
+ * occurrences au backlog, d'où rien ne les reprenait. Enchaîner supprime
+ * l'intervalle plutôt que d'en rattraper les effets.
+ *
+ * Null quand il n'y a pas de sprint suivant (rien à démarrer, le report part au
+ * backlog et sera repris au prochain démarrage) ou quand la cible est déjà
+ * ACTIVE (elle tourne, la redémarrer ne veut rien dire).
+ */
+export function pickChainTarget<T extends SprintCandidate>(
+  carryTarget: T | null
+): T | null {
+  return carryTarget?.status === "PLANNED" ? carryTarget : null;
+}
+
 // ---------------------------------------------------------------------------
 // Burndown
 // ---------------------------------------------------------------------------

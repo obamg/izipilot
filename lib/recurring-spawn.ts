@@ -11,6 +11,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { resolveInitialColumn } from "@/lib/board-column-server";
+import { UNFINISHED_STATUSES } from "@/lib/sprint";
 
 /** The template fields copied onto each generated SprintTask. */
 export interface SpawnableTemplate {
@@ -100,3 +101,68 @@ export const spawnableTemplateSelect = {
   assigneeId: true,
   createdById: true,
 } as const;
+
+/**
+ * Rapatrie dans un sprint les occurrences récurrentes restées au backlog.
+ *
+ * Le cron quotidien dépose ses occurrences dans le sprint ACTIVE de l'org, et
+ * à défaut au backlog. Tant qu'un sprint suit toujours le précédent ce cas ne
+ * se présente pas, mais si personne n'a planifié la suite l'org se retrouve
+ * sans sprint actif et le « Rapport quotidien » du jour tombe au backlog — d'où
+ * il ne repartait jamais. On l'y reprend au démarrage du sprint suivant.
+ *
+ * Strictement borné aux tâches issues d'un modèle (`recurringTaskId` non nul) et
+ * non terminées : un backlog contient aussi du travail délibérément mis de côté,
+ * qui n'a rien à faire dans le sprint sans que personne l'ait demandé.
+ */
+export async function adoptBacklogRecurringTasks(
+  orgId: string,
+  sprintId: string
+): Promise<number> {
+  const { count } = await prisma.sprintTask.updateMany({
+    where: {
+      orgId,
+      sprintId: null,
+      recurringTaskId: { not: null },
+      status: { in: UNFINISHED_STATUSES },
+    },
+    data: { sprintId },
+  });
+  return count;
+}
+
+/**
+ * Tout ce que « démarrer un sprint » implique, au-delà du changement de statut.
+ *
+ * Un seul endroit, parce que l'activation a désormais deux déclencheurs : le
+ * bouton « Démarrer », et l'enchaînement automatique à la clôture du sprint
+ * précédent. Un sprint démarré par l'un devait se comporter comme un sprint
+ * démarré par l'autre.
+ */
+export async function onSprintActivated(
+  orgId: string,
+  sprintId: string
+): Promise<{ spawned: number; adopted: number }> {
+  const templates = await prisma.recurringTask.findMany({
+    where: { orgId, isActive: true, frequency: "PER_SPRINT" },
+    select: spawnableTemplateSelect,
+  });
+
+  let spawned = 0;
+  for (const t of templates) {
+    try {
+      if (await spawnPerSprintTask(t, sprintId)) spawned++;
+    } catch {
+      // Best-effort — un modèle bancal ne doit pas faire échouer l'activation.
+    }
+  }
+
+  let adopted = 0;
+  try {
+    adopted = await adoptBacklogRecurringTasks(orgId, sprintId);
+  } catch {
+    // Idem : le sprint démarre même si le rapatriement échoue.
+  }
+
+  return { spawned, adopted };
+}

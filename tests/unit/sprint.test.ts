@@ -12,6 +12,7 @@ import {
   daysRemaining,
   isUnfinished,
   pickCarryTarget,
+  pickChainTarget,
   UNFINISHED_STATUSES,
   type SprintTaskLike,
 } from '@/lib/sprint'
@@ -343,6 +344,39 @@ describe('pickCarryTarget', () => {
   it('preserves the caller extra fields on the returned candidate', () => {
     const target = pickCarryTarget([c(4, 'PLANNED', 'the-id')], 3)
     expect(target?.id).toBe('the-id')
+  })
+})
+
+describe('pickChainTarget', () => {
+  const c = (
+    number: number,
+    status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED',
+    id = `s${number}`
+  ) => ({ id, number, status })
+
+  it('démarre le sprint suivant quand il est planifié', () => {
+    // Le cas courant : on clôture le 12, le 13 attend — il prend la suite pour
+    // que l'org ne passe pas une minute sans sprint actif.
+    const target = pickChainTarget(c(13, 'PLANNED', 'next'))
+    expect(target?.id).toBe('next')
+  })
+
+  it("ne redémarre pas un sprint déjà actif", () => {
+    expect(pickChainTarget(c(13, 'ACTIVE'))).toBeNull()
+  })
+
+  it("ne démarre rien quand aucun sprint ne suit", () => {
+    // Le report part alors au backlog, et sera repris au prochain démarrage.
+    expect(pickChainTarget(null)).toBeNull()
+  })
+
+  it('enchaîne exactement la cible du report, jamais un autre sprint', () => {
+    // Les deux décisions doivent désigner le même sprint : sinon on reporterait
+    // les tâches dans un sprint et on en démarrerait un autre.
+    const candidates = [c(15, 'PLANNED', 'later'), c(13, 'PLANNED', 'next')]
+    const carry = pickCarryTarget(candidates, 12)
+    expect(pickChainTarget(carry)?.id).toBe(carry?.id)
+    expect(pickChainTarget(carry)?.id).toBe('next')
   })
 })
 

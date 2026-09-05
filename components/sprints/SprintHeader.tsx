@@ -42,20 +42,35 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
         setError(data.error ?? "Échec de l'opération");
         return;
       }
+      // Une clôture enchaîne plusieurs effets — report, démarrage du sprint
+      // suivant, occurrences récurrentes — et taire les uns pour n'annoncer que
+      // le premier laisserait découvrir le reste par surprise.
+      const parts: string[] = [];
+      const plural = (n: number) => (n > 1 ? "s" : "");
+
       const carry = data.carry;
       if (carry && carry.count > 0) {
-        const n = carry.count;
-        const s = n > 1 ? "s" : "";
-        setNotice(
+        const s = plural(carry.count);
+        parts.push(
           carry.toBacklog
-            ? `${n} tâche${s} non terminée${s} renvoyée${s} au backlog.`
-            : `${n} tâche${s} non terminée${s} reportée${s} vers ${carry.toSprintName}.`
+            ? `${carry.count} tâche${s} non terminée${s} renvoyée${s} au backlog.`
+            : `${carry.count} tâche${s} non terminée${s} reportée${s} vers ${carry.toSprintName}.`
         );
-      } else if (data.spawned > 0) {
-        const n = data.spawned;
-        const s = n > 1 ? "s" : "";
-        setNotice(`${n} tâche${s} récurrente${s} ajoutée${s} à ce sprint.`);
       }
+      if (data.chained) {
+        parts.push(`${data.chained.name} a démarré automatiquement.`);
+      }
+      if (data.spawned > 0) {
+        const s = plural(data.spawned);
+        parts.push(`${data.spawned} tâche${s} récurrente${s} ajoutée${s}.`);
+      }
+      if (data.adopted > 0) {
+        const s = plural(data.adopted);
+        parts.push(
+          `${data.adopted} tâche${s} récurrente${s} reprise${s} du backlog.`
+        );
+      }
+      if (parts.length > 0) setNotice(parts.join(" "));
       router.refresh();
     } finally {
       setBusy(false);
