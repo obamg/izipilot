@@ -5,10 +5,9 @@ import { updateSprintSchema } from "@/lib/validations/sprints";
 import {
   computeSprintStats,
   displaySprintStats,
-  pickCarryTarget,
-  pickChainTarget,
   UNFINISHED_STATUSES,
 } from "@/lib/sprint";
+import { planSprintClose } from "@/lib/sprint-close";
 import { onSprintActivated } from "@/lib/recurring-spawn";
 import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 import {
@@ -176,22 +175,16 @@ export async function PATCH(
     });
     data.statsSnapshot = computeSprintStats(tasksNow);
 
-    const candidates = await prisma.sprint.findMany({
-      where: {
-        orgId: session.user.orgId,
-        id: { not: sprintId },
-        status: { in: ["PLANNED", "ACTIVE"] },
-        number: { gt: existing.number },
-      },
-      select: { id: true, number: true, name: true, status: true },
-    });
-    const target = pickCarryTarget(candidates, existing.number);
+    // Même plan que celui annoncé par /close-preview dans la confirmation.
+    const plan = await planSprintClose(session.user.orgId, existing);
+    const target = plan.carryTo;
 
     // Le sprint suivant démarre dans la même transaction que la clôture, pour
     // que l'org ne se retrouve jamais sans sprint actif (cf. pickChainTarget).
     // L'invariant « un seul ACTIVE par org » tient : celui-ci se ferme au même
-    // instant.
-    const toChain = pickChainTarget(target);
+    // instant. Seul un `startNext: false` explicite — coché dans la fenêtre de
+    // confirmation, qui dit ce que ça implique — laisse l'intervalle ouvert.
+    const toChain = parsed.data.startNext === false ? null : plan.chainTo;
 
     const [moved, u] = await prisma.$transaction([
       prisma.sprintTask.updateMany({

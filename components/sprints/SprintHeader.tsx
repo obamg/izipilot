@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SprintStatusBadge } from "./SprintStatusBadge";
 import { SprintFormModal } from "./SprintFormModal";
+import { SprintCloseModal } from "./SprintCloseModal";
+import type { ClosePlan } from "@/lib/sprint";
 import type { SprintSummary } from "./types";
 
 interface SprintHeaderProps {
@@ -26,8 +28,33 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [closePlan, setClosePlan] = useState<ClosePlan | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
 
-  async function patchStatus(status: string) {
+  // Le plan est rechargé à chaque ouverture : le tableau bouge pendant qu'on
+  // le regarde, et une confirmation qui annonce « 4 tâches » alors qu'il y en a
+  // 6 vaut moins que pas de confirmation.
+  async function openCloseModal() {
+    setError(null);
+    setNotice(null);
+    setClosePlan(null);
+    setPlanError(null);
+    setClosing(true);
+    try {
+      const res = await fetch(`/api/sprints/${sprint.id}/close-preview`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPlanError(data.error ?? "Impossible de calculer les conséquences");
+        return;
+      }
+      setClosePlan(data.plan as ClosePlan);
+    } catch {
+      setPlanError("Impossible de calculer les conséquences");
+    }
+  }
+
+  async function patchStatus(status: string, startNext?: boolean) {
     setError(null);
     setNotice(null);
     setBusy(true);
@@ -35,7 +62,9 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
       const res = await fetch(`/api/sprints/${sprint.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(
+          startNext === undefined ? { status } : { status, startNext }
+        ),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -136,7 +165,7 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
             {sprint.status === "ACTIVE" && (
               <button
                 type="button"
-                onClick={() => patchStatus("COMPLETED")}
+                onClick={openCloseModal}
                 disabled={busy}
                 className="rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
               >
@@ -200,6 +229,20 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
           />
         </div>
       </div>
+
+      {closing && (
+        <SprintCloseModal
+          sprintName={sprint.name}
+          plan={closePlan}
+          loadError={planError}
+          busy={busy}
+          onCancel={() => setClosing(false)}
+          onConfirm={async (startNext) => {
+            await patchStatus("COMPLETED", startNext);
+            setClosing(false);
+          }}
+        />
+      )}
 
       {editing && (
         <SprintFormModal
