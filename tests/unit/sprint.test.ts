@@ -13,7 +13,9 @@ import {
   isUnfinished,
   pickCarryTarget,
   pickChainTarget,
+  describeClosePlan,
   UNFINISHED_STATUSES,
+  type ClosePlan,
   type SprintTaskLike,
 } from '@/lib/sprint'
 
@@ -377,6 +379,64 @@ describe('pickChainTarget', () => {
     const carry = pickCarryTarget(candidates, 12)
     expect(pickChainTarget(carry)?.id).toBe(carry?.id)
     expect(pickChainTarget(carry)?.id).toBe('next')
+  })
+})
+
+describe('describeClosePlan', () => {
+  const plan = (over: Partial<ClosePlan> = {}): ClosePlan => ({
+    unfinishedCount: 0,
+    carryTo: null,
+    chainTo: null,
+    ...over,
+  })
+
+  it('accorde le singulier', () => {
+    const [first] = describeClosePlan(
+      plan({ unfinishedCount: 1, carryTo: { id: 's3', name: 'Sprint 3' } }),
+      true
+    )
+    expect(first).toBe('1 tâche non terminée sera reportée vers Sprint 3.')
+  })
+
+  it('accorde le pluriel', () => {
+    const [first] = describeClosePlan(
+      plan({ unfinishedCount: 4, carryTo: { id: 's3', name: 'Sprint 3' } }),
+      true
+    )
+    expect(first).toBe('4 tâches non terminées seront reportées vers Sprint 3.')
+  })
+
+  it('annonce le backlog quand aucun sprint ne suit', () => {
+    const [first] = describeClosePlan(plan({ unfinishedCount: 2 }), true)
+    expect(first).toContain('repartiront au backlog')
+  })
+
+  it('ne parle pas de report quand tout est terminé', () => {
+    const [first] = describeClosePlan(plan(), true)
+    expect(first).toContain('rien à reporter')
+  })
+
+  it('annonce le démarrage du suivant quand il est accepté', () => {
+    const lines = describeClosePlan(
+      plan({ chainTo: { id: 's3', name: 'Sprint 3' } }),
+      true
+    )
+    expect(lines[1]).toContain('Sprint 3 démarrera dans la foulée')
+  })
+
+  it("dit explicitement qu'aucun sprint ne sera actif si on refuse", () => {
+    // C'est LA conséquence que la personne doit lire avant de décocher : sans
+    // sprint actif, le cron des récurrentes dépose au backlog.
+    const lines = describeClosePlan(
+      plan({ chainTo: { id: 's3', name: 'Sprint 3' } }),
+      false
+    )
+    expect(lines[1]).toContain("aucun sprint actif")
+  })
+
+  it("le dit aussi quand il n'y a simplement pas de suivant", () => {
+    const lines = describeClosePlan(plan(), true)
+    expect(lines[1]).toContain("pas de sprint actif")
   })
 })
 

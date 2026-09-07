@@ -38,6 +38,13 @@ export const updateSprintSchema = z.object({
   status: sprintStatusEnum.optional(),
   startDate: z.string().min(1).optional(),
   endDate: z.string().min(1).optional(),
+  /**
+   * Clôture uniquement : démarrer le sprint suivant dans la foulée.
+   * Absent → oui, pour que l'org ne reste pas sans sprint actif par oubli.
+   * Seul un `false` explicite, coché en connaissance de cause dans la fenêtre
+   * de confirmation, laisse l'intervalle ouvert.
+   */
+  startNext: z.boolean().optional(),
 });
 
 // ── Sprint task ──────────────────────────────────────────────────────────────

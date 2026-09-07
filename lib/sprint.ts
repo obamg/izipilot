@@ -163,6 +163,63 @@ export function pickChainTarget<T extends SprintCandidate>(
 }
 
 // ---------------------------------------------------------------------------
+// Clôture : ce qu'elle va faire, annoncé avant de la faire
+// ---------------------------------------------------------------------------
+
+/**
+ * Les conséquences d'une clôture, calculées avant qu'elle ait lieu. Sert à la
+ * fois d'aperçu pour la confirmation et de plan d'exécution côté API — c'est la
+ * même source, pour que la fenêtre de confirmation ne puisse pas annoncer autre
+ * chose que ce qui va réellement se produire.
+ */
+export interface ClosePlan {
+  /** Tâches qui seront déplacées hors du sprint clôturé. */
+  unfinishedCount: number;
+  /** Sprint qui les recevra, ou null → elles repartent au backlog. */
+  carryTo: { id: string; name: string } | null;
+  /** Sprint qui démarrerait dans la foulée, ou null s'il n'y en a pas. */
+  chainTo: { id: string; name: string } | null;
+}
+
+/**
+ * Les conséquences en toutes lettres, une phrase par effet.
+ *
+ * `startNext` reflète le choix de la personne : décocher le démarrage laisse
+ * l'org sans sprint actif, et cette phrase-là doit être dite explicitement —
+ * c'est précisément la situation où le cron des récurrentes dépose au backlog.
+ */
+export function describeClosePlan(plan: ClosePlan, startNext: boolean): string[] {
+  const lines: string[] = [];
+  const many = plan.unfinishedCount > 1;
+  const s = many ? "s" : "";
+
+  if (plan.unfinishedCount > 0) {
+    const sujet = `${plan.unfinishedCount} tâche${s} non terminée${s}`;
+    lines.push(
+      plan.carryTo
+        ? `${sujet} ${many ? "seront reportées" : "sera reportée"} vers ${plan.carryTo.name}.`
+        : `${sujet} ${many ? "repartiront" : "repartira"} au backlog.`
+    );
+  } else {
+    lines.push("Toutes les tâches du sprint sont terminées — rien à reporter.");
+  }
+
+  if (plan.chainTo) {
+    lines.push(
+      startNext
+        ? `${plan.chainTo.name} démarrera dans la foulée, avec ses tâches récurrentes.`
+        : `${plan.chainTo.name} restera planifié : l'organisation n'aura aucun sprint actif tant que vous ne l'aurez pas démarré.`
+    );
+  } else {
+    lines.push(
+      "Aucun sprint suivant n'est planifié : l'organisation n'aura pas de sprint actif après la clôture."
+    );
+  }
+
+  return lines;
+}
+
+// ---------------------------------------------------------------------------
 // Burndown
 // ---------------------------------------------------------------------------
 
