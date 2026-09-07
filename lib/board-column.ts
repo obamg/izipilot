@@ -148,6 +148,34 @@ export function groupTasksByColumn<T extends PlaceableTask>(
 }
 
 /**
+ * Le flux à afficher quand aucune équipe n'est filtrée.
+ *
+ * La vue « toutes les équipes » retombait systématiquement sur les cinq
+ * catégories génériques. Conséquence vécue : un PO ajoute « En revue » à son
+ * flux, revient sur le tableau et ne la voit nulle part — il fallait d'abord
+ * penser à se filtrer sur son équipe. Or dans la quasi-totalité des cas les
+ * cartes visibles appartiennent toutes à la même équipe, donc au même flux :
+ * ce flux est alors la bonne réponse, et la seule honnête.
+ *
+ * Renvoie null dès que deux flux se côtoient (aucun ne serait juste pour
+ * l'autre) ou qu'il n'y a rien à ranger — l'appelant affiche alors les
+ * catégories.
+ */
+export function inferSingleWorkflow<T>(
+  items: readonly T[],
+  workflowOf: (item: T) => BoardWorkflowDef | null
+): BoardWorkflowDef | null {
+  let found: BoardWorkflowDef | null = null;
+  for (const item of items) {
+    const wf = workflowOf(item);
+    if (!wf) return null;
+    if (!found) found = wf;
+    else if (found.id !== wf.id) return null;
+  }
+  return found;
+}
+
+/**
  * La colonne équivalente dans un autre flux : même catégorie, première trouvée.
  * Utilisée quand une tâche change d'équipe, ou quand on la déplace depuis la
  * vue « toutes les équipes » — elle reste alors dans le flux de SON équipe au

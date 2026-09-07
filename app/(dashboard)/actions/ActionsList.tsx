@@ -315,6 +315,7 @@ export function ActionsList({
           workflows={workflows}
           teamWorkflows={teamWorkflows}
           activeTeamKey={activeTeamKey}
+          onSelectEntity={setEntityFilter}
           onCardClick={canEdit ? openEditFromAction : undefined}
         />
       )}

@@ -9,7 +9,11 @@ import {
   DEFAULT_COLUMNS,
   checkRequiredCategories,
 } from "@/lib/board-column";
-import { ownedTeamKeys, teamKeysByWorkflow } from "@/lib/board-column-server";
+import {
+  ensureDefaultWorkflow,
+  ownedTeamKeys,
+  teamKeysByWorkflow,
+} from "@/lib/board-column-server";
 import {
   canAssignTeam,
   canCreateWorkflow,
@@ -22,6 +26,8 @@ import {
 export interface ActionResult {
   ok: boolean;
   error?: string;
+  /** Flux créé, quand l'action en crée un — l'écran s'y positionne. */
+  workflowId?: string;
 }
 
 function fail(error: string): ActionResult {
@@ -84,9 +90,18 @@ async function requireEditableWorkflow(
   return { ok: true, isDefault: wf.isDefault };
 }
 
+/**
+ * Les écrans qui rendent des colonnes. Le tableau vit sur `/sprints/[sprintId]`,
+ * pas sur `/sprints` : revalider le parent ne touche pas l'enfant dynamique, il
+ * faut nommer le segment. `/actions` porte le même kanban depuis (#59) et
+ * manquait tout simplement à l'appel — une colonne ajoutée n'y apparaissait
+ * qu'au rechargement complet.
+ */
 function revalidate() {
   revalidatePath("/workflows");
   revalidatePath("/sprints");
+  revalidatePath("/sprints/[sprintId]", "page");
+  revalidatePath("/actions");
 }
 
 function isCategory(v: string): v is BoardColumnCategory {
@@ -407,13 +422,173 @@ export async function reorderColumns(
 
 // ── Affectation des équipes ──────────────────────────────────────────────────
 
+/** Découpe une clé de filtre "P:<id>" / "D:<id>". */
+function parseTeamKey(teamKey: string): { kind: "P" | "D"; teamId: string } | null {
+  const kind = teamKey.slice(0, 1);
+  const teamId = teamKey.slice(2);
+  if ((kind !== "P" && kind !== "D") || !teamId) return null;
+  return { kind, teamId };
+}
+
+/**
+ * Les cartes d'une équipe, tâches de sprint et actions.
+ *
+ * Le produit prime sur le département pour choisir le flux (cf.
+ * board-column-server) : le périmètre d'un département exclut donc ce qui porte
+ * aussi un produit, sinon on l'arracherait au flux du produit. Une action n'a
+ * pas d'étiquette d'équipe propre — elle la tient de son KR.
+ */
+function teamScopes(orgId: string, kind: "P" | "D", teamId: string) {
+  const tasks: Prisma.SprintTaskWhereInput =
+    kind === "P"
+      ? { orgId, productId: teamId }
+      : { orgId, departmentId: teamId, productId: null };
+  const actions: Prisma.ActionWhereInput =
+    kind === "P"
+      ? { orgId, keyResult: { objective: { productId: teamId } } }
+      : { orgId, keyResult: { objective: { departmentId: teamId, productId: null } } };
+  return { tasks, actions };
+}
+
+/**
+ * Replace les cartes d'une équipe dans les colonnes d'un flux, à catégorie
+ * constante : changer de flux ne doit jamais faire reculer une carte ni fausser
+ * le sprint en cours. `status` n'est pas touché — c'est lui qui pilote le
+ * placement, et les métriques le lisent tel quel.
+ */
+async function replaceTeamColumns(
+  client: Prisma.TransactionClient,
+  orgId: string,
+  kind: "P" | "D",
+  teamId: string,
+  workflowId: string
+) {
+  const columns = await client.boardColumn.findMany({
+    where: { workflowId },
+    orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+    select: { id: true, category: true },
+  });
+  const scope = teamScopes(orgId, kind, teamId);
+
+  for (const category of CATEGORY_ORDER) {
+    // Pas de colonne pour cette catégorie → columnId null : la carte ressort
+    // « hors flux » sur le tableau au lieu de pointer vers un autre flux.
+    const columnId = columns.find((c) => c.category === category)?.id ?? null;
+    await client.sprintTask.updateMany({
+      where: { ...scope.tasks, status: category },
+      data: { columnId },
+    });
+    await client.action.updateMany({
+      where: { ...scope.actions, status: category },
+      data: { columnId },
+    });
+  }
+}
+
+/**
+ * Donne à une équipe son propre flux, en un geste.
+ *
+ * Le chemin manuel demandait de créer un flux, de le nommer, puis de retrouver
+ * la section d'affectation pour y rattacher l'équipe — et tant que ces trois
+ * étapes n'étaient pas faites, « Ajouter une colonne » restait hors de portée,
+ * puisqu'un PO ne peut pas modifier le flux par défaut. On fait les trois d'un
+ * coup, en repartant des colonnes que l'équipe voit déjà pour que le tableau
+ * soit identique juste après.
+ */
+export async function customizeTeamWorkflow(teamKey: string): Promise<ActionResult> {
+  const auth_ = await requireViewer();
+  if (!auth_.ok) return fail(auth_.error);
+  const { viewer, orgId } = auth_;
+
+  const parsed = parseTeamKey(teamKey);
+  if (!parsed) return fail("Équipe inconnue");
+  const { kind, teamId } = parsed;
+
+  if (!canAssignTeam(viewer, teamKey)) {
+    return fail("Vous ne pilotez pas cette équipe");
+  }
+
+  const team =
+    kind === "P"
+      ? await prisma.product.findFirst({
+          where: { id: teamId, orgId },
+          select: { name: true, code: true, workflowId: true },
+        })
+      : await prisma.department.findFirst({
+          where: { id: teamId, orgId },
+          select: { name: true, code: true, workflowId: true },
+        });
+  if (!team) return fail(kind === "P" ? "Produit introuvable" : "Département introuvable");
+  if (team.workflowId) {
+    return fail("Cette équipe a déjà son propre flux");
+  }
+
+  // On clone le flux réellement appliqué à l'équipe aujourd'hui — le flux par
+  // défaut de l'org — plutôt que les cinq colonnes standard : si la direction
+  // l'a modifié, l'équipe ne doit pas voir son tableau changer sous ses pieds
+  // juste parce qu'elle a demandé à pouvoir l'éditer.
+  const source = await ensureDefaultWorkflow(orgId);
+
+  // "Flux P2 · Wallet" — lisible dans les listes déroulantes, et le code évite
+  // la collision entre deux équipes de même nom.
+  const base = `Flux ${team.code} · ${team.name}`.slice(0, 60);
+  const existing = await prisma.boardWorkflow.findMany({
+    where: { orgId, name: { startsWith: base } },
+    select: { name: true },
+  });
+  const taken = new Set(existing.map((w) => w.name));
+  let name = base;
+  for (let i = 2; taken.has(name); i++) name = `${base.slice(0, 56)} (${i})`;
+
+  const workflowId = await prisma.$transaction(async (tx) => {
+    const created = await tx.boardWorkflow.create({
+      data: {
+        orgId,
+        name,
+        description: `Colonnes propres à ${team.name}.`,
+        isDefault: false,
+        createdById: viewer.id,
+        columns: {
+          create: source.columns.map((c, i) => ({
+            orgId,
+            label: c.label,
+            color: c.color,
+            category: c.category,
+            sortOrder: i,
+            wipLimit: c.wipLimit,
+          })),
+        },
+      },
+      select: { id: true },
+    });
+
+    if (kind === "P") {
+      await tx.product.update({
+        where: { id: teamId },
+        data: { workflowId: created.id },
+      });
+    } else {
+      await tx.department.update({
+        where: { id: teamId },
+        data: { workflowId: created.id },
+      });
+    }
+
+    await replaceTeamColumns(tx, orgId, kind, teamId, created.id);
+    return created.id;
+  });
+
+  revalidate();
+  return { ok: true, workflowId };
+}
+
 /**
  * Rattache une équipe ("P:<id>" / "D:<id>") à un flux — ou à rien, pour
  * retomber sur le flux par défaut.
  *
- * Les tâches déjà en cours sont replacées dans la colonne équivalente du
- * nouveau flux, à catégorie constante : changer de flux ne doit jamais faire
- * reculer une tâche ni fausser le sprint en cours.
+ * Les cartes déjà en cours — tâches de sprint ET actions — sont replacées dans
+ * la colonne équivalente du nouveau flux, à catégorie constante : changer de
+ * flux ne doit jamais faire reculer une carte ni fausser le sprint en cours.
  *
  * Le droit porte ici sur L'ÉQUIPE, pas sur le flux : un PO choisit le flux de
  * son produit même si ce flux appartient à quelqu'un d'autre. Il pourra alors
@@ -427,17 +602,17 @@ export async function assignTeamWorkflow(
   if (!auth_.ok) return fail(auth_.error);
   const { viewer, orgId } = auth_;
 
-  const [kind, teamId] = [teamKey.slice(0, 1), teamKey.slice(2)];
-  if ((kind !== "P" && kind !== "D") || !teamId) return fail("Équipe inconnue");
+  const parsed = parseTeamKey(teamKey);
+  if (!parsed) return fail("Équipe inconnue");
+  const { kind, teamId } = parsed;
 
   if (!canAssignTeam(viewer, teamKey)) {
     return fail("Vous ne pilotez pas cette équipe");
   }
 
-  let targetWorkflowId = workflowId;
-  if (targetWorkflowId) {
+  if (workflowId) {
     const wf = await prisma.boardWorkflow.findFirst({
-      where: { id: targetWorkflowId, orgId },
+      where: { id: workflowId, orgId },
       select: { id: true },
     });
     if (!wf) return fail("Flux introuvable");
@@ -451,7 +626,7 @@ export async function assignTeamWorkflow(
     if (!p) return fail("Produit introuvable");
     await prisma.product.update({
       where: { id: teamId },
-      data: { workflowId: targetWorkflowId },
+      data: { workflowId },
     });
   } else {
     const d = await prisma.department.findFirst({
@@ -461,42 +636,13 @@ export async function assignTeamWorkflow(
     if (!d) return fail("Département introuvable");
     await prisma.department.update({
       where: { id: teamId },
-      data: { workflowId: targetWorkflowId },
+      data: { workflowId },
     });
   }
 
   // Flux effectif après changement (null → celui par défaut).
-  if (!targetWorkflowId) {
-    const def = await prisma.boardWorkflow.findFirst({
-      where: { orgId, isDefault: true },
-      select: { id: true },
-    });
-    targetWorkflowId = def?.id ?? null;
-  }
-
-  if (targetWorkflowId) {
-    const columns = await prisma.boardColumn.findMany({
-      where: { workflowId: targetWorkflowId },
-      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
-      select: { id: true, category: true },
-    });
-
-    // Le produit prime sur le département pour choisir le flux (cf.
-    // board-column-server) : les tâches d'un département excluent donc celles
-    // qui portent aussi un produit, sinon on les arracherait au flux du produit.
-    const scope: Prisma.SprintTaskWhereInput =
-      kind === "P"
-        ? { orgId, productId: teamId }
-        : { orgId, departmentId: teamId, productId: null };
-
-    for (const category of CATEGORY_ORDER) {
-      const target = columns.find((c) => c.category === category);
-      await prisma.sprintTask.updateMany({
-        where: { ...scope, status: category },
-        data: { columnId: target?.id ?? null },
-      });
-    }
-  }
+  const effective = workflowId ?? (await ensureDefaultWorkflow(orgId)).id;
+  await replaceTeamColumns(prisma, orgId, kind, teamId, effective);
 
   revalidate();
   return { ok: true };

@@ -6,9 +6,11 @@ import {
   checkRequiredCategories,
   equivalentColumn,
   groupTasksByColumn,
+  inferSingleWorkflow,
   sortColumns,
   wipState,
   type BoardColumnDef,
+  type BoardWorkflowDef,
 } from "@/lib/board-column";
 
 function col(
@@ -77,6 +79,48 @@ describe("groupTasksByColumn", () => {
     expect(Object.keys(byColumn).sort()).toEqual(
       ["analyse", "dev", "done", "revue", "todo"].sort()
     );
+  });
+});
+
+describe("inferSingleWorkflow", () => {
+  const flow = (id: string): BoardWorkflowDef => ({
+    id,
+    name: id,
+    description: null,
+    isDefault: false,
+    columns: IT_FLOW,
+  });
+  const IT = flow("it");
+  const MARKETING = flow("marketing");
+
+  // Le cas qui motive la fonction : un PO ajoute une colonne à son flux et
+  // revient sur le tableau sans toucher au filtre d'équipe. Ses cartes sont
+  // toutes à lui, donc son flux est celui à afficher.
+  it("rend le flux commun quand toutes les cartes en relèvent", () => {
+    const tasks = [{ wf: IT }, { wf: IT }, { wf: IT }];
+    expect(inferSingleWorkflow(tasks, (t) => t.wf)?.id).toBe("it");
+  });
+
+  it("rend null dès que deux flux se côtoient", () => {
+    const tasks = [{ wf: IT }, { wf: MARKETING }];
+    expect(inferSingleWorkflow(tasks, (t) => t.wf)).toBeNull();
+  });
+
+  it("rend null si une carte n'a pas de flux résolu", () => {
+    // Une seule carte non résolue suffit : afficher le flux des autres
+    // rangerait celle-ci dans des colonnes qui ne sont pas les siennes.
+    const tasks = [{ wf: IT }, { wf: null }];
+    expect(inferSingleWorkflow(tasks, (t) => t.wf)).toBeNull();
+  });
+
+  it("rend null sur un tableau vide", () => {
+    expect(inferSingleWorkflow([], () => IT)).toBeNull();
+  });
+
+  it("compare par id, pas par référence d'objet", () => {
+    // Deux rendus peuvent produire deux objets distincts pour le même flux.
+    const tasks = [{ wf: IT }, { wf: flow("it") }];
+    expect(inferSingleWorkflow(tasks, (t) => t.wf)?.id).toBe("it");
   });
 });
 

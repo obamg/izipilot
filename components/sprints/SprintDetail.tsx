@@ -311,6 +311,7 @@ export function SprintDetail({
             workflows={workflows}
             teamWorkflows={teamWorkflows}
             teamFilter={teamFilter}
+            onSelectTeam={setTeamFilter}
             onCardClick={canOpenCards ? openCard : undefined}
           />
         </div>
