@@ -3,6 +3,7 @@ import {
   watDateOnly,
   toDateKey,
   parseDateKey,
+  planLookbackFloor,
   mergeStandups,
   type RosterMember,
   type StandupRecord,
@@ -33,6 +34,33 @@ describe('parseDateKey', () => {
     expect(parseDateKey('2026/06/26')).toBeNull()
     expect(parseDateKey('nope')).toBeNull()
     expect(parseDateKey('2026-13-40')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// planLookbackFloor — jusqu'où on remonte pour reprendre le plan de la veille
+// ---------------------------------------------------------------------------
+describe('planLookbackFloor', () => {
+  it('remonte assez loin pour que le lundi retrouve le vendredi', () => {
+    // Lundi 7 septembre 2026 : le dernier jour ouvré est vendredi le 4.
+    const floor = planLookbackFloor(parseDateKey('2026-09-07')!)
+    expect(toDateKey(floor)).toBe('2026-09-03')
+    expect(floor.getTime()).toBeLessThanOrEqual(parseDateKey('2026-09-04')!.getTime())
+  })
+
+  it('couvre aussi un lundi férié', () => {
+    // Mardi, après un lundi chômé : « hier » remonte au vendredi, 4 jours avant.
+    const floor = planLookbackFloor(parseDateKey('2026-09-08')!)
+    expect(floor.getTime()).toBeLessThanOrEqual(parseDateKey('2026-09-04')!.getTime())
+  })
+
+  it('exclut un plan trop vieux pour être présenté comme « hier »', () => {
+    const floor = planLookbackFloor(parseDateKey('2026-09-07')!)
+    expect(floor.getTime()).toBeGreaterThan(parseDateKey('2026-09-02')!.getTime())
+  })
+
+  it('accepte une fenêtre explicite', () => {
+    expect(toDateKey(planLookbackFloor(parseDateKey('2026-09-07')!, 1))).toBe('2026-09-06')
   })
 })
 

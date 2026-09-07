@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { mergeStandups, type RosterMember, type StandupRecord } from "@/lib/standup";
+import {
+  mergeStandups,
+  type PreviousPlan,
+  type RosterMember,
+  type StandupRecord,
+} from "@/lib/standup";
 
 interface DailyReportProps {
   sprintId: string;
   today: string; // yyyy-mm-dd (WAT)
   roster: RosterMember[];
   initialStandups: StandupRecord[]; // today's standups, server-provided
+  /**
+   * Le dernier plan de la personne connectée, s'il date d'assez peu. Sert de
+   * brouillon au champ « Hier » : ce qu'on avait annoncé faire est presque
+   * toujours ce qu'on raconte le lendemain.
+   */
+  previousPlan?: PreviousPlan | null;
   currentUserId: string;
   canSubmit: boolean;
   /**
@@ -35,11 +46,22 @@ function dateLabel(key: string): string {
   });
 }
 
+/** « vendredi 5 sept. » — assez court pour tenir sous un champ. */
+function shortDateLabel(key: string): string {
+  return new Date(`${key}T00:00:00.000Z`).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
 export function DailyReport({
   sprintId,
   today,
   roster,
   initialStandups,
+  previousPlan = null,
   currentUserId,
   canSubmit,
   visibleMemberIds = null,
@@ -142,6 +164,7 @@ export function DailyReport({
         <MyStandupForm
           sprintId={sprintId}
           mine={mine}
+          previousPlan={previousPlan}
           onSaved={() => load(today)}
         />
       )}
@@ -234,13 +257,19 @@ function StandupCol({
 function MyStandupForm({
   sprintId,
   mine,
+  previousPlan,
   onSaved,
 }: {
   sprintId: string;
   mine: StandupRecord | null;
+  previousPlan: PreviousPlan | null;
   onSaved: () => void;
 }) {
-  const [yesterday, setYesterday] = useState(mine?.yesterday ?? "");
+  // Le plan de la veille ne sert de brouillon que si rien n'a encore été
+  // enregistré aujourd'hui : il ne doit jamais écraser un texte déjà saisi.
+  const draftYesterday = mine?.yesterday ?? previousPlan?.text ?? "";
+
+  const [yesterday, setYesterday] = useState(draftYesterday);
   const [today, setToday] = useState(mine?.today ?? "");
   const [blockers, setBlockers] = useState(mine?.blockers ?? "");
   const [saving, setSaving] = useState(false);
@@ -249,11 +278,16 @@ function MyStandupForm({
 
   // Re-sync when the underlying entry changes (e.g. after a reload).
   useEffect(() => {
-    setYesterday(mine?.yesterday ?? "");
+    setYesterday(mine?.yesterday ?? previousPlan?.text ?? "");
     setToday(mine?.today ?? "");
     setBlockers(mine?.blockers ?? "");
     setSavedAt(mine?.updatedAt ?? null);
-  }, [mine?.yesterday, mine?.today, mine?.blockers, mine?.updatedAt]);
+  }, [mine?.yesterday, mine?.today, mine?.blockers, mine?.updatedAt, previousPlan?.text]);
+
+  // Dérivé, pas un état : la mention disparaît d'elle-même dès la première
+  // correction, et ne réapparaît jamais après enregistrement.
+  const showPrefillNote =
+    Boolean(previousPlan) && !mine?.yesterday && yesterday === previousPlan?.text;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -297,7 +331,28 @@ function MyStandupForm({
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <Field label="Hier" value={yesterday} onChange={setYesterday} placeholder="Ce que j'ai fait hier…" />
+        <Field
+          label="Hier"
+          value={yesterday}
+          onChange={setYesterday}
+          placeholder="Ce que j'ai fait hier…"
+          hint={
+            showPrefillNote ? (
+              <span className="flex flex-wrap items-baseline gap-x-1.5">
+                <span className="text-teal-dk">
+                  Repris de votre plan de {shortDateLabel(previousPlan!.date)} — corrigez si besoin.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setYesterday("")}
+                  className="font-medium text-izi-gray underline hover:text-dark"
+                >
+                  Vider
+                </button>
+              </span>
+            ) : null
+          }
+        />
         <Field label="Aujourd'hui" value={today} onChange={setToday} placeholder="Ce que je vais faire…" />
         <Field
           label="Blocage"
@@ -325,11 +380,13 @@ function Field({
   value,
   onChange,
   placeholder,
+  hint = null,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
+  hint?: React.ReactNode;
 }) {
   return (
     <div>
@@ -342,8 +399,11 @@ function Field({
         rows={3}
         maxLength={2000}
         placeholder={placeholder}
-        className="w-full rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal resize-none"
+        className={`w-full rounded-[7px] border bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal resize-none ${
+          hint ? "border-teal-md" : "border-border-soft"
+        }`}
       />
+      {hint && <div className="mt-0.5 text-[10px] leading-tight">{hint}</div>}
     </div>
   );
 }

@@ -24,7 +24,7 @@ import {
   matchesScope,
   type TaskScope,
 } from "@/lib/task-filter";
-import type { RosterMember, StandupRecord } from "@/lib/standup";
+import type { PreviousPlan, RosterMember, StandupRecord } from "@/lib/standup";
 import type { BoardWorkflowDef } from "@/lib/board-column";
 import type {
   SprintSummary,
@@ -76,6 +76,7 @@ interface SprintDetailProps {
   standupToday: string;
   standupRoster: RosterMember[];
   initialStandups: StandupRecord[];
+  previousPlan: PreviousPlan | null;
   recurringTemplates: RecurringTaskItem[];
   /** Flux de colonnes de l'org + affectation des équipes (pilotent le tableau). */
   workflows: BoardWorkflowDef[];
@@ -101,6 +102,7 @@ export function SprintDetail({
   standupToday,
   standupRoster,
   initialStandups,
+  previousPlan,
   recurringTemplates,
   workflows,
   teamWorkflows,
@@ -407,6 +409,7 @@ export function SprintDetail({
             today={standupToday}
             roster={standupRoster}
             initialStandups={initialStandups}
+            previousPlan={previousPlan}
             currentUserId={currentUserId}
             canSubmit={currentUserRole !== "VIEWER"}
             visibleMemberIds={visibleMemberIds}
