@@ -24,7 +24,7 @@ import {
 import { canManageRecurring } from "@/lib/recurring-task";
 import { loadWorkflows, loadTeamWorkflowMap } from "@/lib/board-column-server";
 import { loadViewerTeams } from "@/lib/sprint-request-server";
-import { watDateOnly, toDateKey } from "@/lib/standup";
+import { watDateOnly, toDateKey, planLookbackFloor } from "@/lib/standup";
 import { SprintDetail } from "@/components/sprints/SprintDetail";
 
 export default async function SprintDetailPage({
@@ -54,8 +54,16 @@ export default async function SprintDetailPage({
 
   const standupDate = watDateOnly();
 
-  const [backlog, users, products, departments, krs, standupsToday, standupAuthors] =
-    await Promise.all([
+  const [
+    backlog,
+    users,
+    products,
+    departments,
+    krs,
+    standupsToday,
+    standupAuthors,
+    lastPlan,
+  ] = await Promise.all([
     prisma.sprintTask.findMany({
       where: { orgId, sprintId: null, ...sprintTaskVisibilityWhere(role) },
       include: sprintTaskInclude,
@@ -100,6 +108,20 @@ export default async function SprintDetailPage({
       where: { sprintId, orgId },
       select: { user: { select: { id: true, name: true } } },
       distinct: ["userId"],
+    }),
+    // Mon dernier plan, pour pré-remplir « Hier ». Cherché sur toute l'org et
+    // pas sur ce seul sprint : quand un sprint s'enchaîne en milieu de semaine,
+    // le plan de la veille appartient au sprint précédent — et c'est quand même
+    // ce que la personne a fait hier.
+    prisma.standupEntry.findFirst({
+      where: {
+        orgId,
+        userId: session.user.id,
+        date: { lt: standupDate, gte: planLookbackFloor(standupDate) },
+        today: { not: null },
+      },
+      orderBy: { date: "desc" },
+      select: { date: true, today: true },
     }),
   ]);
 
@@ -188,6 +210,11 @@ export default async function SprintDetailPage({
     loadTeamWorkflowMap(orgId),
   ]);
 
+  const previousPlan =
+    lastPlan?.today?.trim()
+      ? { date: toDateKey(lastPlan.date), text: lastPlan.today.trim() }
+      : null;
+
   const initialStandups = standupsToday.map((s) => ({
     userId: s.userId,
     yesterday: s.yesterday,
@@ -226,6 +253,7 @@ export default async function SprintDetailPage({
       standupToday={toDateKey(standupDate)}
       standupRoster={standupRoster}
       initialStandups={initialStandups}
+      previousPlan={previousPlan}
       recurringTemplates={recurringTemplates}
       workflows={workflows}
       teamWorkflows={teamWorkflows}

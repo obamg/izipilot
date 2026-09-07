@@ -34,6 +34,38 @@ export function parseDateKey(s: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// ── Reprise du plan de la veille ─────────────────────────────────────────────
+
+/**
+ * Combien de jours en arrière on accepte de chercher le dernier plan pour
+ * pré-remplir « Hier ».
+ *
+ * 4 jours, pas 1 : le lundi, « hier » c'est vendredi (3 jours), et un lundi
+ * férié pousse à 4. Au-delà, le texte serait trop vieux pour être proposé sous
+ * un libellé « Hier » — mieux vaut un champ vide qu'un brouillon trompeur.
+ */
+export const PLAN_LOOKBACK_DAYS = 4;
+
+/** Date la plus ancienne acceptée pour reprendre un plan (incluse). */
+export function planLookbackFloor(
+  today: Date,
+  days: number = PLAN_LOOKBACK_DAYS
+): Date {
+  return new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Le dernier plan écrit par la personne — ce qu'elle avait annoncé faire ce
+ * jour-là. Sert de brouillon au champ « Hier », jamais de valeur enregistrée
+ * d'office : c'est une intention passée, pas un compte rendu.
+ */
+export interface PreviousPlan {
+  /** yyyy-mm-dd du jour où ce plan a été écrit. */
+  date: string;
+  /** Le contenu du champ « Aujourd'hui » de ce jour-là. */
+  text: string;
+}
+
 export interface StandupRecord {
   userId: string;
   yesterday: string | null;
