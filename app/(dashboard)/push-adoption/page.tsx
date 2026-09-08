@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { UserRole } from "@prisma/client";
+import { EXEMPT_REASONS, type ExemptReason } from "@/lib/push-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,13 @@ export default async function PushAdoptionPage() {
     }),
     prisma.user.findMany({
       where: { orgId, isActive: true },
-      select: { id: true, name: true, role: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        pushExemptAt: true,
+        pushExemptReason: true,
+      },
       orderBy: { name: "asc" },
     }),
     prisma.pushSubscription.findMany({
@@ -63,6 +70,11 @@ export default async function PushAdoptionPage() {
   const eligible = users.filter((u) => eligibleIds.has(u.id) && u.role !== "VIEWER");
   const eligibleWithPush = eligible.filter((u) => subUserIds.has(u.id));
   const eligibleWithout = eligible.filter((u) => !subUserIds.has(u.id));
+  // Parmi eux, deux populations très différentes : ceux que la porte bloquera
+  // à leur prochaine connexion, et ceux dont le navigateur ne peut pas et à qui
+  // on a laissé le passage. Les confondre masquerait le vrai reste-à-faire.
+  const exempted = eligibleWithout.filter((u) => u.pushExemptAt != null);
+  const willBeBlocked = eligibleWithout.filter((u) => u.pushExemptAt == null);
   const eligiblePct =
     eligible.length > 0 ? Math.round((eligibleWithPush.length / eligible.length) * 100) : 0;
 
@@ -155,13 +167,13 @@ export default async function PushAdoptionPage() {
       </div>
 
       {/* Who hasn't enabled */}
-      {eligibleWithout.length > 0 && (
+      {willBeBlocked.length > 0 && (
         <div className="bg-white rounded-[10px] border border-border-soft p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-izi-gray mb-2">
-            Participants sans notifications ({eligibleWithout.length})
+            Bloqués à leur prochaine connexion ({willBeBlocked.length})
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {eligibleWithout.map((u) => (
+            {willBeBlocked.map((u) => (
               <span
                 key={u.id}
                 className="inline-flex items-center gap-1 rounded-full border border-border-soft bg-gray-lt px-2.5 py-1 text-[12px] text-dark"
@@ -172,12 +184,44 @@ export default async function PushAdoptionPage() {
             ))}
           </div>
           <p className="text-[11px] text-izi-gray mt-3">
-            Ces personnes peuvent activer les notifications depuis{" "}
+            À leur prochaine connexion, l&apos;application les conduira vers un
+            écran d&apos;activation qui les guide selon leur cas, et ne les
+            laissera pas passer tant qu&apos;elles n&apos;auront pas activé. Elles
+            peuvent aussi le faire dès maintenant depuis{" "}
             <Link href="/settings/notifications" className="text-teal hover:text-teal-dk font-medium">
               Paramètres → Notifications
-            </Link>{" "}
-            (une bannière les y invite aussi). Sur iPhone, l&apos;app doit
-            d&apos;abord être ajoutée à l&apos;écran d&apos;accueil.
+            </Link>
+            . Sur iPhone, l&apos;app doit d&apos;abord être ajoutée à
+            l&apos;écran d&apos;accueil.
+          </p>
+        </div>
+      )}
+
+      {/* Dérogations — navigateurs techniquement incapables */}
+      {exempted.length > 0 && (
+        <div className="bg-white rounded-[10px] border border-gold/40 p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-izi-gray mb-2">
+            Dérogations techniques ({exempted.length})
+          </div>
+          <ul className="space-y-1.5">
+            {exempted.map((u) => (
+              <li key={u.id} className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
+                <span className="font-medium text-dark">{u.name}</span>
+                <span className="text-[10px] text-izi-gray">{ROLE_LABELS[u.role]}</span>
+                <span className="text-izi-gray">
+                  {u.pushExemptReason
+                    ? EXEMPT_REASONS[u.pushExemptReason as ExemptReason] ??
+                      u.pushExemptReason
+                    : "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-izi-gray mt-3">
+            Ces personnes passent sans notifications parce que leur navigateur
+            n&apos;en est pas capable — ce n&apos;est jamais accordé sur un simple
+            refus. Elles ne recevront aucun rappel de rapport quotidien tant que
+            la situation dure.
           </p>
         </div>
       )}

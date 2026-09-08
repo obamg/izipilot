@@ -6,6 +6,7 @@ import { PushNudgeBanner } from "@/components/push/PushNudgeBanner";
 import { SWRegister } from "@/components/pwa/SWRegister";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { getISOWeek } from "@/lib/date";
+import { evaluatePushGate } from "@/lib/push-gate-server";
 import {
   alertVisibilityWhere,
   departmentVisibilityWhere,
@@ -25,6 +26,24 @@ export default async function DashboardLayout({
   const { weekNumber, year } = getISOWeek(new Date());
   const orgId = session.user.orgId;
   const userId = session.user.id;
+
+  // Obligation d'activer les notifications. Ici et pas dans le middleware : la
+  // décision demande la base (sprint actif, abonnements), et le middleware
+  // tourne sur l'edge sans accès à Prisma — même raison que la redirection PO.
+  //
+  // Deux protections contre l'accident : la clé VAPID absente laisse tout
+  // passer (sinon un oubli de variable d'environnement enfermerait toute
+  // l'organisation dehors), et une erreur de la porte n'empêche jamais
+  // d'accéder à l'application.
+  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+    let gate: Awaited<ReturnType<typeof evaluatePushGate>> = "OK";
+    try {
+      gate = await evaluatePushGate(orgId, userId, session.user.role);
+    } catch {
+      gate = "OK";
+    }
+    if (gate === "REQUIRED") redirect("/notifications-requises");
+  }
 
   // Fetch sidebar data: products + departments with average scores
   const [products, departments, unresolvedAlertCount, myNotificationCount] = await Promise.all([

@@ -252,6 +252,13 @@ model User {
   isActive           Boolean   @default(true)
   mustChangePassword Boolean   @default(false)
   lastLoginAt        DateTime?
+
+  // Dérogation à l'obligation d'activer les notifications. Renseignée seulement
+  // quand le navigateur est techniquement incapable de push (cf. EXEMPT_REASONS
+  // dans lib/push-gate.ts) — jamais sur simple refus, qui se rattrape dans les
+  // réglages. Visible du management sur /push-adoption.
+  pushExemptAt       DateTime?
+  pushExemptReason   String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
