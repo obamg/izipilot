@@ -7,6 +7,7 @@ import { SWRegister } from "@/components/pwa/SWRegister";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { getISOWeek } from "@/lib/date";
 import { evaluatePushGate } from "@/lib/push-gate-server";
+import { evaluateOneMember } from "@/lib/member-compliance-server";
 import {
   alertVisibilityWhere,
   departmentVisibilityWhere,
@@ -44,6 +45,21 @@ export default async function DashboardLayout({
     }
     if (gate === "REQUIRED") redirect("/notifications-requises");
   }
+
+  // Suivi des membres : une tâche en cours, et le rapport quotidien rempli.
+  // Passe APRÈS la porte des notifications, pour qu'une personne concernée par
+  // les deux règle d'abord celle qui ne dépend pas de l'heure.
+  //
+  // Même filet que ci-dessus : une erreur d'évaluation laisse passer. Un
+  // manquement qu'on ne peut pas lever soi-même (aucune tâche assignée) n'est
+  // jamais bloquant — cf. lib/member-compliance.ts.
+  let blocked = false;
+  try {
+    blocked = (await evaluateOneMember(orgId, userId, session.user.role)).blocking;
+  } catch {
+    blocked = false;
+  }
+  if (blocked) redirect("/mon-point-du-jour");
 
   // Fetch sidebar data: products + departments with average scores
   const [products, departments, unresolvedAlertCount, myNotificationCount] = await Promise.all([
