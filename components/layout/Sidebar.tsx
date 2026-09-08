@@ -321,6 +321,27 @@ export function Sidebar({
               Adoption notifications
             </Link>
           )}
+
+          {/* Suivi des membres — CEO + Management only */}
+          {(userRole === "CEO" || userRole === "MANAGEMENT") && (
+            <Link
+              href="/suivi-equipe"
+              onClick={onClose}
+              className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                isNavActive("/suivi-equipe")
+                  ? "bg-white/[0.14] text-white"
+                  : "text-[#9fb3bf] hover:bg-white/[0.08] hover:text-white"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 00-3-3.87" />
+                <path d="M16 3.13a4 4 0 010 7.75" />
+              </svg>
+              Suivi de l&apos;équipe
+            </Link>
+          )}
         </div>
 
         {/* Admin section — CEO only */}
