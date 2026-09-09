@@ -102,9 +102,34 @@ export function SprintTaskModal({
     return { productId: null, departmentId: null };
   }
 
+  // L'équipe est obligatoire ; choisir un KR la pré-remplit avec l'entité de
+  // son objectif quand elle est encore vide, pour que l'obligation coûte un
+  // clic et non une réflexion. Elle reste modifiable : une tâche sur un KR
+  // produit peut légitimement être portée par un département.
+  function selectKr(next: string) {
+    setKrId(next);
+    if (team) return;
+    const entityKey = krs.find((k) => k.id === next)?.entityKey;
+    if (entityKey) selectTeam(entityKey);
+  }
+
+  // Poser une équipe efface le reproche de ne pas en avoir : le laisser
+  // afficher sous un champ désormais rempli est faux.
+  function selectTeam(next: string) {
+    setTeam(next);
+    if (next) setError(null);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    // L'équipe est obligatoire : sans elle la tâche n'apparaît sous aucun
+    // filtre d'équipe. Le serveur la refuse aussi — on l'annonce ici plutôt
+    // que d'attendre un aller-retour.
+    if (!reportOnly && !team) {
+      setError("Choisissez une équipe : un produit ou un département.");
+      return;
+    }
     setError(null);
     setIsSaving(true);
     try {
@@ -363,12 +388,14 @@ export function SprintTaskModal({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-izi-gray mb-1">Équipe</label>
+            <label className="block text-[11px] font-semibold text-izi-gray mb-1">
+              Équipe <span className="text-[var(--red)]" aria-hidden>*</span>
+            </label>
             <SearchableSelect
               value={team || "NONE"}
-              onChange={(v) => setTeam(v === "NONE" ? "" : v)}
-              ariaLabel="Équipe"
-              allOption={{ value: "NONE", label: "Aucune équipe" }}
+              onChange={(v) => selectTeam(v === "NONE" ? "" : v)}
+              ariaLabel="Équipe (obligatoire)"
+              allOption={{ value: "NONE", label: "— À choisir —" }}
               options={teamOptions}
               className="w-full"
             />
@@ -381,7 +408,7 @@ export function SprintTaskModal({
           </label>
           <SearchableSelect
             value={krId || "NONE"}
-            onChange={(v) => setKrId(v === "NONE" ? "" : v)}
+            onChange={(v) => selectKr(v === "NONE" ? "" : v)}
             ariaLabel="Key Result lié"
             allOption={{ value: "NONE", label: "Aucun KR" }}
             options={krGroups}

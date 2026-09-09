@@ -47,6 +47,49 @@ export const updateSprintSchema = z.object({
   startNext: z.boolean().optional(),
 });
 
+// ── Équipe d'une tâche ───────────────────────────────────────────────────────
+// Une tâche appartient toujours à une équipe : un produit OU un département.
+// C'est ce couple productId/departmentId que lisent le filtre d'équipe, le flux
+// de colonnes du tableau et la pastille de la carte. Tant qu'il était
+// facultatif, une tâche saisie sans équipe n'apparaissait sous aucun filtre —
+// treize tâches de P6 « Carte Virtuelle » étaient dans ce cas.
+const TEAM_REQUIRED = "Choisissez une équipe : un produit ou un département.";
+
+/** Vrai si le couple porte une équipe. */
+function carriesTeam(d: {
+  productId?: string | null;
+  departmentId?: string | null;
+}): boolean {
+  return Boolean(d.productId) || Boolean(d.departmentId);
+}
+
+function requireTeam(
+  d: { productId?: string | null; departmentId?: string | null },
+  ctx: z.RefinementCtx
+) {
+  if (!carriesTeam(d)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["departmentId"],
+      message: TEAM_REQUIRED,
+    });
+  }
+}
+
+/**
+ * À la modification, l'équipe n'est vérifiée que si la requête y touche : un
+ * déplacement de carte n'envoie que `columnId`, et il ne doit pas se heurter à
+ * une règle qui ne le concerne pas. Mais une requête qui vide explicitement les
+ * deux champs est refusée — on ne retire pas son équipe à une tâche.
+ */
+function requireTeamIfTouched(
+  d: { productId?: string | null; departmentId?: string | null },
+  ctx: z.RefinementCtx
+) {
+  const touched = d.productId !== undefined || d.departmentId !== undefined;
+  if (touched) requireTeam(d, ctx);
+}
+
 // ── Sprint task ──────────────────────────────────────────────────────────────
 export const createSprintTaskSchema = z.object({
   sprintId: z.string().nullable().optional(), // null/absent → backlog
@@ -60,7 +103,7 @@ export const createSprintTaskSchema = z.object({
   priority: taskPriorityEnum.default("MEDIUM"),
   storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
   dueDate: z.string().nullable().optional(),
-});
+}).superRefine(requireTeam);
 
 export const updateSprintTaskSchema = z.object({
   title: z.string().min(2).max(200).optional(),
@@ -81,7 +124,7 @@ export const updateSprintTaskSchema = z.object({
   sprintId: z.string().nullable().optional(), // move between sprint ↔ backlog
   sortOrder: z.number().int().min(0).optional(),
   dueDate: z.string().nullable().optional(),
-});
+}).superRefine(requireTeamIfTouched);
 
 // Lightweight schema for board drag (status + position only).
 export const moveSprintTaskSchema = z.object({
@@ -186,7 +229,9 @@ export const createRecurringTaskSchema = z
     storyPoints: z.number().int().min(0).max(1000).nullable().optional(),
     ...recurrenceFields,
   })
-  .superRefine(requireCadenceParams);
+  .superRefine(requireCadenceParams)
+  // Un modèle sans équipe engendrerait des tâches sans équipe à chaque sprint.
+  .superRefine(requireTeam);
 
 // Update: any field optional, plus isActive to pause/resume. When a recurrence
 // field is present the route recomputes nextRunAt.
@@ -208,6 +253,7 @@ export const updateRecurringTaskSchema = z
   .superRefine((d, ctx) => {
     // Only enforce cadence params when the frequency itself is being set.
     if (d.frequency) requireCadenceParams({ ...d, frequency: d.frequency }, ctx);
+    requireTeamIfTouched(d, ctx);
   });
 
 // ── Daily standup ────────────────────────────────────────────────────────────

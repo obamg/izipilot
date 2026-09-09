@@ -412,9 +412,29 @@ function RecurringForm({
     return { productId: null, departmentId: null };
   }
 
+  // Comme sur une tâche simple : le KR pré-remplit l'équipe restée vide, pour
+  // que chaque instance engendrée naisse avec la bonne étiquette.
+  function selectKr(next: string) {
+    setKrId(next);
+    if (team) return;
+    const entityKey = krs.find((k) => k.id === next)?.entityKey;
+    if (entityKey) selectTeam(entityKey);
+  }
+
+  // Poser une équipe efface le reproche de ne pas en avoir.
+  function selectTeam(next: string) {
+    setTeam(next);
+    if (next) setError(null);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    // Un modèle sans équipe engendrerait des tâches sans équipe à chaque sprint.
+    if (!team) {
+      setError("Choisissez une équipe : un produit ou un département.");
+      return;
+    }
     setError(null);
     setIsSaving(true);
     try {
@@ -561,12 +581,14 @@ function RecurringForm({
           />
         </div>
         <div>
-          <label className={labelCls}>Équipe</label>
+          <label className={labelCls}>
+            Équipe <span className="text-[var(--red)]" aria-hidden>*</span>
+          </label>
           <SearchableSelect
             value={team || "NONE"}
-            onChange={(v) => setTeam(v === "NONE" ? "" : v)}
-            ariaLabel="Équipe"
-            allOption={{ value: "NONE", label: "Aucune équipe" }}
+            onChange={(v) => selectTeam(v === "NONE" ? "" : v)}
+            ariaLabel="Équipe (obligatoire)"
+            allOption={{ value: "NONE", label: "— À choisir —" }}
             options={teamOptions}
             className="w-full"
           />
@@ -577,7 +599,7 @@ function RecurringForm({
         <label className={labelCls}>Key Result lié (optionnel)</label>
         <SearchableSelect
           value={krId || "NONE"}
-          onChange={(v) => setKrId(v === "NONE" ? "" : v)}
+          onChange={(v) => selectKr(v === "NONE" ? "" : v)}
           ariaLabel="Key Result lié"
           allOption={{ value: "NONE", label: "Aucun KR" }}
           options={krGroups}

@@ -12,6 +12,8 @@ import { canManageRecurring } from "@/lib/recurring-task";
 import {
   recurringTaskInclude,
   serializeRecurringTask,
+  krOptionSelect,
+  toKrOption,
 } from "@/lib/sprint-serialize";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SprintStatusBadge } from "@/components/sprints/SprintStatusBadge";
@@ -85,16 +87,7 @@ export default async function SprintsPage() {
       }),
       prisma.keyResult.findMany({
         where: { orgId, isActive: true, deletedAt: null, ...krVisibilityWhere(role) },
-        select: {
-          id: true,
-          title: true,
-          objective: {
-            select: {
-              product: { select: { code: true, name: true } },
-              department: { select: { code: true, name: true } },
-            },
-          },
-        },
+        select: krOptionSelect,
         orderBy: { createdAt: "asc" },
       }),
     ]);
@@ -103,12 +96,7 @@ export default async function SprintsPage() {
       users,
       products,
       departments,
-      krs: krs.map((kr) => ({
-        id: kr.id,
-        title: kr.title,
-        entityCode: kr.objective.product?.code ?? kr.objective.department?.code ?? "",
-        entityName: kr.objective.product?.name ?? kr.objective.department?.name ?? "",
-      })),
+      krs: krs.map(toKrOption),
     };
   }
   if (canManage) recurringData = await loadRecurringData();
