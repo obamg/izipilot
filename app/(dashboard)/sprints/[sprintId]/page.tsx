@@ -20,6 +20,8 @@ import {
   serializeTaskRequest,
   recurringTaskInclude,
   serializeRecurringTask,
+  krOptionSelect,
+  toKrOption,
 } from "@/lib/sprint-serialize";
 import { canManageRecurring } from "@/lib/recurring-task";
 import { loadWorkflows, loadTeamWorkflowMap } from "@/lib/board-column-server";
@@ -86,16 +88,7 @@ export default async function SprintDetailPage({
     }),
     prisma.keyResult.findMany({
       where: { orgId, isActive: true, deletedAt: null, ...krVisibilityWhere(role) },
-      select: {
-        id: true,
-        title: true,
-        objective: {
-          select: {
-            product: { select: { code: true, name: true } },
-            department: { select: { code: true, name: true } },
-          },
-        },
-      },
+      select: krOptionSelect,
       orderBy: { createdAt: "asc" },
     }),
     prisma.standupEntry.findMany({
@@ -173,12 +166,7 @@ export default async function SprintDetailPage({
   const inboxReceived = inboxReceivedRows.map(serializeTaskRequest);
   const inboxSent = inboxSentRows.map(serializeTaskRequest);
 
-  const krOptions = krs.map((kr) => ({
-    id: kr.id,
-    title: kr.title,
-    entityCode: kr.objective.product?.code ?? kr.objective.department?.code ?? "",
-    entityName: kr.objective.product?.name ?? kr.objective.department?.name ?? "",
-  }));
+  const krOptions = krs.map(toKrOption);
 
   // Recurring-task templates for the in-sprint manager (self-gated to
   // CEO/MANAGEMENT/PO — matches the Sprints list page).

@@ -150,6 +150,8 @@ export interface KrOption {
   title: string;
   entityCode: string;
   entityName: string;
+  /** Entité de l'objectif — sert à pré-remplir « Équipe » quand elle est vide. */
+  entityKey: string | null;
 }
 
 export type AvailabilityState = "IDLE" | "NO_ONGOING" | "ACTIVE";

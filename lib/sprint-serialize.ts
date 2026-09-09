@@ -113,6 +113,38 @@ export function serializeSprintTask(t: SprintTaskWithRelations) {
 
 export type SerializedSprintTask = ReturnType<typeof serializeSprintTask>;
 
+// ── Option de Key Result (sélecteur de tâche) ───────────────────────────────
+// Le select et la projection sont partagés pour que `entityKey` — la clé
+// "P:<id>" / "D:<id>" avec laquelle le formulaire pré-remplit « Équipe » —
+// existe partout où l'on propose un KR, et pas seulement sur une page.
+export const krOptionSelect = {
+  id: true,
+  title: true,
+  objective: {
+    select: {
+      product: { select: { id: true, code: true, name: true } },
+      department: { select: { id: true, code: true, name: true } },
+    },
+  },
+} satisfies Prisma.KeyResultSelect;
+
+type KrOptionPayload = Prisma.KeyResultGetPayload<{ select: typeof krOptionSelect }>;
+
+export function toKrOption(kr: KrOptionPayload) {
+  const { product, department } = kr.objective;
+  return {
+    id: kr.id,
+    title: kr.title,
+    entityCode: product?.code ?? department?.code ?? "",
+    entityName: product?.name ?? department?.name ?? "",
+    entityKey: product
+      ? `P:${product.id}`
+      : department
+      ? `D:${department.id}`
+      : null,
+  };
+}
+
 // ── Task step (Étape) ───────────────────────────────────────────────────────
 type StepPayload = Prisma.SprintTaskStepGetPayload<{
   select: typeof sprintTaskStepSelect;
