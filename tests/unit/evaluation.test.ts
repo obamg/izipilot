@@ -8,7 +8,9 @@ import {
   recentMonths,
   avgDefined,
   round1,
+  matchesEvaluationFilters,
   type DeliveryTaskLike,
+  type EvaluationFilterSubject,
 } from "@/lib/evaluation";
 
 describe("deliveryScoreFromRatio", () => {
@@ -119,5 +121,64 @@ describe("avgDefined", () => {
     expect(avgDefined([4, null, 2, undefined])).toBe(3);
     expect(avgDefined([null, undefined])).toBeNull();
     expect(avgDefined([])).toBeNull();
+  });
+});
+
+describe("matchesEvaluationFilters", () => {
+  const base: EvaluationFilterSubject = {
+    role: "CONTRIBUTOR",
+    isRated: false,
+    departmentIds: ["d1"],
+  };
+
+  it("passes everyone when every filter is ALL", () => {
+    expect(matchesEvaluationFilters(base, { department: "ALL", status: "ALL", role: "ALL" })).toBe(
+      true
+    );
+  });
+
+  it("filters by department membership", () => {
+    expect(matchesEvaluationFilters(base, { department: "d1", status: "ALL", role: "ALL" })).toBe(
+      true
+    );
+    expect(matchesEvaluationFilters(base, { department: "d2", status: "ALL", role: "ALL" })).toBe(
+      false
+    );
+  });
+
+  it("filters by rated status", () => {
+    expect(
+      matchesEvaluationFilters(base, { department: "ALL", status: "RATED", role: "ALL" })
+    ).toBe(false);
+    expect(
+      matchesEvaluationFilters(
+        { ...base, isRated: true },
+        { department: "ALL", status: "RATED", role: "ALL" }
+      )
+    ).toBe(true);
+    expect(
+      matchesEvaluationFilters(
+        { ...base, isRated: true },
+        { department: "ALL", status: "UNRATED", role: "ALL" }
+      )
+    ).toBe(false);
+  });
+
+  it("filters by role", () => {
+    expect(matchesEvaluationFilters(base, { department: "ALL", status: "ALL", role: "PO" })).toBe(
+      false
+    );
+    expect(
+      matchesEvaluationFilters(base, { department: "ALL", status: "ALL", role: "CONTRIBUTOR" })
+    ).toBe(true);
+  });
+
+  it("requires every active filter to match at once", () => {
+    expect(
+      matchesEvaluationFilters(base, { department: "d1", status: "UNRATED", role: "CONTRIBUTOR" })
+    ).toBe(true);
+    expect(
+      matchesEvaluationFilters(base, { department: "d1", status: "RATED", role: "CONTRIBUTOR" })
+    ).toBe(false);
   });
 });

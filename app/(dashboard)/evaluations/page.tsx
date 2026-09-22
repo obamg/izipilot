@@ -44,7 +44,7 @@ export default async function EvaluationsPage({
     : [];
 
   const userIds = users.map((u) => u.id);
-  const [deliveryMap, existing] = await Promise.all([
+  const [deliveryMap, existing, depts, deptMembers] = await Promise.all([
     monthDeliveryByUser(orgId, year, month, userIds),
     userIds.length
       ? prisma.evaluation.findMany({
@@ -57,8 +57,27 @@ export default async function EvaluationsPage({
           },
         })
       : Promise.resolve([]),
+    userIds.length
+      ? prisma.department.findMany({
+          where: { orgId, isActive: true },
+          select: { id: true, code: true, name: true, color: true },
+          orderBy: { sortOrder: "asc" },
+        })
+      : Promise.resolve([]),
+    userIds.length
+      ? prisma.departmentMember.findMany({
+          where: { userId: { in: userIds } },
+          select: { departmentId: true, userId: true },
+        })
+      : Promise.resolve([]),
   ]);
   const evalBySubject = new Map(existing.map((e) => [e.subjectId, e]));
+  const deptIdsByUser = new Map<string, string[]>();
+  for (const m of deptMembers) {
+    const arr = deptIdsByUser.get(m.userId) ?? [];
+    arr.push(m.departmentId);
+    deptIdsByUser.set(m.userId, arr);
+  }
 
   const subjects = users.map((u) => {
     const stats = deliveryMap.get(u.id) ?? null;
@@ -67,6 +86,7 @@ export default async function EvaluationsPage({
       id: u.id,
       name: u.name,
       role: u.role,
+      departmentIds: deptIdsByUser.get(u.id) ?? [],
       delivery: stats
         ? {
             deliveredPoints: stats.deliveredPoints,
@@ -122,18 +142,9 @@ export default async function EvaluationsPage({
   let orgSeries: (number | null)[] = [];
   if (isManagement && perPerson.length) {
     orgSeries = months.map((_, i) => avgDefined(perPerson.map((p) => p.scores[i])));
-    const depts = await prisma.department.findMany({
-      where: { orgId, isActive: true },
-      select: { id: true, code: true, name: true, color: true },
-      orderBy: { sortOrder: "asc" },
-    });
-    const members = await prisma.departmentMember.findMany({
-      where: { departmentId: { in: depts.map((d) => d.id) } },
-      select: { departmentId: true, userId: true },
-    });
     const avgByPerson = new Map(perPerson.map((p) => [p.id, p.average]));
     const byDept = new Map<string, string[]>();
-    for (const m of members) {
+    for (const m of deptMembers) {
       const arr = byDept.get(m.departmentId) ?? [];
       arr.push(m.userId);
       byDept.set(m.departmentId, arr);
@@ -173,7 +184,13 @@ export default async function EvaluationsPage({
           </p>
         </div>
       ) : (
-        <EvaluationsView month={month} year={year} subjects={subjects} trend={trend} />
+        <EvaluationsView
+          month={month}
+          year={year}
+          subjects={subjects}
+          trend={trend}
+          departments={depts.map((d) => ({ id: d.id, code: d.code, name: d.name }))}
+        />
       )}
     </div>
   );

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@prisma/client";
-import { overallScore, MONTH_LABELS_FR } from "@/lib/evaluation";
+import { overallScore, matchesEvaluationFilters, MONTH_LABELS_FR } from "@/lib/evaluation";
 import { EvaluationTrends, type TrendData } from "./EvaluationTrends";
 
 interface DeliveryVM {
@@ -27,9 +27,16 @@ export interface SubjectVM {
   id: string;
   name: string;
   role: UserRole;
+  departmentIds: string[];
   delivery: DeliveryVM | null;
   deliveryScore: number | null;
   evaluation: EvaluationVM | null;
+}
+
+interface DepartmentOption {
+  id: string;
+  code: string;
+  name: string;
 }
 
 interface Props {
@@ -37,6 +44,7 @@ interface Props {
   year: number;
   subjects: SubjectVM[];
   trend: TrendData;
+  departments: DepartmentOption[];
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -47,13 +55,45 @@ const ROLE_LABELS: Record<UserRole, string> = {
   VIEWER: "Observateur",
 };
 
+const SELECT_CLS =
+  "rounded-[7px] border border-border-soft bg-white px-2.5 py-1.5 text-[12px] text-dark focus:outline-none focus:border-teal";
+
 function pct(n: number | null): string {
   return n == null ? "—" : `${Math.round(n * 100)}%`;
 }
 
-export function EvaluationsView({ month, year, subjects, trend }: Props) {
+export function EvaluationsView({ month, year, subjects, trend, departments }: Props) {
   const router = useRouter();
   const [view, setView] = useState<"board" | "trends">("board");
+  const [deptFilter, setDeptFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "RATED" | "UNRATED">("ALL");
+  const [roleFilter, setRoleFilter] = useState<"ALL" | UserRole>("ALL");
+
+  const availableDepartments = useMemo(
+    () => departments.filter((d) => subjects.some((s) => s.departmentIds.includes(d.id))),
+    [departments, subjects]
+  );
+  const availableRoles = useMemo(
+    () => Array.from(new Set(subjects.map((s) => s.role))),
+    [subjects]
+  );
+  const filtersActive = deptFilter !== "ALL" || statusFilter !== "ALL" || roleFilter !== "ALL";
+  const filteredSubjects = useMemo(
+    () =>
+      subjects.filter((s) =>
+        matchesEvaluationFilters(
+          { role: s.role, isRated: s.evaluation != null, departmentIds: s.departmentIds },
+          { department: deptFilter, status: statusFilter, role: roleFilter }
+        )
+      ),
+    [subjects, deptFilter, statusFilter, roleFilter]
+  );
+
+  function resetFilters() {
+    setDeptFilter("ALL");
+    setStatusFilter("ALL");
+    setRoleFilter("ALL");
+  }
 
   function go(m: number, y: number) {
     router.push(`/evaluations?month=${m}&year=${y}`);
@@ -111,19 +151,82 @@ export function EvaluationsView({ month, year, subjects, trend }: Props) {
 
       {view === "board" ? (
         <>
+          {subjects.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {availableDepartments.length > 0 && (
+                <select
+                  value={deptFilter}
+                  onChange={(e) => setDeptFilter(e.target.value)}
+                  className={SELECT_CLS}
+                  aria-label="Filtrer par département"
+                >
+                  <option value="ALL">Tous les départements</option>
+                  {availableDepartments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.code} — {d.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                className={SELECT_CLS}
+                aria-label="Filtrer par statut de notation"
+              >
+                <option value="ALL">Tous les statuts</option>
+                <option value="RATED">Notés</option>
+                <option value="UNRATED">Non notés</option>
+              </select>
+
+              {availableRoles.length > 1 && (
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
+                  className={SELECT_CLS}
+                  aria-label="Filtrer par rôle"
+                >
+                  <option value="ALL">Tous les rôles</option>
+                  {availableRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-[11px] font-medium text-teal hover:text-teal-dk underline"
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end">
             <span className="text-[11px] text-izi-gray">
               {rated}/{subjects.length} évalué{rated > 1 ? "s" : ""} · {MONTH_LABELS_FR[month - 1]}{" "}
               {year}
+              {filtersActive &&
+                ` · ${filteredSubjects.length} affiché${filteredSubjects.length > 1 ? "s" : ""}`}
             </span>
           </div>
           {subjects.length === 0 ? (
             <div className="rounded-[12px] border border-dashed border-border-soft p-10 text-center text-[13px] text-izi-gray">
               Personne à évaluer sur cette période.
             </div>
+          ) : filteredSubjects.length === 0 ? (
+            <div className="rounded-[12px] border border-dashed border-border-soft p-10 text-center text-[13px] text-izi-gray">
+              Aucun collaborateur ne correspond aux filtres.
+            </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {subjects.map((s) => (
+              {filteredSubjects.map((s) => (
                 <SubjectCard key={s.id} subject={s} month={month} year={year} />
               ))}
             </div>
