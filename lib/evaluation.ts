@@ -7,7 +7,7 @@
  * ancrée sur la philosophie OKR (70 % ≈ réussite).
  */
 
-import type { ActionStatus } from "@prisma/client";
+import type { ActionStatus, UserRole } from "@prisma/client";
 import { taskPoints } from "./sprint";
 
 // Poids de la composante livraison dans la note globale (le reste = manuels).
@@ -157,4 +157,33 @@ export function avgDefined(values: (number | null | undefined)[]): number | null
   const nums = values.filter((v): v is number => typeof v === "number");
   if (nums.length === 0) return null;
   return round1(nums.reduce((s, v) => s + v, 0) / nums.length);
+}
+
+// ---------------------------------------------------------------------------
+// Filtres du tableau de notation (département / statut / rôle).
+// ---------------------------------------------------------------------------
+
+export interface EvaluationFilterSubject {
+  role: UserRole;
+  isRated: boolean;
+  departmentIds: string[];
+}
+
+export interface EvaluationFilters {
+  department: string; // "ALL" ou un departmentId
+  status: "ALL" | "RATED" | "UNRATED";
+  role: "ALL" | UserRole;
+}
+
+export function matchesEvaluationFilters(
+  subject: EvaluationFilterSubject,
+  filters: EvaluationFilters
+): boolean {
+  if (filters.department !== "ALL" && !subject.departmentIds.includes(filters.department)) {
+    return false;
+  }
+  if (filters.status === "RATED" && !subject.isRated) return false;
+  if (filters.status === "UNRATED" && subject.isRated) return false;
+  if (filters.role !== "ALL" && subject.role !== filters.role) return false;
+  return true;
 }
