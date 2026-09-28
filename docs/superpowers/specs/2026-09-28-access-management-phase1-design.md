@@ -91,14 +91,14 @@ Les deux tables d'événements (`AccessAssignmentEvent` et `AccessAuditEvent`) s
 
 - Les index uniques partiels et les `CHECK` s'écrivent en SQL brut dans la migration, Prisma ne pouvant pas les exprimer. Les services les revalident.
 - Prisma n'impose pas la cohérence d'organisation entre tables : les services vérifient que actif, niveau et employé partagent la même `orgId`, et l'`orgId` vient toujours de la session.
-- Les tables modifiables portent `revision` / `version` ; une mise à jour concurrente périmée est rejetée avec une erreur explicite (`UPDATE … WHERE revision = ?`).
+- Les tables modifiables portent `revision` / `version` ; une mise à jour concurrente périmée est rejetée avec une erreur explicite (`UPDATE … WHERE revision = ?`). **Correction post-revue finale (2026-09-29, Ruling L)** : la colonne existe et s'incrémente à chaque écriture, mais aucune route phase 1 ne vérifie encore une révision attendue avant d'écrire — le rejet explicite promis ici n'est pas encore implémenté. Reporté en phase 2 (voir §10).
 
 ## 6. Services et règles d'accès (`lib/access/`)
 
 - `roles.ts` (pur) — qui peut agir pour un rôle. Le titulaire agit s'il est disponible ; sinon son suppléant actif. Le suppléant d'un actif agit toujours. Un titulaire ou suppléant désactivé ou en départ ne peut pas agir. Le suppléant d'un rôle n'hérite pas des exceptions personnelles du titulaire. La couverture d'audit exige une affectation explicite de suppléant Audit Viewer.
 - `scope.ts` (pur) — à partir de l'utilisateur et de ses rôles ou suppléances résolus, calcule le filtre de lecture : employé = soi ; chef de département = son département ; propriétaire d'actif = ses actifs ; CISO et COO = tout ; Audit Viewer = le journal ; RH = champs d'annuaire limités. Les branches employé, département et propriétaire sont implémentées et testées ici, mais exercées par l'interface dès la phase 2.
 - `catalogue.ts` (pur) — priorité unique par actif, `isAdmin` explicite (jamais déduit du rang ni du nom), condition « prêt aux demandes » (propriétaire renseigné, au moins un niveau sélectionnable, tous les niveaux sélectionnables avec priorité et `isAdmin`), montée de `catalogueVersion` à chaque changement de priorité ou de drapeau admin.
-- `audit.ts` — `recordAudit(tx, …)`, appelé dans la transaction de chaque mutation. Il n'expose que l'insertion.
+- `audit.ts` — `recordAudit(tx, …)`, appelé dans la transaction de chaque mutation. Il n'expose que l'insertion. **Correction post-revue finale (2026-09-29, Ruling K)** : en phase 1, les routes appellent l'écriture d'audit avec le client Prisma par défaut, après que la mutation a déjà validé — pas dans la même transaction. Un helper transactionnel (`recordAuditInTx`) existe mais n'est pas encore branché. Reporté en phase 2 (voir §10).
 - `*-server.ts` — accès Prisma, sur le modèle de `evaluation-server.ts`.
 - Garde d'accès serveur — l'acteur et la portée viennent toujours de la session et de la base, jamais d'un champ envoyé par le client. Validation Zod à toutes les frontières d'API.
 
@@ -121,7 +121,7 @@ Les routes d'API sont sous `/api/access/…` ; leur découpage exact est fixé d
 ## 8. Tests
 
 - **Vitest, fonctions pures** : résolution rôle et suppléant (disponibilité, désactivé, en départ, suppléant d'actif permanent), portée par rôle, règles du catalogue, échappement CSV des formules.
-- **Contraintes en base**, sur une vraie base locale plutôt que par des mocks : une seule ligne par employé et par actif, CISO/COO uniques, priorité unique par actif, `CHECK` de cohérence des rôles, audit annulé si la mutation échoue.
+- **Contraintes en base**, sur une vraie base locale plutôt que par des mocks : une seule ligne par employé et par actif, CISO/COO uniques, priorité unique par actif, `CHECK` de cohérence des rôles. **Correction post-revue finale (2026-09-29, Ruling K)** : « audit annulé si la mutation échoue » retiré de cette liste — ce test n'existe pas et ne pourrait pas passer tant que l'écriture d'audit n'est pas dans la même transaction que la mutation (voir §6 et §10).
 - **Scénarios de la spec couverts** : A06 (portée, sur jeux de données de test), A09 (suppléants), A10 (Audit Viewer), A24 (export d'audit autorisé, échappé et journalisé), et la part catalogue de A23.
 - **Vérification manuelle dans le navigateur** (build de production local) du chemin essentiel de chaque écran. Pas de test Playwright automatisé en phase 1 : le helper de connexion des tests E2E existants (`tests/e2e/helpers.ts`) date d'avant l'authentification à deux facteurs par email et ne gère pas le code OTP.
 
@@ -142,3 +142,16 @@ Les routes d'API sont sous `/api/access/…` ; leur découpage exact est fixé d
 - **Tickets `ACCESS`** : le sort de cette catégorie de demandes internes est décidé en phase 3.
 - La spec v1 interdit de déployer ou de modifier des accès réels pendant l'implémentation ; toute mise en production reste une décision explicite du propriétaire du projet.
 - **Suppléant de chef de département** : reporté hors de l'écran `/access/roles` (ruling du 2026-09-28). Un département a toujours un chef (`Department.ownerId`, obligatoire) ; son suppléant/disponibilité n'a aucun consommateur fonctionnel avant les phases 3 (routage des approbations) et 5 (transferts). `getEffectiveRoleHolders` dérive déjà le chef effectif sans configuration ; à construire quand ça devient réellement bloquant.
+
+### Limitations connues de la phase 1 (revue finale du 2026-09-29)
+
+Ces points sont des écarts réels entre ce document et le code livré, identifiés par la revue finale de branche. Reportés en phase 2 plutôt que corrigés dans cette vague, le coût d'un refactor transversal tardif (sans nouveau cycle de revue) dépassant le bénéfice pour une phase de fondations utilisée par ~6 titulaires de rôle module :
+
+- **Ruling K — Audit non transactionnel avec sa mutation.** Contredit la promesse du §6/§8. Corriger demande de faire accepter un `Prisma.TransactionClient` à chaque fonction `*-server.ts` mutante (11 fonctions) et d'envelopper chacune des 10 routes dans `prisma.$transaction`. Coût si l'écart n'est pas comblé en phase 2 : un échec de l'insertion d'audit juste après une mutation réussie laisse cette action sans trace — pas de corruption de données, seulement un trou d'observabilité, et aucun cas observé à ce jour.
+- **Ruling L — Concurrence optimiste non appliquée.** Contredit la promesse du §5. La colonne `revision` existe et s'incrémente mais aucune route ne vérifie une révision attendue avant d'écrire. Coût si non comblé : deux administrateurs modifiant le même objet à quelques secondes d'intervalle peuvent s'écraser silencieusement — probabilité très faible vu le nombre de titulaires de rôle module (6) et l'absence de flux d'édition concurrente en phase 1.
+- **Ruling M — Écarts d'interface découverts à l'assemblage complet** :
+  - Le département principal n'est re-résolu qu'à la création du profil ; l'ajout d'une appartenance à un département après coup ne le recalcule pas, et le panneau `ConfigIssuesPanel` peut afficher un libellé imprécis pour ce cas. Le correctif manuel existant (Ruling C) reste disponible en attendant.
+  - `requestsEnabled` peut être activé sur un actif qui n'est pas « prêt aux demandes » : sans conséquence tant que la phase 3 n'exploite pas ce drapeau.
+  - L'écran `/access/assets` ne permet pas encore de modifier le propriétaire/suppléant d'un actif, de l'archiver, ni de réordonner ses niveaux — ces routes API existent mais aucune UI ne les appelle.
+  - L'écran `/access/audit` n'expose pas encore les filtres (acteur, objet, bénéficiaire, période) promis au §7 ; l'API les supporte déjà.
+  - Coût si non comblé avant la phase 2 : ces actions restent possibles par appel API direct (curl/Postman) pour les ~6 titulaires de rôle concernés ; aucune perte de données, juste moins de confort.
