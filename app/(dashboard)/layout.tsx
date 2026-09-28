@@ -144,7 +144,9 @@ export default async function DashboardLayout({
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
-  const hasAnyAccessRole = accessRoles.length > 0 || session.user.role === "CEO";
+  const canManageAccessRoles = session.user.role === "CEO";
+  const canManageAccessAssets = accessRoles.some((r) => r.role === "ASSET_ADMINISTRATOR");
+  const canViewAccessAudit = accessRoles.some((r) => r.role === "AUDIT_VIEWER");
 
   return (
     <DashboardShell
@@ -156,7 +158,9 @@ export default async function DashboardLayout({
       notificationCount={myNotificationCount}
       products={sidebarProducts}
       departments={sidebarDepartments}
-      showAccessMenu={hasAnyAccessRole}
+      canManageAccessRoles={canManageAccessRoles}
+      canManageAccessAssets={canManageAccessAssets}
+      canViewAccessAudit={canViewAccessAudit}
     >
       {vapidPublicKey && <PushNudgeBanner vapidPublicKey={vapidPublicKey} />}
       {children}
