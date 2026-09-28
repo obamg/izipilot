@@ -193,6 +193,38 @@ enum SupportRequestStatus {
   CANCELLED // Annulée par le demandeur
 }
 
+enum AccessModuleRole {
+  IT_ACCESS_OPERATOR
+  HR
+  CISO
+  COO
+  ASSET_ADMINISTRATOR
+  AUDIT_VIEWER
+  DEPARTMENT_HEAD
+}
+
+enum AccessLifecycle {
+  ACTIVE
+  OFFBOARDING
+  DEPARTED
+}
+
+enum AccessAssignmentStatus {
+  ACTIVE
+  EXPIRED_REMOVAL_PENDING
+  REVOKED
+}
+
+enum AccessVerification {
+  IMPORTED_UNREVIEWED
+  OWNER_CONFIRMED
+}
+
+enum AccessAssignmentSource {
+  LEGACY_IMPORT
+  REQUEST
+}
+
 // ============================================================================
 // ORGANISATION (Multi-tenant root)
 // ============================================================================
@@ -233,6 +265,12 @@ model Organization {
   supportRequests    SupportRequest[]
   boardWorkflows     BoardWorkflow[]
   boardColumns       BoardColumn[]
+  accessProfiles         AccessProfile[]
+  accessRoleAssignments  AccessRoleAssignment[]
+  accessAssets           AccessAsset[]
+  accessAssignments      AccessAssignment[]
+  accessAssignmentEvents AccessAssignmentEvent[]
+  accessAuditEvents      AccessAuditEvent[]
 
   @@map("organizations")
 }
@@ -303,6 +341,12 @@ model User {
   supportedDepartments       Department[]               @relation("DepartmentSupport")
   supportRequestComments     SupportRequestComment[]    @relation("SupportRequestCommentAuthor")
   supportRequestAttachments  SupportRequestAttachment[] @relation("SupportRequestAttachmentUploader")
+  accessProfile           AccessProfile?
+  accessRoleAssignments   AccessRoleAssignment[] @relation("AccessRoleHolder")
+  accessRoleBackupFor     AccessRoleAssignment[] @relation("AccessRoleBackup")
+  ownedAccessAssets       AccessAsset[]          @relation("AccessAssetOwner")
+  backupAccessAssets      AccessAsset[]          @relation("AccessAssetBackupOwner")
+  accessAssignments       AccessAssignment[]     @relation("AccessAssignmentUser")
 
   @@index([orgId])
   @@index([email])
@@ -395,6 +439,8 @@ model Department {
   sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetDept")
   recurringTasks     RecurringTask[]     @relation("RecurringTaskDept")
   supportRequests    SupportRequest[]    @relation("SupportRequestDept")
+  accessProfiles       AccessProfile[]
+  accessRoleAssignment AccessRoleAssignment?
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -1487,4 +1533,176 @@ model SupportRequestAttachment {
 
   @@index([requestId])
   @@map("support_request_attachments")
+}
+
+// ============================================================================
+// GESTION DES ACCÈS — Phase 1 (registre, rôles, catalogue, audit)
+// ============================================================================
+
+model AccessProfile {
+  id                  String          @id @default(cuid())
+  orgId               String
+  userId              String          @unique
+  primaryDepartmentId String?
+  lifecycle           AccessLifecycle @default(ACTIVE)
+  revision            Int             @default(1)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  org               Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryDepartment Department?  @relation(fields: [primaryDepartmentId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, lifecycle])
+  @@map("access_profiles")
+}
+
+model AccessRoleAssignment {
+  id                 String           @id @default(cuid())
+  orgId              String
+  role               AccessModuleRole
+  userId             String?
+  departmentId       String?          @unique
+  backupUserId       String?
+  primaryUnavailable Boolean          @default(false)
+  revision           Int              @default(1)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user       User?        @relation("AccessRoleHolder", fields: [userId], references: [id], onDelete: Cascade)
+  department Department?  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  backupUser User?        @relation("AccessRoleBackup", fields: [backupUserId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, role, userId])
+  @@index([orgId, role])
+  @@map("access_role_assignments")
+}
+
+model AccessAsset {
+  id               String    @id @default(cuid())
+  orgId            String
+  name             String
+  description      String?   @db.Text
+  ownerId          String?
+  backupOwnerId    String?
+  requestsEnabled  Boolean   @default(false)
+  catalogueVersion Int       @default(1)
+  revision         Int       @default(1)
+  sourceLabel      String?
+  archivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  org         Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner       User?             @relation("AccessAssetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  backupOwner User?             @relation("AccessAssetBackupOwner", fields: [backupOwnerId], references: [id], onDelete: SetNull)
+  levels      AccessLevel[]
+  assignments AccessAssignment[]
+
+  @@unique([orgId, name])
+  @@map("access_assets")
+}
+
+model AccessLevel {
+  id          String    @id @default(cuid())
+  assetId     String
+  name        String
+  priority    Int?
+  isAdmin     Boolean?
+  enabled     Boolean   @default(true)
+  revision    Int       @default(1)
+  sourceLabel String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  asset       AccessAsset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assignments AccessAssignment[]
+
+  @@unique([assetId, name])
+  @@index([assetId])
+  @@map("access_levels")
+}
+
+model AccessAssignment {
+  id           String                 @id @default(cuid())
+  orgId        String
+  userId       String
+  assetId      String
+  levelId      String?
+  status       AccessAssignmentStatus @default(ACTIVE)
+  verification AccessVerification?
+  source       AccessAssignmentSource @default(LEGACY_IMPORT)
+  periodStart  DateTime?
+  periodEnd    DateTime?
+  grantedAt    DateTime?
+  revokedAt    DateTime?
+  version      Int                    @default(1)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  org    Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User                    @relation("AccessAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  asset  AccessAsset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  level  AccessLevel?            @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  events AccessAssignmentEvent[]
+
+  @@unique([userId, assetId])
+  @@index([orgId, assetId])
+  @@index([orgId, userId])
+  @@index([orgId, status])
+  @@map("access_assignments")
+}
+
+model AccessAssignmentEvent {
+  id            String            @id @default(cuid())
+  orgId         String
+  assignmentId  String
+  userId        String
+  assetId       String
+  beforeLevelId String?
+  afterLevelId  String?
+  actorId       String?
+  actorRole     AccessModuleRole?
+  sourceType    String
+  sourceId      String?
+  outcome       String
+  occurredAt    DateTime          @default(now())
+
+  org        Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assignment AccessAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, assignmentId])
+  @@map("access_assignment_events")
+}
+
+model AccessAuditEvent {
+  id               String            @id @default(cuid())
+  orgId            String
+  occurredAt       DateTime          @default(now())
+  actorId          String
+  actorRole        AccessModuleRole?
+  primaryCoveredId String?
+  scopeType        String
+  scopeId          String?
+  eventType        String
+  objectType       String
+  objectId         String
+  objectVersion    Int?
+  beneficiaryId    String?
+  before           Json?
+  after            Json?
+  reason           String?           @db.Text
+  outcome          String
+  correlationId    String?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, occurredAt])
+  @@index([orgId, objectType, objectId])
+  @@index([orgId, beneficiaryId])
+  @@index([orgId, actorId])
+  @@index([orgId, correlationId])
+  @@map("access_audit_events")
 }
