@@ -3750,13 +3750,28 @@ export default async function AccessAssetsPage() {
     }),
   ]);
 
+  // ⚠️ Correction post-revue (Tâche 17) : `AssetDTO.archivedAt` (et celui de
+  // chaque niveau) est un `Date`, mais un Server Component ne peut passer à
+  // un composant client que des valeurs sérialisables — `AssetsTable` (client)
+  // type ces champs en `string | null`. Convertir en ISO string ici, comme le
+  // fait déjà le reste du projet (ex. les pages admin/users, sprints, alerts)
+  // à la frontière serveur→client.
+  const serializedAssets = assets.map((a) => ({
+    ...a,
+    archivedAt: a.archivedAt ? a.archivedAt.toISOString() : null,
+    levels: a.levels.map((l) => ({
+      ...l,
+      archivedAt: l.archivedAt ? l.archivedAt.toISOString() : null,
+    })),
+  }));
+
   return (
     <div>
       <AdminPageHeader
         title="Administration des actifs"
         subtitle={`${assets.length} application${assets.length > 1 ? "s" : ""} au catalogue`}
       />
-      <AssetsTable assets={assets} users={users} />
+      <AssetsTable assets={serializedAssets} users={users} />
     </div>
   );
 }
