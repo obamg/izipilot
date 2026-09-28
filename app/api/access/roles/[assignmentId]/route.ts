@@ -3,6 +3,7 @@ import { requireCEO } from "@/lib/auth-guard";
 import { setPrimaryUnavailable, deleteRoleAssignment } from "@/lib/access/roles-server";
 import { setPrimaryUnavailableSchema } from "@/lib/validations/access";
 import { recordAudit } from "@/lib/access/audit-server";
+import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: Request,
@@ -18,6 +19,13 @@ export async function PATCH(
       { error: "Validation error", details: parsed.error.flatten().fieldErrors },
       { status: 400 }
     );
+  }
+
+  const before = await prisma.accessRoleAssignment.findFirst({
+    where: { id: assignmentId, orgId: session.user.orgId },
+  });
+  if (!before) {
+    return Response.json({ error: "Affectation introuvable" }, { status: 404 });
   }
 
   const updated = await setPrimaryUnavailable(
@@ -40,7 +48,7 @@ export async function PATCH(
     objectId: updated.id,
     objectVersion: updated.revision,
     beneficiaryId: updated.userId,
-    before: null,
+    before,
     after: updated,
     reason: null,
     outcome: "SUCCESS",
@@ -57,6 +65,13 @@ export async function DELETE(
   const session = await requireCEO();
   const { assignmentId } = await params;
 
+  const before = await prisma.accessRoleAssignment.findFirst({
+    where: { id: assignmentId, orgId: session.user.orgId },
+  });
+  if (!before) {
+    return Response.json({ error: "Affectation introuvable" }, { status: 404 });
+  }
+
   await deleteRoleAssignment(assignmentId, session.user.orgId);
 
   await recordAudit({
@@ -70,8 +85,8 @@ export async function DELETE(
     objectType: "AccessRoleAssignment",
     objectId: assignmentId,
     objectVersion: null,
-    beneficiaryId: null,
-    before: null,
+    beneficiaryId: before.userId,
+    before,
     after: null,
     reason: null,
     outcome: "SUCCESS",
