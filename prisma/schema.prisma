@@ -241,30 +241,30 @@ model Organization {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  users              User[]
-  departments        Department[]
-  products           Product[]
-  objectives         Objective[]
-  keyResults         KeyResult[]
-  weeklyEntries      WeeklyEntry[]
-  weeklySessions     WeeklySession[]
-  alerts             Alert[]
-  decisions          Decision[]
-  actions            Action[]
-  crmSnapshots       CrmDailySnapshot[]
-  agentSnapshots     AgentDailySnapshot[]
-  sprints            Sprint[]
-  sprintTasks        SprintTask[]
-  sprintCapacities   SprintCapacity[]
-  standupEntries     StandupEntry[]
-  sprintTaskRequests SprintTaskRequest[]
-  sprintTaskSteps    SprintTaskStep[]
-  recurringTasks     RecurringTask[]
-  evaluations        Evaluation[]
-  appraisals         Appraisal[]
-  supportRequests    SupportRequest[]
-  boardWorkflows     BoardWorkflow[]
-  boardColumns       BoardColumn[]
+  users                  User[]
+  departments            Department[]
+  products               Product[]
+  objectives             Objective[]
+  keyResults             KeyResult[]
+  weeklyEntries          WeeklyEntry[]
+  weeklySessions         WeeklySession[]
+  alerts                 Alert[]
+  decisions              Decision[]
+  actions                Action[]
+  crmSnapshots           CrmDailySnapshot[]
+  agentSnapshots         AgentDailySnapshot[]
+  sprints                Sprint[]
+  sprintTasks            SprintTask[]
+  sprintCapacities       SprintCapacity[]
+  standupEntries         StandupEntry[]
+  sprintTaskRequests     SprintTaskRequest[]
+  sprintTaskSteps        SprintTaskStep[]
+  recurringTasks         RecurringTask[]
+  evaluations            Evaluation[]
+  appraisals             Appraisal[]
+  supportRequests        SupportRequest[]
+  boardWorkflows         BoardWorkflow[]
+  boardColumns           BoardColumn[]
   accessProfiles         AccessProfile[]
   accessRoleAssignments  AccessRoleAssignment[]
   accessAssets           AccessAsset[]
@@ -295,10 +295,10 @@ model User {
   // quand le navigateur est techniquement incapable de push (cf. EXEMPT_REASONS
   // dans lib/push-gate.ts) — jamais sur simple refus, qui se rattrape dans les
   // réglages. Visible du management sur /push-adoption.
-  pushExemptAt       DateTime?
-  pushExemptReason   String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  pushExemptAt     DateTime?
+  pushExemptReason String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relations
   org                        Organization               @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -341,12 +341,12 @@ model User {
   supportedDepartments       Department[]               @relation("DepartmentSupport")
   supportRequestComments     SupportRequestComment[]    @relation("SupportRequestCommentAuthor")
   supportRequestAttachments  SupportRequestAttachment[] @relation("SupportRequestAttachmentUploader")
-  accessProfile           AccessProfile?
-  accessRoleAssignments   AccessRoleAssignment[] @relation("AccessRoleHolder")
-  accessRoleBackupFor     AccessRoleAssignment[] @relation("AccessRoleBackup")
-  ownedAccessAssets       AccessAsset[]          @relation("AccessAssetOwner")
-  backupAccessAssets      AccessAsset[]          @relation("AccessAssetBackupOwner")
-  accessAssignments       AccessAssignment[]     @relation("AccessAssignmentUser")
+  accessProfile              AccessProfile?
+  accessRoleAssignments      AccessRoleAssignment[]     @relation("AccessRoleHolder")
+  accessRoleBackupFor        AccessRoleAssignment[]     @relation("AccessRoleBackup")
+  ownedAccessAssets          AccessAsset[]              @relation("AccessAssetOwner")
+  backupAccessAssets         AccessAsset[]              @relation("AccessAssetBackupOwner")
+  accessAssignments          AccessAssignment[]         @relation("AccessAssignmentUser")
 
   @@index([orgId])
   @@index([email])
@@ -429,16 +429,16 @@ model Department {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner              User                @relation("DepartmentOwner", fields: [ownerId], references: [id])
-  supportUser        User?               @relation("DepartmentSupport", fields: [supportUserId], references: [id], onDelete: SetNull)
-  workflow           BoardWorkflow?      @relation("DepartmentWorkflow", fields: [workflowId], references: [id], onDelete: SetNull)
-  objectives         Objective[]
-  members            DepartmentMember[]
-  sprintTasks        SprintTask[]        @relation("SprintTaskDept")
-  sprintTaskRequests SprintTaskRequest[] @relation("SprintTaskRequestTargetDept")
-  recurringTasks     RecurringTask[]     @relation("RecurringTaskDept")
-  supportRequests    SupportRequest[]    @relation("SupportRequestDept")
+  org                  Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner                User                  @relation("DepartmentOwner", fields: [ownerId], references: [id])
+  supportUser          User?                 @relation("DepartmentSupport", fields: [supportUserId], references: [id], onDelete: SetNull)
+  workflow             BoardWorkflow?        @relation("DepartmentWorkflow", fields: [workflowId], references: [id], onDelete: SetNull)
+  objectives           Objective[]
+  members              DepartmentMember[]
+  sprintTasks          SprintTask[]          @relation("SprintTaskDept")
+  sprintTaskRequests   SprintTaskRequest[]   @relation("SprintTaskRequestTargetDept")
+  recurringTasks       RecurringTask[]       @relation("RecurringTaskDept")
+  supportRequests      SupportRequest[]      @relation("SupportRequestDept")
   accessProfiles       AccessProfile[]
   accessRoleAssignment AccessRoleAssignment?
 
@@ -1575,6 +1575,7 @@ model AccessRoleAssignment {
   backupUser User?        @relation("AccessRoleBackup", fields: [backupUserId], references: [id], onDelete: SetNull)
 
   @@unique([orgId, role, userId])
+  @@unique([orgId, departmentId])
   @@index([orgId, role])
   @@map("access_role_assignments")
 }
@@ -1594,9 +1595,9 @@ model AccessAsset {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  org         Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner       User?             @relation("AccessAssetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  backupOwner User?             @relation("AccessAssetBackupOwner", fields: [backupOwnerId], references: [id], onDelete: SetNull)
+  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner       User?              @relation("AccessAssetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  backupOwner User?              @relation("AccessAssetBackupOwner", fields: [backupOwnerId], references: [id], onDelete: SetNull)
   levels      AccessLevel[]
   assignments AccessAssignment[]
 
@@ -1617,7 +1618,7 @@ model AccessLevel {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  asset       AccessAsset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset       AccessAsset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
   assignments AccessAssignment[]
 
   @@unique([assetId, name])
