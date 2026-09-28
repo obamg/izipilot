@@ -2299,9 +2299,18 @@ export async function PATCH(
     return Response.json({ error: "Département introuvable" }, { status: 400 });
   }
 
-  const before = await prisma.accessProfile.findUnique({ where: { userId } });
+  // ⚠️ Correction post-revue (Tâche 12, fix round) : `userId` vient de l'URL et
+  // n'appartient pas forcément à l'org de l'appelant. Chercher le profil par
+  // (userId, orgId) — jamais par userId seul — sinon un CEO d'une org peut
+  // modifier le profil d'accès d'un utilisateur d'une autre org (IDOR
+  // cross-tenant), même si le département choisi, lui, reste bien vérifié.
+  const before = await prisma.accessProfile.findFirst({ where: { userId, orgId } });
+  if (!before) {
+    return Response.json({ error: "Profil introuvable" }, { status: 404 });
+  }
+
   const updated = await prisma.accessProfile.update({
-    where: { userId },
+    where: { id: before.id },
     data: { primaryDepartmentId: parsed.data.primaryDepartmentId, revision: { increment: 1 } },
   });
 
