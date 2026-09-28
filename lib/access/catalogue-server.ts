@@ -91,7 +91,35 @@ export interface CreateAssetInput {
   backupOwnerId?: string | null;
 }
 
+/**
+ * ⚠️ Correction post-revue (fix wave, Critical C1) : `input.ownerId` et
+ * `input.backupOwnerId` viennent d'une route qui ne vérifie que l'org de
+ * l'appelant, jamais celle des personnes ciblées — sans ce contrôle, un
+ * Administrateur des actifs pourrait désigner un propriétaire (ou suppléant)
+ * d'une autre organisation (IDOR cross-tenant). Même correction que
+ * `upsertRoleAssignment` (lib/access/roles-server.ts).
+ */
+async function verifyOwnersBelongToOrg(
+  orgId: string,
+  ownerId: string | null | undefined,
+  backupOwnerId: string | null | undefined
+): Promise<void> {
+  const idsToVerify = [ownerId, backupOwnerId].filter(
+    (id): id is string => typeof id === "string" && id.length > 0
+  );
+  if (idsToVerify.length === 0) return;
+
+  const memberCount = await prisma.user.count({
+    where: { id: { in: idsToVerify }, orgId },
+  });
+  if (memberCount !== idsToVerify.length) {
+    throw new CatalogueError("Le propriétaire ou le suppléant n'appartient pas à cette organisation");
+  }
+}
+
 export async function createAsset(input: CreateAssetInput): Promise<AssetDTO> {
+  await verifyOwnersBelongToOrg(input.orgId, input.ownerId, input.backupOwnerId);
+
   const row = await prisma.accessAsset.create({
     data: {
       orgId: input.orgId,
@@ -118,6 +146,8 @@ export async function updateAsset(
   orgId: string,
   input: UpdateAssetInput
 ): Promise<AssetDTO> {
+  await verifyOwnersBelongToOrg(orgId, input.ownerId, input.backupOwnerId);
+
   const row = await prisma.accessAsset.update({
     where: { id: assetId, orgId },
     data: { ...input, revision: { increment: 1 } },

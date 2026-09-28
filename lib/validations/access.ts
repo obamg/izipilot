@@ -8,7 +8,7 @@ const ASSIGNABLE_ROLES = [
 export const upsertRoleAssignmentSchema = z.object({
   role: z.enum(ASSIGNABLE_ROLES),
   userId: z.string().min(1),
-  backupUserId: z.string().nullable().optional(),
+  backupUserId: z.string().min(1).nullable().optional(),
 });
 
 export const setPrimaryUnavailableSchema = z.object({

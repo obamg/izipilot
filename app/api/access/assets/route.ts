@@ -1,5 +1,5 @@
 import { requireAssetAdministrator, AssetAdminAccessDeniedError } from "@/lib/access/asset-admin-guard";
-import { listAssets, createAsset } from "@/lib/access/catalogue-server";
+import { listAssets, createAsset, CatalogueError } from "@/lib/access/catalogue-server";
 import { createAssetSchema } from "@/lib/validations/access";
 import { recordAudit } from "@/lib/access/audit-server";
 
@@ -47,6 +47,9 @@ export async function POST(request: Request) {
   try {
     asset = await createAsset({ orgId: ctx.orgId, ...parsed.data });
   } catch (err) {
+    if (err instanceof CatalogueError) {
+      return Response.json({ error: err.message }, { status: 400 });
+    }
     if (isUniqueConstraintError(err)) {
       return Response.json({ error: "Un actif avec ce nom existe déjà" }, { status: 409 });
     }

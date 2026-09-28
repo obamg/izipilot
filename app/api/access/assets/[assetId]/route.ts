@@ -1,5 +1,5 @@
 import { requireAssetAdministrator, AssetAdminAccessDeniedError } from "@/lib/access/asset-admin-guard";
-import { updateAsset, archiveAsset } from "@/lib/access/catalogue-server";
+import { updateAsset, archiveAsset, CatalogueError } from "@/lib/access/catalogue-server";
 import { updateAssetSchema } from "@/lib/validations/access";
 import { recordAudit } from "@/lib/access/audit-server";
 
@@ -27,7 +27,15 @@ export async function PATCH(
     );
   }
 
-  const asset = await updateAsset(assetId, ctx.orgId, parsed.data);
+  let asset;
+  try {
+    asset = await updateAsset(assetId, ctx.orgId, parsed.data);
+  } catch (err) {
+    if (err instanceof CatalogueError) {
+      return Response.json({ error: err.message }, { status: 400 });
+    }
+    throw err;
+  }
 
   await recordAudit({
     orgId: ctx.orgId,
