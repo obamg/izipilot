@@ -2892,7 +2892,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const asset = await createAsset({ orgId: ctx.orgId, ...parsed.data });
+  // ⚠️ Correction post-revue (Tâche 14 → Tâche 15) : createAsset (Tâche 14)
+  // laisse volontairement remonter le P2002 brut de Prisma sur le doublon
+  // (orgId, name) — la Tâche 14 a documenté que ce mappage revient à la
+  // couche route. Sans ce try/catch, un nom d'actif dupliqué finirait en 500
+  // au lieu d'un 409 propre, contrairement à la convention déjà en place
+  // ailleurs dans l'admin (ex. app/api/admin/departments/route.ts).
+  let asset;
+  try {
+    asset = await createAsset({ orgId: ctx.orgId, ...parsed.data });
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      return Response.json({ error: "Un actif avec ce nom existe déjà" }, { status: 409 });
+    }
+    throw err;
+  }
 
   await recordAudit({
     orgId: ctx.orgId,
@@ -2914,6 +2928,15 @@ export async function POST(request: Request) {
   });
 
   return Response.json({ data: asset }, { status: 201 });
+}
+
+function isUniqueConstraintError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "P2002"
+  );
 }
 ```
 
