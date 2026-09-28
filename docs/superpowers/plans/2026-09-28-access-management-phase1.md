@@ -2568,6 +2568,7 @@ git commit -m "feat(access): routes API du journal d'audit et export CSV journal
 
 ```typescript
 // lib/access/catalogue-server.ts
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isReadyForRequests, catalogueChangeRequiresVersionBump } from "./catalogue";
 
@@ -2637,11 +2638,15 @@ function assetToDTO(a: {
   };
 }
 
+// ⚠️ Correction post-revue (Tâche 14) : `as const` sur l'objet entier rend le
+// tableau `orderBy` en tuple readonly, que le type Prisma généré rejette
+// (il attend un tableau mutable). `satisfies Prisma.AccessAssetInclude`
+// donne le même typage littéral sans ce conflit.
 const ASSET_INCLUDE = {
   owner: { select: { name: true } },
   backupOwner: { select: { name: true } },
   levels: { orderBy: [{ priority: "asc" as const }, { name: "asc" as const }] },
-} as const;
+} satisfies Prisma.AccessAssetInclude;
 
 export async function listAssets(orgId: string): Promise<AssetDTO[]> {
   const rows = await prisma.accessAsset.findMany({
