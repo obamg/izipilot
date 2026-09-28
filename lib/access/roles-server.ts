@@ -175,12 +175,29 @@ export interface UpsertRoleAssignmentInput {
  * S'appuie sur les contraintes en base (Tâche 2) pour l'unicité CISO/COO et
  * le suppléant distinct du titulaire ; ici on ne fait que traduire l'erreur
  * Postgres en message explicite.
+ *
+ * ⚠️ Correction post-revue (Tâche 12, fix round) : `input.userId` et
+ * `input.backupUserId` viennent d'une route qui ne vérifie que l'org de
+ * l'appelant, jamais celle des personnes ciblées — sans ce contrôle, un CEO
+ * pourrait attribuer un rôle de ce module à un utilisateur d'une autre
+ * organisation (IDOR cross-tenant), avec un `AccessRoleAssignment.orgId` qui
+ * ne correspond à aucune appartenance réelle du titulaire/suppléant.
  */
 export async function upsertRoleAssignment(
   input: UpsertRoleAssignmentInput
 ): Promise<RoleAssignmentDTO> {
   if (input.backupUserId === input.userId) {
     throw new RoleAssignmentError("Le suppléant ne peut pas être la même personne que le titulaire");
+  }
+
+  const idsToVerify = [input.userId, ...(input.backupUserId ? [input.backupUserId] : [])];
+  const memberCount = await prisma.user.count({
+    where: { id: { in: idsToVerify }, orgId: input.orgId },
+  });
+  if (memberCount !== idsToVerify.length) {
+    throw new RoleAssignmentError(
+      "Le titulaire ou le suppléant n'appartient pas à cette organisation"
+    );
   }
 
   const existing = await prisma.accessRoleAssignment.findFirst({
