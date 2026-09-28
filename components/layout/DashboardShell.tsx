@@ -22,6 +22,7 @@ interface DashboardShellProps {
   notificationCount: number;
   products: SidebarEntity[];
   departments: SidebarEntity[];
+  showAccessMenu: boolean;
 }
 
 export function DashboardShell({
@@ -34,6 +35,7 @@ export function DashboardShell({
   notificationCount,
   products,
   departments,
+  showAccessMenu,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -53,6 +55,7 @@ export function DashboardShell({
           alertCount={alertCount}
           notificationCount={notificationCount}
           userRole={userRole}
+          showAccessMenu={showAccessMenu}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />

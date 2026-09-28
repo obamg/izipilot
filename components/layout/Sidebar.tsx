@@ -16,6 +16,7 @@ interface SidebarProps {
   alertCount?: number;
   notificationCount?: number;
   userRole?: string;
+  showAccessMenu?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -197,6 +198,7 @@ export function Sidebar({
   alertCount = 0,
   notificationCount = 0,
   userRole,
+  showAccessMenu,
   isOpen = false,
   onClose,
 }: SidebarProps) {
@@ -340,6 +342,25 @@ export function Sidebar({
                 <path d="M16 3.13a4 4 0 010 7.75" />
               </svg>
               Suivi de l&apos;équipe
+            </Link>
+          )}
+
+          {/* Gestion des accès — visible seulement si un rôle du module est effectif */}
+          {showAccessMenu && (
+            <Link
+              href="/access/roles"
+              onClick={onClose}
+              className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                pathname.startsWith("/access")
+                  ? "bg-teal/[0.18] text-[#7dd8d8]"
+                  : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                <rect x="3" y="11" width="18" height="10" rx="2" />
+                <path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+              Accès
             </Link>
           )}
         </div>
