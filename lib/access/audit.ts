@@ -31,14 +31,16 @@ const FORMULA_PREFIXES = ["=", "+", "-", "@"];
 /**
  * Échappement CSV contre l'injection de formule (spec §13 : "Escape
  * formula-like text in CSV exports"). Un champ commençant par =, +, - ou @
- * est préfixé d'une apostrophe pour qu'Excel/Sheets le traite comme du texte.
+ * (y compris après whitespace/tab/CR) est préfixé d'une apostrophe pour
+ * qu'Excel/Sheets le traite comme du texte.
  */
 export function escapeCsvField(value: string): string {
   let field = value;
-  if (FORMULA_PREFIXES.some((p) => field.startsWith(p))) {
+  const checkTarget = field.trimStart();
+  if (FORMULA_PREFIXES.some((p) => checkTarget.startsWith(p))) {
     field = `'${field}`;
   }
-  if (field.includes(",") || field.includes('"') || field.includes("\n")) {
+  if (field.includes(",") || field.includes('"') || field.includes("\n") || field.includes("\r")) {
     field = `"${field.replace(/"/g, '""')}"`;
   }
   return field;
