@@ -1732,6 +1732,16 @@ export async function listRoleAssignments(orgId: string): Promise<RoleAssignment
  * d'une affectation dont le titulaire est indisponible. Combine les rôles à
  * titulaire (userId) et les DEPARTMENT_HEAD (portés par Department.ownerId,
  * pas par AccessRoleAssignment.userId).
+ *
+ * ⚠️ Correction post-revue (Tâche 10, fix round 1) : le chef titulaire d'un
+ * département suppléé doit être ajouté à `userIds` AVANT de construire les
+ * cartes de disponibilité (`isActiveById`/`lifecycleById`). Une première
+ * version récupérait `Department.ownerId` dans une requête séparée, APRÈS
+ * avoir déjà figé ces cartes — `availability(owner)` retombait alors
+ * systématiquement sur son défaut « indisponible » (owner absent des cartes),
+ * ce qui pouvait accorder le rôle à un suppléant alors que le titulaire réel
+ * était pleinement actif. La requête sur les départements suppléés doit donc
+ * être faite en amont, comme ci-dessous.
  */
 export async function getEffectiveRoleHolders(
   orgId: string,
@@ -1742,11 +1752,26 @@ export async function getEffectiveRoleHolders(
     prisma.department.findMany({ where: { orgId, ownerId: userId }, select: { id: true } }),
   ]);
 
+  // Départements pour lesquels cet utilisateur est suppléant d'un chef — il
+  // faut connaître leur titulaire (Department.ownerId) AVANT de construire
+  // les cartes de disponibilité ci-dessous (voir la note de correction).
+  const departmentHeadAssignments = roleAssignments.filter(
+    (a) => a.role === "DEPARTMENT_HEAD" && a.backupUserId === userId && a.departmentId
+  );
+  const backedDepartments = departmentHeadAssignments.length
+    ? await prisma.department.findMany({
+        where: { id: { in: departmentHeadAssignments.map((a) => a.departmentId as string) } },
+        select: { id: true, ownerId: true },
+      })
+    : [];
+  const ownerByDept = new Map(backedDepartments.map((d) => [d.id, d.ownerId]));
+
   const userIds = new Set<string>();
   for (const a of roleAssignments) {
     if (a.userId) userIds.add(a.userId);
     if (a.backupUserId) userIds.add(a.backupUserId);
   }
+  for (const owner of ownerByDept.values()) userIds.add(owner);
   userIds.add(userId);
 
   const [users, profiles] = await Promise.all([
@@ -1792,25 +1817,15 @@ export async function getEffectiveRoleHolders(
 
   // Suppléant d'un chef de département : agit seulement si le titulaire
   // (Department.ownerId) est explicitement marqué indisponible.
-  const departmentHeadAssignments = roleAssignments.filter(
-    (a) => a.role === "DEPARTMENT_HEAD" && a.backupUserId === userId && a.departmentId
-  );
-  if (departmentHeadAssignments.length > 0) {
-    const departments = await prisma.department.findMany({
-      where: { id: { in: departmentHeadAssignments.map((a) => a.departmentId as string) } },
-      select: { id: true, ownerId: true },
-    });
-    const ownerByDept = new Map(departments.map((d) => [d.id, d.ownerId]));
-    for (const a of departmentHeadAssignments) {
-      const owner = ownerByDept.get(a.departmentId as string);
-      const ownerUnavailable = !owner || !availability(owner);
-      if (availability(userId) && a.primaryUnavailable && ownerUnavailable) {
-        effective.push({
-          role: "DEPARTMENT_HEAD",
-          actsAsPrimary: false,
-          departmentId: a.departmentId as string,
-        });
-      }
+  for (const a of departmentHeadAssignments) {
+    const owner = ownerByDept.get(a.departmentId as string);
+    const ownerUnavailable = !owner || !availability(owner);
+    if (availability(userId) && a.primaryUnavailable && ownerUnavailable) {
+      effective.push({
+        role: "DEPARTMENT_HEAD",
+        actsAsPrimary: false,
+        departmentId: a.departmentId as string,
+      });
     }
   }
 
