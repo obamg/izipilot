@@ -29,6 +29,9 @@
 .claude/skills/
 .claude/settings.local.json
 
+# subagent-driven-development scratch workspace (ledger, briefs, review packages)
+.superpowers/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
