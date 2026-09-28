@@ -1378,12 +1378,13 @@ git commit -m "feat(access): construction d'audit et échappement CSV contre l'i
   ): Promise<string | null>; // null si 0 ou plusieurs départements
 
   export async function listConfigIssues(orgId: string): Promise<{
-    departmentsWithoutHead: { id: string; name: string }[];
     usersWithoutPrimaryDepartment: { id: string; name: string; departmentCount: number }[];
   }>;
   ```
 
 Ce fichier n'a pas de test unitaire dédié : c'est de la plomberie Prisma directe, testée à travers les routes API des Tâches 11-13.
+
+**Note de correction (ruling pré-vol) :** une première version de ce plan incluait aussi `departmentsWithoutHead` (départements sans chef assigné dans le module). Ce champ a été retiré : `Department.ownerId` est un champ obligatoire du schéma existant — un département a toujours un chef, cette condition ne peut jamais être vraie. Seul `usersWithoutPrimaryDepartment` reste, seule condition de configuration réellement possible en phase 1.
 
 - [ ] **Step 1: Implémenter**
 
@@ -1425,27 +1426,13 @@ export async function resolvePrimaryDepartment(
 }
 
 export async function listConfigIssues(orgId: string) {
-  const [departments, profiles] = await Promise.all([
-    prisma.department.findMany({
-      where: { orgId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        accessRoleAssignment: { select: { id: true, userId: true, backupUserId: true } },
-      },
-    }),
-    prisma.accessProfile.findMany({
-      where: { orgId, primaryDepartmentId: null },
-      select: {
-        userId: true,
-        user: { select: { name: true } },
-      },
-    }),
-  ]);
-
-  const departmentsWithoutHead = departments
-    .filter((d) => !d.accessRoleAssignment)
-    .map((d) => ({ id: d.id, name: d.name }));
+  const profiles = await prisma.accessProfile.findMany({
+    where: { orgId, primaryDepartmentId: null },
+    select: {
+      userId: true,
+      user: { select: { name: true } },
+    },
+  });
 
   const userIds = profiles.map((p) => p.userId);
   const membershipCounts = userIds.length
@@ -1463,7 +1450,7 @@ export async function listConfigIssues(orgId: string) {
     departmentCount: countByUser.get(p.userId) ?? 0,
   }));
 
-  return { departmentsWithoutHead, usersWithoutPrimaryDepartment };
+  return { usersWithoutPrimaryDepartment };
 }
 ```
 
@@ -3220,13 +3207,18 @@ export default async function AccessRolesPage() {
   }
   const orgId = session.user.orgId;
 
-  const [assignments, issues, users] = await Promise.all([
+  const [assignments, issues, users, departments] = await Promise.all([
     listRoleAssignments(orgId),
     listConfigIssues(orgId),
     prisma.user.findMany({
       where: { orgId, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.department.findMany({
+      where: { orgId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { sortOrder: "asc" },
     }),
   ]);
 
@@ -3236,47 +3228,102 @@ export default async function AccessRolesPage() {
         title="Administration des rôles"
         subtitle="Rôles du module de gestion des accès, suppléants et disponibilité"
       />
-      <ConfigIssuesPanel issues={issues} />
+      <ConfigIssuesPanel issues={issues} departments={departments} />
       <RoleAssignmentsTable assignments={assignments} users={users} />
     </div>
   );
 }
 ```
 
-- [ ] **Step 2: Panneau des problèmes de configuration**
+- [ ] **Step 2: Panneau des problèmes de configuration, avec correction en un clic**
+
+`usersWithoutPrimaryDepartment` est la seule condition de configuration réelle en phase 1 (voir la note de correction de la Tâche 8). L'API pour la corriger existe déjà (`PATCH /api/access/profiles/[userId]`, Tâche 12) — ce panneau doit l'appeler directement, pas seulement lister le problème.
 
 ```typescript
 // components/access/ConfigIssuesPanel.tsx
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+
 interface ConfigIssuesPanelProps {
   issues: {
-    departmentsWithoutHead: { id: string; name: string }[];
     usersWithoutPrimaryDepartment: { id: string; name: string; departmentCount: number }[];
   };
+  departments: { id: string; name: string }[];
 }
 
-export function ConfigIssuesPanel({ issues }: ConfigIssuesPanelProps) {
-  const total = issues.departmentsWithoutHead.length + issues.usersWithoutPrimaryDepartment.length;
+export function ConfigIssuesPanel({ issues, departments }: ConfigIssuesPanelProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [selected, setSelected] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const total = issues.usersWithoutPrimaryDepartment.length;
   if (total === 0) return null;
+
+  async function fixPrimaryDepartment(userId: string) {
+    const primaryDepartmentId = selected[userId];
+    if (!primaryDepartmentId) return;
+    setError(null);
+    setSavingId(userId);
+    try {
+      const res = await fetch(`/api/access/profiles/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ primaryDepartmentId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Erreur lors de la mise à jour");
+      }
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   return (
     <div className="mb-4 rounded-[10px] border border-[#f4a900]/30 bg-[#fffbe6] px-4 py-3">
       <p className="text-[12px] font-semibold text-dark mb-2">
-        {total} problème{total > 1 ? "s" : ""} de configuration à résoudre
+        {total} employé{total > 1 ? "s" : ""} sans département principal
       </p>
-      <ul className="space-y-1 text-[11px] text-izi-gray">
-        {issues.departmentsWithoutHead.map((d) => (
-          <li key={d.id}>Département « {d.name} » sans chef assigné dans ce module.</li>
-        ))}
+      <ul className="space-y-2">
         {issues.usersWithoutPrimaryDepartment.map((u) => (
-          <li key={u.id}>
-            {u.name} n&apos;a pas de département principal
-            {u.departmentCount > 1
-              ? ` (membre de ${u.departmentCount} départements)`
-              : " (membre d'aucun département)"}
-            .
+          <li key={u.id} className="flex flex-wrap items-center gap-2 text-[11px] text-izi-gray">
+            <span>
+              {u.name}
+              {u.departmentCount > 1
+                ? ` (membre de ${u.departmentCount} départements)`
+                : " (membre d'aucun département)"}
+            </span>
+            <select
+              value={selected[u.id] ?? ""}
+              onChange={(e) => setSelected((s) => ({ ...s, [u.id]: e.target.value }))}
+              className="rounded-[6px] border border-teal-md px-2 py-1 text-[11px] text-dark bg-white"
+            >
+              <option value="">Choisir un département...</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => fixPrimaryDepartment(u.id)}
+              disabled={!selected[u.id] || savingId === u.id}
+              className="rounded-[6px] bg-teal px-2.5 py-1 text-[11px] font-medium text-white hover:bg-teal-dk transition-colors disabled:opacity-50"
+            >
+              {savingId === u.id ? "..." : "Définir"}
+            </button>
           </li>
         ))}
       </ul>
+      {error && <p className="mt-2 text-[11px] text-izi-red">{error}</p>}
     </div>
   );
 }

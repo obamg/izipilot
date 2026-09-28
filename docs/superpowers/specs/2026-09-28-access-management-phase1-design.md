@@ -113,7 +113,7 @@ Français, composants et pagination existants, mobile d'abord, avec les états c
 | Route | Écran | Réservé à |
 | --- | --- | --- |
 | `/access/assets` | Administration des actifs : actifs, niveaux ordonnés avec drapeau admin, propriétaire et suppléant, archivage, indicateur « prêt aux demandes » | Asset Administrator (effectif) |
-| `/access/roles` | Administration des rôles : attribution des 6 rôles et de leurs suppléants, bascule de disponibilité, suppléant de chef de département, choix du département principal, problèmes de configuration (département sans chef ou employé sans département principal) | `CEO` |
+| `/access/roles` | Administration des rôles : attribution des 6 rôles et de leurs suppléants, bascule de disponibilité, correction en un clic des employés sans département principal | `CEO` |
 | `/access/audit` | Journal d'audit : filtres (acteur, objet, bénéficiaire, période), pagination, export CSV avec échappement des formules, l'export étant lui-même journalisé | Audit Viewer (effectif) |
 
 Les routes d'API sont sous `/api/access/…` ; leur découpage exact est fixé dans le plan d'implémentation.
@@ -141,3 +141,4 @@ Les routes d'API sont sous `/api/access/…` ; leur découpage exact est fixé d
 - **`AccessVerification.OWNER_CONFIRMED`** est une valeur ajoutée par rapport à la spec ; à confirmer en phase 3.
 - **Tickets `ACCESS`** : le sort de cette catégorie de demandes internes est décidé en phase 3.
 - La spec v1 interdit de déployer ou de modifier des accès réels pendant l'implémentation ; toute mise en production reste une décision explicite du propriétaire du projet.
+- **Suppléant de chef de département** : reporté hors de l'écran `/access/roles` (ruling du 2026-09-28). Un département a toujours un chef (`Department.ownerId`, obligatoire) ; son suppléant/disponibilité n'a aucun consommateur fonctionnel avant les phases 3 (routage des approbations) et 5 (transferts). `getEffectiveRoleHolders` dérive déjà le chef effectif sans configuration ; à construire quand ça devient réellement bloquant.
