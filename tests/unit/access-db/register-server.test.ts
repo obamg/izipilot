@@ -208,6 +208,19 @@ describe("register-server — vues de lecture du registre", () => {
     expect(mine.rows[0]?.assetArchived).toBe(true);
   });
 
+  it("propriétaire indisponible (OFFBOARDING) : plus de portée sur ses actifs", async () => {
+    await prisma.accessProfile.create({ data: { orgId, userId: u.owner, lifecycle: "OFFBOARDING" } });
+    try {
+      expect(await getOwnedAssetIds(orgId, u.owner)).toEqual([]);
+      await expect(
+        listAssignments({ viewer: viewer("owner"), view: { kind: "ASSET" }, filters: {}, pagination: page })
+      ).rejects.toBeInstanceOf(RegisterNotFoundError);
+    } finally {
+      await prisma.accessProfile.delete({ where: { userId: u.owner } });
+    }
+    expect(await getOwnedAssetIds(orgId, u.owner)).toEqual([assetX]);
+  });
+
   it("Administrateur des actifs sans actif possédé : pas de vue actifs", async () => {
     await expect(
       listAssignments({ viewer: viewer("adminOnly"), view: { kind: "ASSET" }, filters: {}, pagination: page })

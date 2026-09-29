@@ -9,6 +9,7 @@ import type {
   AccessVerification,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isAvailable } from "./roles";
 import { getEffectiveRoleHolders } from "./roles-server";
 import { resolveReadScopes, type ReadScope } from "./scope";
 import {
@@ -44,7 +45,20 @@ export interface AssignmentRowDTO {
   periodEnd: string | null;
 }
 
+/**
+ * Actifs (non archivés) dont le lecteur est propriétaire ou suppléant. Comme
+ * pour la portée « chef de département », le lecteur doit être disponible
+ * (compte actif, cycle de vie ni OFFBOARDING ni DEPARTED ; pas de profil =
+ * ACTIVE) : sinon aucun actif, donc aucune vue « Mes actifs ».
+ */
 export async function getOwnedAssetIds(orgId: string, userId: string): Promise<string[]> {
+  const [user, profile] = await Promise.all([
+    prisma.user.findFirst({ where: { id: userId, orgId }, select: { isActive: true } }),
+    prisma.accessProfile.findUnique({ where: { userId }, select: { lifecycle: true } }),
+  ]);
+  if (!user || !isAvailable({ userId, isActive: user.isActive, lifecycle: profile?.lifecycle ?? null })) {
+    return [];
+  }
   const assets = await prisma.accessAsset.findMany({
     where: { orgId, archivedAt: null, OR: [{ ownerId: userId }, { backupOwnerId: userId }] },
     select: { id: true },
