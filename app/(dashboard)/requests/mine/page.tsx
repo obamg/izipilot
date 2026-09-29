@@ -1,0 +1,74 @@
+// app/(dashboard)/requests/mine/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { listMyRequests } from "@/lib/access/requests-read-server";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { SubmitRequestForm } from "@/components/access/SubmitRequestForm";
+import { MyRequestActions } from "@/components/access/MyRequestActions";
+
+export default async function MyRequestsPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const orgId = session.user.orgId;
+  const [myRequests, assets] = await Promise.all([
+    listMyRequests(orgId, session.user.id),
+    prisma.accessAsset.findMany({
+      where: { orgId, archivedAt: null, requestsEnabled: true },
+      select: {
+        id: true,
+        name: true,
+        levels: { where: { archivedAt: null, enabled: true }, select: { id: true, name: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const serializedRequests = myRequests.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+
+  return (
+    <div>
+      <PageHeader title="Mes demandes" subtitle="Soumettre et suivre vos demandes d'accès" />
+      <SubmitRequestForm assets={assets} currentUserId={session.user.id} />
+      <div className="mt-6">
+        <h2 className="font-serif text-[16px] text-dark mb-3">Historique</h2>
+        {serializedRequests.length === 0 ? (
+          <p className="text-[12px] text-izi-gray">Aucune demande pour l&apos;instant.</p>
+        ) : (
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="text-izi-gray text-left">
+                <th className="py-1 font-medium">Actif</th>
+                <th className="py-1 font-medium">Niveau visé</th>
+                <th className="py-1 font-medium">Type</th>
+                <th className="py-1 font-medium">Statut</th>
+                <th className="py-1 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {serializedRequests.map((r) => (
+                <tr key={r.versionId} className="border-t border-border-soft">
+                  <td className="py-1">{r.assetName}</td>
+                  <td className="py-1">{r.targetLevelName ?? "—"}</td>
+                  <td className="py-1">{r.kind}</td>
+                  <td className="py-1">{r.state}</td>
+                  <td className="py-1">
+                    <MyRequestActions
+                      row={{
+                        requestId: r.requestId,
+                        versionId: r.versionId,
+                        state: r.state,
+                        stageIdIfClarification: r.pendingClarificationStageId,
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
