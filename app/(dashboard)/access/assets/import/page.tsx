@@ -5,6 +5,7 @@ import { listImportBatches } from "@/lib/access/import-server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ImportSeedPanel } from "@/components/access/ImportSeedPanel";
 import { ImportBaselinePanel } from "@/components/access/ImportBaselinePanel";
+import { ImportHistoryList } from "@/components/access/ImportHistoryList";
 
 export default async function AccessImportPage() {
   const session = await auth();
@@ -16,10 +17,6 @@ export default async function AccessImportPage() {
   if (!isAssetAdmin) redirect("/dashboard");
 
   const batches = await listImportBatches(orgId);
-
-  // Next.js sérialise les props d'un composant serveur vers un composant
-  // client en JSON : les champs Date doivent devenir des chaînes ISO avant
-  // de traverser cette frontière (même convention que app/(dashboard)/access/assets/page.tsx).
   const serializedBatches = batches.map((b) => ({
     ...b,
     committedAt: b.committedAt?.toISOString() ?? null,
@@ -35,8 +32,7 @@ export default async function AccessImportPage() {
       <div className="space-y-6 mt-4">
         <ImportSeedPanel />
         <ImportBaselinePanel />
-        {/* ImportBaselinePanel (Tâche 10) et ImportHistoryList (Tâche 11) viennent ici */}
-        {JSON.stringify(serializedBatches).length >= 0 /* placeholder retiré Tâche 11 */}
+        <ImportHistoryList batches={serializedBatches} />
       </div>
     </div>
   );

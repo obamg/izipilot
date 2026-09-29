@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -41,6 +42,14 @@ export default async function AccessAssetsPage() {
       <AdminPageHeader
         title="Administration des actifs"
         subtitle={`${assets.length} application${assets.length > 1 ? "s" : ""} au catalogue`}
+        action={
+          <Link
+            href="/access/assets/import"
+            className="inline-flex items-center rounded-[7px] bg-teal px-3 py-1.5 text-[12px] font-medium text-white hover:bg-teal-dk transition-colors no-underline"
+          >
+            Importer…
+          </Link>
+        }
       />
       <AssetsTable assets={serializedAssets} users={users} />
     </div>
