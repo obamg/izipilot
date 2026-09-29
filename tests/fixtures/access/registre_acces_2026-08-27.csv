@@ -1,0 +1,477 @@
+utilisateur;nom_complet;departement;logiciel;niveau_acces
+abdoul.soumanou;Abdoul SOUMANOU;NULL;AWS - DocumentDB;AWS - DocumentDB-contributor
+sourou.otou;Sourou OTOU;NULL;CLAUDE AI;CLAUDE-USERS
+abdoul.soumanou;Abdoul SOUMANOU;NULL;dashboard ADMIN;dashboard ADMIN-admin
+abdoul.soumanou;Abdoul SOUMANOU;NULL;KEYCLOAK;KEYCLOAK-contributor
+julien.guth;Julien Guth;NULL;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+sam.fandohan;Sam Fandohan;NULL;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+abdoul.soumanou;Abdoul SOUMANOU;NULL;PHPMYADMIN;PHPMYADMIN-contributor
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+fernando.ahogle;Fernando AHOGLE;AML;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+rosette.fiogbe;Rosette FIOGBE;AML;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;CHAIN-ANALYSIS;CHAIN-ANALYSIS-contributor
+fernando.ahogle;Fernando AHOGLE;AML;CHAIN-ANALYSIS;CHAIN-ANALYSIS-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;CHAIN-ANALYSIS;CHAIN-ANALYSIS-admin
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;CHAIN-ANALYSIS;CHAIN-ANALYSIS-contributor
+rosette.fiogbe;Rosette FIOGBE;AML;CHAIN-ANALYSIS;CHAIN-ANALYSIS-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;CLAUDE AI;CLAUDE-USERS
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;dashboard ADMIN;dashboard ADMIN-contributor
+fernando.ahogle;Fernando AHOGLE;AML;dashboard ADMIN;dashboard ADMIN-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;dashboard ADMIN;dashboard ADMIN-contributor
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;dashboard ADMIN;dashboard ADMIN-contributor
+rosette.fiogbe;Rosette FIOGBE;AML;dashboard ADMIN;dashboard ADMIN-contributor
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;DISCORD;DISCORD-reader
+fernando.ahogle;Fernando AHOGLE;AML;DISCORD;DISCORD-reader
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;DISCORD;DISCORD-reader
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;DISCORD;DISCORD-reader
+rosette.fiogbe;Rosette FIOGBE;AML;DISCORD;DISCORD-reader
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;FIREBLOCK;FIREBLOCK-reader
+fernando.ahogle;Fernando AHOGLE;AML;FIREBLOCK;FIREBLOCK-reader
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;FIREBLOCK;FIREBLOCK-reader
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;FIREBLOCK;FIREBLOCK-reader
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;GLEAP;GLEAP-contributor
+fernando.ahogle;Fernando AHOGLE;AML;GLEAP;GLEAP-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;GLEAP;GLEAP-admin
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;GLEAP;GLEAP-contributor
+rosette.fiogbe;Rosette FIOGBE;AML;GLEAP;GLEAP-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;GOOGLE PLAY;GOOGLE PLAY-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;JECKO;JECKO-admin
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+fernando.ahogle;Fernando AHOGLE;AML;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+rosette.fiogbe;Rosette FIOGBE;AML;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;ODOO;ODOO-admin
+fernando.ahogle;Fernando AHOGLE;AML;ODOO;ODOO-admin
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;ODOO;ODOO-admin
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;ODOO;ODOO-admin
+rosette.fiogbe;Rosette FIOGBE;AML;ODOO;ODOO-admin
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;SLACK;SLACK-contributor
+fernando.ahogle;Fernando AHOGLE;AML;SLACK;SLACK-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;SLACK;SLACK-contributor
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;SOTA ID;SOTA ID-admin
+fernando.ahogle;Fernando AHOGLE;AML;SOTA ID;SOTA ID-admin
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;SOTA ID;SOTA ID-admin
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;SOTA ID;SOTA ID-admin
+rosette.fiogbe;Rosette FIOGBE;AML;SOTA ID;SOTA ID-admin
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;SUMSUB;SUMSUB-contributor
+fernando.ahogle;Fernando AHOGLE;AML;SUMSUB;SUMSUB-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;SUMSUB;SUMSUB-admin
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;SUMSUB;SUMSUB-contributor
+rosette.fiogbe;Rosette FIOGBE;AML;SUMSUB;SUMSUB-contributor
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;TAWKTO;TAWKTO-contributor
+fernando.ahogle;Fernando AHOGLE;AML;TAWKTO;TAWKTO-contributor
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;TAWKTO;TAWKTO-contributor
+jeconias.dossougbete;JECONIAS JEAN DE DIEU DOSSOU-GBETE;AML;TAWKTO;TAWKTO-contributor
+rosette.fiogbe;Rosette FIOGBE;AML;TAWKTO;TAWKTO-contributor
+arcadius.kougblenou;Arcadius KOUGBLENOU;AML;TELEGRAM;TELEGRAM-reader
+fernando.ahogle;Fernando AHOGLE;AML;TELEGRAM;TELEGRAM-reader
+jean-paul.doliveira;Jean Paul D'OLIVEIRA;AML;TELEGRAM;TELEGRAM-reader
+rosette.fiogbe;Rosette FIOGBE;AML;TELEGRAM;TELEGRAM-reader
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;AFFINITY;AFFINITY-admin
+francklee.alapini;Franck-lee ALAPINI;COMMUNICATION;APP STORE;APP STORE-contributor
+lionel.doubogan;Lionel Chris DOUBOGAN;COMMUNICATION;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;CANVA;CANVA-admin
+johanes.quenum;Johanès QUENUM;COMMUNICATION;CANVA;CANVA-contributor
+odon.dagba;Odon DAGBA;COMMUNICATION;CANVA;CANVA-contributor
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;CAPCUT;CAPCUT-admin
+johanes.quenum;Johanès QUENUM;COMMUNICATION;CLAUDE AI;CLAUDE-USERS
+christianie.dovonou;Christianie DOVONOU;COMMUNICATION;dashboard ADMIN;dashboard ADMIN-contributor
+lionel.doubogan;Lionel Chris DOUBOGAN;COMMUNICATION;dashboard ADMIN;dashboard ADMIN-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;FACEBOOK;FACEBOOK-admin
+odon.dagba;Odon DAGBA;COMMUNICATION;FACEBOOK;FACEBOOK-contributor
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;Figma;Figma-admin
+francklee.alapini;Franck-lee ALAPINI;COMMUNICATION;GLEAP;GLEAP-admin
+lionel.doubogan;Lionel Chris DOUBOGAN;COMMUNICATION;GLEAP;GLEAP-contributor
+francklee.alapini;Franck-lee ALAPINI;COMMUNICATION;GOOGLE PLAY;GOOGLE PLAY-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;INSTAGRAM;INSTAGRAM-admin
+odon.dagba;Odon DAGBA;COMMUNICATION;INSTAGRAM;INSTAGRAM-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;Linkedin;Linkedin-contributor
+odon.dagba;Odon DAGBA;COMMUNICATION;Linkedin;Linkedin-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;MailWiz;MailWiz-contributor
+lionel.doubogan;Lionel Chris DOUBOGAN;COMMUNICATION;MailWiz;MailWiz-contributor
+christianie.dovonou;Christianie DOVONOU;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+francklee.alapini;Franck-lee ALAPINI;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+lionel.doubogan;Lionel Chris DOUBOGAN;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+odon.dagba;Odon DAGBA;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+rosko.dossou-yovo;Rosko DOSSOU-YOVO;COMMUNICATION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+christianie.dovonou;Christianie DOVONOU;COMMUNICATION;ODOO;ODOO-contributor
+lionel.doubogan;Lionel Chris DOUBOGAN;COMMUNICATION;POSTHOG;POSTHOG-contributor
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;STREAMYARD;STREAMYARD-admin
+johanes.quenum;Johanès QUENUM;COMMUNICATION;STREAMYARD;STREAMYARD-admin
+johanes.quenum;Johanès QUENUM;COMMUNICATION;TELEGRAM;TELEGRAM-contributor
+odon.dagba;Odon DAGBA;COMMUNICATION;TELEGRAM;TELEGRAM-contributor
+francklee.alapini;Franck-lee ALAPINI;COMMUNICATION;TRUSTPILOT;TRUSTPILOT-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;WHATSAPP;WHATSAPP-admin
+odon.dagba;Odon DAGBA;COMMUNICATION;WHATSAPP;WHATSAPP-contributor
+johanes.quenum;Johanès QUENUM;COMMUNICATION;X;X-admin
+odon.dagba;Odon DAGBA;COMMUNICATION;X;X-contributor
+cyrille.hounkode;Cyrille HOUNKODE;COMMUNICATION;YOUTUBE;YOUTUBE-admin
+johanes.quenum;Johanès QUENUM;COMMUNICATION;YOUTUBE;YOUTUBE-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;AWS;AWS-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;BGFI CMR;BGFI CMR-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;BINANCE;BINANCE-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;BYBIT;BYBIT-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;CHAIN-ANALYSIS;CHAIN-ANALYSIS-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;CLAPAY;CLAPAY-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;CLAUDE AI;CLAUDE-USERS
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;CLAUDE AI;CLAUDE-USERS
+marius.okouin;Marius OKOUIN;COO OFFICE;CLOUDFLARE;CLOUDFLARE-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;DERIV;DERIV-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;ECOBANK CMR;ECOBANK CMR-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;ELASTIC;ELASTIC-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;EXPO;EXPO-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;FEDAPAY;FEDAPAY-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;FEEXPAY;FEEXPAY-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;FIREBLOCK;FIREBLOCK-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;FRESHPAY;FRESHPAY-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;GLEAP;GLEAP-admin
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;GLEAP;GLEAP-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;HostedScan;HostedScan-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;HUB2;HUB2-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;IFUTURE;IFUTURE-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;INTOUCH;INTOUCH-admin
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;IZIPAY;IZIPAY-admin
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;JUMIO;JUMIO-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;KEYCLOAK;KEYCLOAK-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;KUCOIN;KUCOIN-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;MAGMA;MAGMA-admin
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+marius.okouin;Marius OKOUIN;COO OFFICE;MONEYGO;MONEYGO-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;ODOO;ODOO-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;PAWAPAY;PAWAPAY-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;PAYDUNYA;PAYDUNYA-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;PAYGATE;PAYGATE-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;QOSIC;QOSIC-admin
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;SLACK;SLACK-contributor
+marius.okouin;Marius OKOUIN;COO OFFICE;SOTA ID;SOTA ID-admin
+marius.okouin;Marius OKOUIN;COO OFFICE;STICPAY;STICPAY-admin
+pierremichel.agbla;Pierre-Michel AGBLA;COO OFFICE;SUMSUB;SUMSUB-admin
+edouard.kougblenou;Edouard KOUGBLENOU;DIRECTION;ASCOMA;ASCOMA-admin
+cherifath.kotchoffa;Cherifath KOTCHOFFA;DIRECTION;BINANCE;BINANCE-reader
+cherifath.kotchoffa;Cherifath KOTCHOFFA;DIRECTION;dashboard ADMIN;dashboard ADMIN-contributor
+edouard.kougblenou;Edouard KOUGBLENOU;DIRECTION;FINCRA;FINCRA-admin
+cherifath.kotchoffa;Cherifath KOTCHOFFA;DIRECTION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+edouard.kougblenou;Edouard KOUGBLENOU;DIRECTION;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+edouard.kougblenou;Edouard KOUGBLENOU;DIRECTION;ODOO;ODOO-admin
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;54PAY;54PAY-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;54PAY;54PAY-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;ADV;ADV-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;ADV;ADV-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;AFRILAND CMR;AFRILAND CMR-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;AFRILAND CMR;AFRILAND CMR-contributor
+abdalah.aguessyvognon;Abdalah KH AGUESSY-VOGNON;FINANCE;AWS - QUICKSIGHT;AWS - QUICKSIGHT-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;AWS - QUICKSIGHT;AWS - QUICKSIGHT-admin
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;BGFI CMR;BGFI CMR-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;BINANCE;BINANCE-contributor
+jerry.agossou;Jerry AGOSSOU;FINANCE;BIZAO;BIZAO-admin
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;BOPAYCARD;BOPAYCARD-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;BOPAYCARD;BOPAYCARD-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;BRIDGECARD;BRIDGECARD-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;BRIDGECARD;BRIDGECARD-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;BYBIT;BYBIT-contributor
+jerry.agossou;Jerry AGOSSOU;FINANCE;CINETPAY;CINETPAY-admin
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;CINETPAY;CINETPAY-reader
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;CLAPAY;CLAPAY-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;CLAPAY;CLAPAY-contributor
+abdalah.aguessyvognon;Abdalah KH AGUESSY-VOGNON;FINANCE;CLARITY;CLARITY-Admin
+abdalah.aguessyvognon;Abdalah KH AGUESSY-VOGNON;FINANCE;CLAUDE AI;CLAUDE-USERS
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;DERIV;DERIV-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;DERIV;DERIV-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;DIGITECH;DIGITECH-reader
+jerry.agossou;Jerry AGOSSOU;FINANCE;DIGIWACE;DIGIWACE-admin
+abdalah.aguessyvognon;Abdalah KH AGUESSY-VOGNON;FINANCE;DISCORD;DISCORD-reader
+jerry.agossou;Jerry AGOSSOU;FINANCE;DISCORD;DISCORD-reader
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;DISCORD;DISCORD-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;DISCORD;DISCORD-reader
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;DTONE;DTONE-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;DTONE;DTONE-contributor
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;ECOBANK BJ;ECOBANK BJ-contributor
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;ECOBANK CI;ECOBANK CI-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;FEDAPAY;FEDAPAY-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;FEDAPAY;FEDAPAY-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;FEEXPAY;FEEXPAY-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;FEEXPAY;FEEXPAY-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;FINCRA;FINCRA-reader
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;FIREBLOCK;FIREBLOCK-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;FIREBLOCK;FIREBLOCK-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;FIREBLOCK;FIREBLOCK-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;FRESHPAY;FRESHPAY-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;FRESHPAY;FRESHPAY-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;HUB2;HUB2-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;HUB2;HUB2-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;IFUTURE;IFUTURE-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;IFUTURE;IFUTURE-contributor
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;IMPOTS BJ;IMPOTS BJ-contributor
+jerry.agossou;Jerry AGOSSOU;FINANCE;IMPOTS BJ;IMPOTS BJ-admin
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;IMPOTS CI;IMPOTS CI-admin
+jerry.agossou;Jerry AGOSSOU;FINANCE;IMPOTS CI;IMPOTS CI-admin
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;IMPOTS SN;IMPOTS SN-admin
+jerry.agossou;Jerry AGOSSOU;FINANCE;IMPOTS SN;IMPOTS SN-admin
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;INTOUCH;INTOUCH-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;INTOUCH;INTOUCH-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;JECKO;JECKO-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;JECKO;JECKO-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;KUCOIN;KUCOIN-contributor
+jerry.agossou;Jerry AGOSSOU;FINANCE;LATOKEN;LATOKEN-admin
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;LIGDICASH;LIGDICASH-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;MAGMA;MAGMA-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;MAGMA;MAGMA-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;MAPLERAD;MAPLERAD-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;MAPLERAD;MAPLERAD-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;MFS;MFS-reader
+abdalah.aguessyvognon;Abdalah KH AGUESSY-VOGNON;FINANCE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+carlos.amonle;Carlos Daniel AMONLE;FINANCE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+jerry.agossou;Jerry AGOSSOU;FINANCE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;MONEYGO;MONEYGO-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;MONEYGO;MONEYGO-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;PAWAPAY;PAWAPAY-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;PAWAPAY;PAWAPAY-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;PAYDUNYA;PAYDUNYA-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;PAYDUNYA;PAYDUNYA-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;PAYGATE;PAYGATE-reader
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;PAYGATE;PAYGATE-reader
+jerry.agossou;Jerry AGOSSOU;FINANCE;PSMWORDI;PSMWORDI-admin
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;QOSIC;QOSIC-reader
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;STICPAY;STICPAY-reader
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;UBA BJ;UBA BJ-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;UBA BJ;UBA BJ-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;UBA CI;UBA CI-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;UBA CI;UBA CI-contributor
+malaine.kougnimon;MELAINE RAISSA KOUGNIMON;FINANCE;UBA CMR;UBA CMR-contributor
+romaric.mikpon;Romaric MIKPON-AITCHE;FINANCE;UBA CMR;UBA CMR-contributor
+jerry.agossou;Jerry AGOSSOU;FINANCE;Uptimise;Uptimise-contributor
+menes.whannou;Ménès WHANNOU;HR;ASCOMA;ASCOMA-reader
+menes.whannou;Ménès WHANNOU;HR;DOOR MANAGEMENT;DOOR MANAGEMENT-admin
+menes.whannou;Ménès WHANNOU;HR;Linkedin;Linkedin-contributor
+menes.whannou;Ménès WHANNOU;HR;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+menes.whannou;Ménès WHANNOU;HR;PSIE;PSIE-Admin
+menes.whannou;Ménès WHANNOU;HR;Uptimise;Uptimise-Admin
+moucharafou.amadou;Moucharafou AMADOU;IT;54PAY;54PAY-admin
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;ALBY;ALBY-admin
+jeremie.sehou;Jeremie SEHOU;IT;APP STORE;APP STORE-admin
+carmel.djegui;Carmel DJEGUI;IT;AWS;AWS-admin
+francis.olodo;Francis OLODO;IT;AWS;AWS-admin
+marius.okouin;Marius OKOUIN;IT;AWS;AWS-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;AWS;AWS-admin
+carmel.djegui;Carmel DJEGUI;IT;AWS - DocumentDB;AWS - DocumentDB-contributor
+francis.olodo;Francis OLODO;IT;AWS - DocumentDB;AWS - DocumentDB-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;AWS - DocumentDB;AWS - DocumentDB-contributor
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;AWS - DocumentDB;AWS - DocumentDB-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;AWS - DocumentDB;AWS - DocumentDB-contributor
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;AWS - EC2;AWS - EC2-contributor
+jeremie.sehou;Jeremie SEHOU;IT;AWS - EC2;AWS - EC2-contributor
+moucharafou.amadou;Moucharafou AMADOU;IT;AWS - EC2;AWS - EC2-contributor
+rose.tcharo;Bodarima Rose TCHARO;IT;AWS - EC2;AWS - EC2-contributor
+marius.okouin;Marius OKOUIN;IT;BGFI CMR;BGFI CMR-admin
+marius.okouin;Marius OKOUIN;IT;BINANCE;BINANCE-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;BOPAYCARD;BOPAYCARD-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;BRIDGECARD;BRIDGECARD-admin
+francis.olodo;Francis OLODO;IT;BYBIT;BYBIT-contributor
+marius.okouin;Marius OKOUIN;IT;BYBIT;BYBIT-admin
+marius.okouin;Marius OKOUIN;IT;CHAIN-ANALYSIS;CHAIN-ANALYSIS-admin
+marius.okouin;Marius OKOUIN;IT;CLAPAY;CLAPAY-admin
+augustin.babatounde;Augustin BABATOUNDE;IT;CLARITY;CLARITY-contributor
+hercule.lezinme;Hercule LEZINME;IT;CLARITY;CLARITY-Admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;CLARITY;CLARITY-Admin
+carmel.djegui;Carmel DJEGUI;IT;CLAUDE AI;CLAUDE-USERS
+dario.ganzinme;Dario GANZINME;IT;CLAUDE AI;CLAUDE-USERS
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;CLAUDE AI;CLAUDE-USERS
+genevieve.houessou;Geneviève HOUESSOU;IT;CLAUDE AI;CLAUDE-USERS
+jeremie.sehou;Jeremie SEHOU;IT;CLAUDE AI;CLAUDE-USERS
+marius.okouin;Marius OKOUIN;IT;CLAUDE AI;CLAUDE-USERS
+moucharafou.amadou;Moucharafou AMADOU;IT;CLAUDE AI;CLAUDE-USERS
+rose.tcharo;Bodarima Rose TCHARO;IT;CLAUDE AI;CLAUDE-USERS
+marius.okouin;Marius OKOUIN;IT;CLOUDFLARE;CLOUDFLARE-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;CLOUDFLARE;CLOUDFLARE-contributor
+francis.olodo;Francis OLODO;IT;CONTABO;CONTABO-admin
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;dashboard ADMIN;dashboard ADMIN-contributor
+hercule.lezinme;Hercule LEZINME;IT;dashboard ADMIN;dashboard ADMIN-contributor
+jeremie.sehou;Jeremie SEHOU;IT;dashboard ADMIN;dashboard ADMIN-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;dashboard ADMIN;dashboard ADMIN-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;dashboard ADMIN;dashboard ADMIN-admin
+carmel.djegui;Carmel DJEGUI;IT;dashboard ADMIN IZIMOON;IZIMOON-contributor
+jeremie.sehou;Jeremie SEHOU;IT;dashboard ADMIN IZIMOON;IZIMOON-admin
+marius.okouin;Marius OKOUIN;IT;DERIV;DERIV-admin
+genevieve.houessou;Geneviève HOUESSOU;IT;DISCORD;DISCORD-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;DISCORD;DISCORD-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;DTONE;DTONE-admin
+marius.okouin;Marius OKOUIN;IT;ECOBANK CMR;ECOBANK CMR-admin
+marius.okouin;Marius OKOUIN;IT;ELASTIC;ELASTIC-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;ELASTIC;ELASTIC-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;ESET;ESET-admin
+dario.ganzinme;Dario GANZINME;IT;EXPO;EXPO-admin
+jeremie.sehou;Jeremie SEHOU;IT;EXPO;EXPO-contributor
+marius.okouin;Marius OKOUIN;IT;EXPO;EXPO-admin
+marius.okouin;Marius OKOUIN;IT;FEDAPAY;FEDAPAY-admin
+marius.okouin;Marius OKOUIN;IT;FEEXPAY;FEEXPAY-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;FEEXPAY;FEEXPAY-contributor
+augustin.babatounde;Augustin BABATOUNDE;IT;Figma;Figma-admin
+dario.ganzinme;Dario GANZINME;IT;Figma;Figma-contributor
+hercule.lezinme;Hercule LEZINME;IT;Figma;Figma-contributor
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;FINCRA;FINCRA-admin
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;FIREBLOCK;FIREBLOCK-reader
+francis.olodo;Francis OLODO;IT;FIREBLOCK;FIREBLOCK-admin
+marius.okouin;Marius OKOUIN;IT;FIREBLOCK;FIREBLOCK-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;FIREBLOCK;FIREBLOCK-contributor
+marius.okouin;Marius OKOUIN;IT;FRESHPAY;FRESHPAY-admin
+anouartoko;Anouar OROU-TOKO;IT;GITHUB;GITHUB-contributor
+carmel.djegui;Carmel DJEGUI;IT;GITHUB;GITHUB-contributor
+dario.ganzinme;Dario GANZINME;IT;GITHUB;GITHUB-contributor
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;GITHUB;GITHUB-contributor
+francis.olodo;Francis OLODO;IT;GITHUB;GITHUB-admin
+genevieve.houessou;Geneviève HOUESSOU;IT;GITHUB;GITHUB-contributor
+hercule.lezinme;Hercule LEZINME;IT;GITHUB;GITHUB-contributor
+jeremie.sehou;Jeremie SEHOU;IT;GITHUB;GITHUB-contributor
+moucharafou.amadou;Moucharafou AMADOU;IT;GITHUB;GITHUB-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;GITHUB;GITHUB-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;GITHUB;GITHUB-contributor
+augustin.babatounde;Augustin BABATOUNDE;IT;GLEAP;GLEAP-contributor
+jeremie.sehou;Jeremie SEHOU;IT;GLEAP;GLEAP-contributor
+juste.fadikpe;Juste FADIKPE;IT;GLEAP;GLEAP-contributor
+marius.okouin;Marius OKOUIN;IT;GLEAP;GLEAP-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;GLEAP;GLEAP-admin
+jeremie.sehou;Jeremie SEHOU;IT;GOOGLE PLAY;GOOGLE PLAY-admin
+marius.okouin;Marius OKOUIN;IT;HostedScan;HostedScan-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;HostedScan;HostedScan-admin
+marius.okouin;Marius OKOUIN;IT;HUB2;HUB2-admin
+marius.okouin;Marius OKOUIN;IT;IFUTURE;IFUTURE-admin
+marius.okouin;Marius OKOUIN;IT;INTOUCH;INTOUCH-admin
+francis.olodo;Francis OLODO;IT;IZIPAY;IZIPAY-admin
+hercule.lezinme;Hercule LEZINME;IT;KEYCLOAK;KEYCLOAK-contributor
+jeremie.sehou;Jeremie SEHOU;IT;KEYCLOAK;KEYCLOAK-contributor
+jeremie.sehou;Jeremie SEHOU;IT;KEYCLOAK;KEYCLOAK-admin
+marius.okouin;Marius OKOUIN;IT;KEYCLOAK;KEYCLOAK-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;KEYCLOAK;KEYCLOAK-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;KEYCLOAK;KEYCLOAK-admin
+marius.okouin;Marius OKOUIN;IT;KUCOIN;KUCOIN-admin
+marius.okouin;Marius OKOUIN;IT;MAGMA;MAGMA-admin
+hercule.lezinme;Hercule LEZINME;IT;MailWiz;MailWiz-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;MAPLERAD;MAPLERAD-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;MFS;MFS-admin
+anouartoko;Anouar OROU-TOKO;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+augustin.babatounde;Augustin BABATOUNDE;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+carmel.djegui;Carmel DJEGUI;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+dario.ganzinme;Dario GANZINME;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+francis.olodo;Francis OLODO;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+genevieve.houessou;Geneviève HOUESSOU;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+hercule.lezinme;Hercule LEZINME;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+jeremie.sehou;Jeremie SEHOU;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+juste.fadikpe;Juste FADIKPE;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+moucharafou.amadou;Moucharafou AMADOU;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+marius.okouin;Marius OKOUIN;IT;MONEYGO;MONEYGO-admin
+marius.okouin;Marius OKOUIN;IT;ODOO;ODOO-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;PASSBOLT;PASSBOLT-admin
+marius.okouin;Marius OKOUIN;IT;PAWAPAY;PAWAPAY-admin
+marius.okouin;Marius OKOUIN;IT;PAYDUNYA;PAYDUNYA-admin
+marius.okouin;Marius OKOUIN;IT;PAYGATE;PAYGATE-admin
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;PHPMYADMIN;PHPMYADMIN-contributor
+francis.olodo;Francis OLODO;IT;PHPMYADMIN;PHPMYADMIN-admin
+genevieve.houessou;Geneviève HOUESSOU;IT;PHPMYADMIN;PHPMYADMIN-contributor
+moucharafou.amadou;Moucharafou AMADOU;IT;PHPMYADMIN;PHPMYADMIN-contributor
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;PHPMYADMIN;PHPMYADMIN-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;PHPMYADMIN;PHPMYADMIN-contributor
+carmel.djegui;Carmel DJEGUI;IT;POSTGRES;POSTGRES-contributor
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;POSTGRES;POSTGRES-contributor
+francis.olodo;Francis OLODO;IT;POSTGRES;POSTGRES-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;POSTGRES;POSTGRES-admin
+juste.fadikpe;Juste FADIKPE;IT;POSTHOG;POSTHOG-admin
+marius.okouin;Marius OKOUIN;IT;QOSIC;QOSIC-admin
+emmanuella.yansunnu;Emmanuella YANSUNNU;IT;RABBITMQ;RABBITMQ-contributor
+francis.olodo;Francis OLODO;IT;RABBITMQ;RABBITMQ-admin
+genevieve.houessou;Geneviève HOUESSOU;IT;RABBITMQ;RABBITMQ-contributor
+moucharafou.amadou;Moucharafou AMADOU;IT;RABBITMQ;RABBITMQ-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;RABBITMQ;RABBITMQ-contributor
+rose.tcharo;Bodarima Rose TCHARO;IT;RABBITMQ;RABBITMQ-write
+rose.tcharo;Bodarima Rose TCHARO;IT;SLACK;SLACK-admin
+marius.okouin;Marius OKOUIN;IT;SOTA ID;SOTA ID-admin
+rose.tcharo;Bodarima Rose TCHARO;IT;SOTA ID;SOTA ID-contributor
+marius.okouin;Marius OKOUIN;IT;STICPAY;STICPAY-admin
+genevieve.houessou;Geneviève HOUESSOU;IT;SUMSUB;SUMSUB-contributor
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;SUMSUB;SUMSUB-admin
+MOUSSA Ahmed Djemil;Ahmed Djemil MOUSSA;IT;WAZUH;WAZUH-admin
+moucharafou.amadou;Moucharafou AMADOU;IT;YOGUPAY;YOGUPAY-admin
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;54PAY;54PAY-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;54PAY;54PAY-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;CLAPAY;CLAPAY-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;CLAPAY;CLAPAY-reader
+gloria.ayegnon;Gloria AYEGNON;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+Idohou.agbachi;Idohou Claude AGBACHI;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+mafaza.bachabi;Mafaza BA CHABI;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+sergio.tovidedjo;Sergio Sourou TOVIDEDJO;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+ulrich.atchade;Ulrich ATCHADE;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;dashboard ADMIN;dashboard ADMIN-contributor
+gloria.ayegnon;Gloria AYEGNON;OPERATIONS;dashboard ADMIN IZIMOON;IZIMOON-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;dashboard ADMIN IZIMOON;IZIMOON-contributor
+Idohou.agbachi;Idohou Claude AGBACHI;OPERATIONS;dashboard ADMIN IZIMOON;IZIMOON-contributor
+mafaza.bachabi;Mafaza BA CHABI;OPERATIONS;dashboard ADMIN IZIMOON;IZIMOON-contributor
+ulrich.atchade;Ulrich ATCHADE;OPERATIONS;dashboard ADMIN IZIMOON;IZIMOON-contributor
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;dashboard ADMIN IZIMOON;IZIMOON-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;DIGITECH;DIGITECH-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;DIGITECH;DIGITECH-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;DISCORD;DISCORD-reader
+Idohou.agbachi;Idohou Claude AGBACHI;OPERATIONS;DISCORD;DISCORD-reader
+mafaza.bachabi;Mafaza BA CHABI;OPERATIONS;DISCORD;DISCORD-reader
+ulrich.atchade;Ulrich ATCHADE;OPERATIONS;DISCORD;DISCORD-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;DISCORD;DISCORD-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;FEDAPAY;FEDAPAY-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;FEDAPAY;FEDAPAY-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;FEEXPAY;FEEXPAY-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;FEEXPAY;FEEXPAY-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;FINCRA;FINCRA-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;FINCRA;FINCRA-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;FIREBLOCK;FIREBLOCK-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;FIREBLOCK;FIREBLOCK-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;FRESHPAY;FRESHPAY-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;FRESHPAY;FRESHPAY-reader
+gloria.ayegnon;Gloria AYEGNON;OPERATIONS;GLEAP;GLEAP-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;GLEAP;GLEAP-contributor
+Idohou.agbachi;Idohou Claude AGBACHI;OPERATIONS;GLEAP;GLEAP-contributor
+mafaza.bachabi;Mafaza BA CHABI;OPERATIONS;GLEAP;GLEAP-contributor
+sergio.tovidedjo;Sergio Sourou TOVIDEDJO;OPERATIONS;GLEAP;GLEAP-admin
+ulrich.atchade;Ulrich ATCHADE;OPERATIONS;GLEAP;GLEAP-admin
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;GLEAP;GLEAP-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;HUB2;HUB2-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;HUB2;HUB2-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;IFUTURE;IFUTURE-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;IFUTURE;IFUTURE-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;INTOUCH;INTOUCH-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;INTOUCH;INTOUCH-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;MAGMA;MAGMA-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;MAGMA;MAGMA-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;MAPLERAD;MAPLERAD-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;MAPLERAD;MAPLERAD-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;MFS;MFS-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;MFS;MFS-reader
+gloria.ayegnon;Gloria AYEGNON;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+Idohou.agbachi;Idohou Claude AGBACHI;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+mafaza.bachabi;Mafaza BA CHABI;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+sergio.tovidedjo;Sergio Sourou TOVIDEDJO;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+ulrich.atchade;Ulrich ATCHADE;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;PAWAPAY;PAWAPAY-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;PAWAPAY;PAWAPAY-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;PAYGATE;PAYGATE-reader
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;PAYGATE;PAYGATE-reader
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;SLACK;SLACK-contributor
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;SLACK;SLACK-contributor
+hyaceinthe.koudoro;Hyaceinthe KOUDORO;OPERATIONS;WHATSAPP;WHATSAPP-contributor
+ulrich.atchade;Ulrich ATCHADE;OPERATIONS;WHATSAPP;WHATSAPP-contributor
+yannick.chaffra;Yannick CHAFFRA;OPERATIONS;WHATSAPP;WHATSAPP-contributor
+serge.adounsi;Serge ADOUNSI;STRATEGY OFFICE;AWS - QUICKSIGHT;AWS - QUICKSIGHT-reader
+joas.vigan;Joas VIGAN;STRATEGY OFFICE;CLAUDE AI;CLAUDE-USERS
+serge.adounsi;Serge ADOUNSI;STRATEGY OFFICE;CLAUDE AI;CLAUDE-USERS
+abdoulouadoud.bouraima;Abdoul Ouadoud BOURAIMA;STRATEGY OFFICE;FIREBLOCK;FIREBLOCK-reader
+joas.vigan;Joas VIGAN;STRATEGY OFFICE;MICROSOFT OFFICE;MICROSOFT OFFICE-contributor
+serge.adounsi;Serge ADOUNSI;STRATEGY OFFICE;MICROSOFT OFFICE;MICROSOFT OFFICE-reader
