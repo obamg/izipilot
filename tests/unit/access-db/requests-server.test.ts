@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   submitRequest,
@@ -50,11 +50,12 @@ describe("requests-server — soumission", () => {
     });
     departmentId = dept.id;
     await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
+    await prisma.accessProfile.update({ where: { userId: employeeId }, data: { primaryDepartmentId: departmentId } });
 
     await prisma.accessRoleAssignment.create({ data: { orgId, role: "CISO", userId: cisoId } });
     await prisma.accessRoleAssignment.create({ data: { orgId, role: "COO", userId: cooId } });
 
-    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Requests" } });
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Requests", requestsEnabled: true } });
     assetId = asset.id;
     const levelReader = await prisma.accessLevel.create({
       data: { assetId, name: "Reader", priority: 1, isAdmin: false },
@@ -227,11 +228,12 @@ describe("requests-server — décision d'étape", () => {
     });
     departmentId = dept.id;
     await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
+    await prisma.accessProfile.update({ where: { userId: employeeId }, data: { primaryDepartmentId: departmentId } });
 
     await prisma.accessRoleAssignment.create({ data: { orgId, role: "CISO", userId: cisoId } });
     await prisma.accessRoleAssignment.create({ data: { orgId, role: "COO", userId: cooId } });
 
-    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Decide" } });
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Decide", requestsEnabled: true } });
     assetId = asset.id;
     const level = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
     levelReaderId = level.id;
@@ -474,9 +476,10 @@ describe("requests-server — clarification, révision, annulation", () => {
     });
     departmentId = dept.id;
     await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
+    await prisma.accessProfile.update({ where: { userId: employeeId }, data: { primaryDepartmentId: departmentId } });
     await prisma.accessRoleAssignment.create({ data: { orgId, role: "CISO", userId: cisoId } });
 
-    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Clarify" } });
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Clarify", requestsEnabled: true } });
     assetId = asset.id;
     const levelReader = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
     levelReaderId = levelReader.id;
@@ -605,8 +608,12 @@ describe("requests-server — décisions en lot", () => {
     await prisma.departmentMember.createMany({
       data: [{ departmentId, userId: employeeAId }, { departmentId, userId: employeeBId }],
     });
+    await prisma.accessProfile.updateMany({
+      where: { userId: { in: [employeeAId, employeeBId] } },
+      data: { primaryDepartmentId: departmentId },
+    });
 
-    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Batch" } });
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Batch", requestsEnabled: true } });
     assetId = asset.id;
     const level = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
     levelReaderId = level.id;
@@ -646,5 +653,279 @@ describe("requests-server — décisions en lot", () => {
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: { in: [vA.id, vB.id] } } });
     await prisma.accessRequestVersion.deleteMany({ where: { id: { in: [vA.id, vB.id] } } });
     await prisma.accessRequest.deleteMany({ where: { id: { in: [vA.requestId, vB.requestId] } } });
+  });
+});
+
+describe("requests-server — correctifs revue finale (révision, périmètre de réduction, département, suppléance)", () => {
+  let orgId: string;
+  let empAId: string;
+  let empBId: string;
+  let headAId: string;
+  let headBId: string;
+  let cisoId: string;
+  let cooId: string;
+  let itOpId: string;
+  let multiDeptId: string;
+  let noPrimaryId: string;
+  let deptAId: string;
+  let deptBId: string;
+  let assetId: string;
+  let levelReaderId: string;
+  let levelAdminId: string;
+  let levelDisabledId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test Fix Wave Org", slug: `test-fixwave-${Date.now()}` },
+    });
+    orgId = org.id;
+
+    const stamp = Date.now();
+    const mk = (tag: string, name: string) =>
+      prisma.user.create({ data: { orgId, email: `${tag}-fw-${stamp}@example.com`, name, role: "PO" } });
+    const [empA, empB, headA, headB, ciso, coo, itOp, multi, noPrimary] = await Promise.all([
+      mk("empa", "EmpA"),
+      mk("empb", "EmpB"),
+      mk("heada", "HeadA"),
+      mk("headb", "HeadB"),
+      mk("ciso", "Ciso"),
+      mk("coo", "Coo"),
+      mk("itop", "ItOp"),
+      mk("multi", "Multi"),
+      mk("noprim", "NoPrimary"),
+    ]);
+    empAId = empA.id;
+    empBId = empB.id;
+    headAId = headA.id;
+    headBId = headB.id;
+    cisoId = ciso.id;
+    cooId = coo.id;
+    itOpId = itOp.id;
+    multiDeptId = multi.id;
+    noPrimaryId = noPrimary.id;
+
+    const deptA = await prisma.department.create({
+      data: { orgId, code: "FWA", name: "Dept FW A", color: "#000000", ownerId: headAId },
+    });
+    const deptB = await prisma.department.create({
+      data: { orgId, code: "FWB", name: "Dept FW B", color: "#111111", ownerId: headBId },
+    });
+    deptAId = deptA.id;
+    deptBId = deptB.id;
+
+    await prisma.departmentMember.createMany({
+      data: [
+        { departmentId: deptAId, userId: empAId },
+        { departmentId: deptBId, userId: empBId },
+        { departmentId: deptAId, userId: cisoId },
+        // Membre des DEUX départements : A en premier, mais département
+        // principal B — la résolution doit suivre primaryDepartmentId.
+        { departmentId: deptAId, userId: multiDeptId },
+        { departmentId: deptBId, userId: multiDeptId },
+        // Membre des deux, département principal non arbitré (null).
+        { departmentId: deptAId, userId: noPrimaryId },
+        { departmentId: deptBId, userId: noPrimaryId },
+      ],
+    });
+
+    const primaryByUser: Record<string, string | null> = {
+      [empAId]: deptAId,
+      [empBId]: deptBId,
+      [headAId]: deptAId,
+      [headBId]: deptBId,
+      [cisoId]: deptAId,
+      [cooId]: null,
+      [itOpId]: null,
+      [multiDeptId]: deptBId,
+      [noPrimaryId]: null,
+    };
+    await prisma.accessProfile.createMany({
+      data: Object.entries(primaryByUser).map(([userId, primaryDepartmentId]) => ({
+        orgId,
+        userId,
+        primaryDepartmentId,
+        lifecycle: "ACTIVE" as const,
+      })),
+    });
+
+    await prisma.accessRoleAssignment.createMany({
+      data: [
+        { orgId, role: "CISO", userId: cisoId },
+        { orgId, role: "COO", userId: cooId },
+        { orgId, role: "IT_ACCESS_OPERATOR", userId: itOpId },
+      ],
+    });
+
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset FW", requestsEnabled: true } });
+    assetId = asset.id;
+    levelReaderId = (await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } })).id;
+    levelAdminId = (await prisma.accessLevel.create({ data: { assetId, name: "Admin", priority: 10, isAdmin: true } })).id;
+    levelDisabledId = (
+      await prisma.accessLevel.create({ data: { assetId, name: "Disabled", priority: 5, isAdmin: false, enabled: false } })
+    ).id;
+  });
+
+  afterEach(async () => {
+    // AccessRequest → versions → étapes : suppression en cascade.
+    await prisma.accessRequest.deleteMany({ where: { orgId } });
+    await prisma.accessAssignment.deleteMany({ where: { orgId } });
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId, role: "DEPARTMENT_HEAD" } });
+    await prisma.accessAsset.update({ where: { id: assetId }, data: { requestsEnabled: true } });
+  });
+
+  afterAll(async () => {
+    await prisma.accessRequest.deleteMany({ where: { orgId } });
+    await prisma.accessAssignment.deleteMany({ where: { orgId } });
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
+    await prisma.accessLevel.deleteMany({ where: { asset: { orgId } } });
+    await prisma.accessAsset.deleteMany({ where: { orgId } });
+    await prisma.departmentMember.deleteMany({ where: { department: { orgId } } });
+    await prisma.accessProfile.deleteMany({ where: { orgId } });
+    await prisma.department.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  function giveAccess(userId: string, levelId: string) {
+    return prisma.accessAssignment.create({ data: { orgId, userId, assetId, levelId, status: "ACTIVE" } });
+  }
+
+  // ── Fix 1 : reviseRequest reclassifie, re-route et revalide ──────────────
+
+  it("révision d'une REVOKE vers un niveau admin : change de famille (réduction → octroi) → refusée, aucune nouvelle version", async () => {
+    await giveAccess(empAId, levelReaderId);
+    const revoke = await submitRequest(orgId, headAId, {
+      beneficiaryId: empAId, assetId, targetLevelId: null, justification: "retrait",
+    });
+    expect(revoke.kind).toBe("REVOKE");
+    expect(revoke.stages.map((s) => s.role)).toEqual(["CISO"]);
+    const returned = await decideStage(orgId, cisoId, revoke.stages[0].id, "RETURN", "revoir");
+
+    await expect(
+      reviseRequest(orgId, headAId, returned.id, { targetLevelId: levelAdminId })
+    ).rejects.toThrow(/nature de la demande/);
+    expect(await prisma.accessRequestVersion.count({ where: { requestId: revoke.requestId } })).toBe(1);
+  });
+
+  it("révision d'une REVOKE vers un niveau inférieur : reclassifiée REDUCE (même famille), route recalculée", async () => {
+    await giveAccess(empAId, levelAdminId);
+    const revoke = await submitRequest(orgId, headAId, {
+      beneficiaryId: empAId, assetId, targetLevelId: null, justification: "retrait",
+    });
+    expect(revoke.kind).toBe("REVOKE");
+    const returned = await decideStage(orgId, cisoId, revoke.stages[0].id, "RETURN", "réduire plutôt que retirer");
+
+    const revised = await reviseRequest(orgId, headAId, returned.id, { targetLevelId: levelReaderId });
+    expect(revised.versionNumber).toBe(2);
+    expect(revised.kind).toBe("REDUCE");
+    expect(revised.stages.map((s) => s.role)).toEqual(["CISO"]);
+  });
+
+  it("révision d'une réduction visant le CISO titulaire : re-routée vers COO, jamais vers le CISO bénéficiaire", async () => {
+    await giveAccess(cisoId, levelReaderId);
+    const revoke = await submitRequest(orgId, headAId, {
+      beneficiaryId: cisoId, assetId, targetLevelId: null, justification: "retrait CISO",
+    });
+    expect(revoke.stages.map((s) => s.role)).toEqual(["COO"]);
+    const returned = await decideStage(orgId, cooId, revoke.stages[0].id, "RETURN", "motiver davantage");
+
+    const revised = await reviseRequest(orgId, headAId, returned.id, { justification: "retrait CISO, motivé" });
+    expect(revised.kind).toBe("REVOKE");
+    expect(revised.stages.map((s) => s.role)).toEqual(["COO"]);
+  });
+
+  it("révision vers un niveau désactivé : refusée (contrôles catalogue réappliqués)", async () => {
+    const v = await submitRequest(orgId, empAId, {
+      beneficiaryId: empAId, assetId, targetLevelId: levelReaderId, justification: "besoin",
+    });
+    const returned = await decideStage(orgId, headAId, v.stages[0].id, "RETURN", "revoir");
+    await expect(
+      reviseRequest(orgId, empAId, returned.id, { targetLevelId: levelDisabledId })
+    ).rejects.toThrow(/archivé ou désactivé/);
+  });
+
+  it("révision d'un octroi sur un actif fermé aux demandes entre-temps : refusée", async () => {
+    const v = await submitRequest(orgId, empAId, {
+      beneficiaryId: empAId, assetId, targetLevelId: levelReaderId, justification: "besoin",
+    });
+    const returned = await decideStage(orgId, headAId, v.stages[0].id, "RETURN", "revoir");
+    await prisma.accessAsset.update({ where: { id: assetId }, data: { requestsEnabled: false } });
+    await expect(
+      reviseRequest(orgId, empAId, returned.id, { justification: "besoin précisé" })
+    ).rejects.toThrow(/pas ouvert aux demandes/);
+  });
+
+  // ── Fix 2 : réduction scopée au département du bénéficiaire ──────────────
+
+  it("un chef du département A ne peut PAS initier une réduction pour un employé du département B", async () => {
+    await giveAccess(empBId, levelReaderId);
+    await expect(
+      submitRequest(orgId, headAId, { beneficiaryId: empBId, assetId, targetLevelId: null, justification: "hors périmètre" })
+    ).rejects.toThrow(/propre département/);
+    expect(await prisma.accessRequest.count({ where: { orgId } })).toBe(0);
+  });
+
+  it("un chef du département A PEUT initier une réduction pour un employé du département A", async () => {
+    await giveAccess(empAId, levelReaderId);
+    const v = await submitRequest(orgId, headAId, {
+      beneficiaryId: empAId, assetId, targetLevelId: null, justification: "dans le périmètre",
+    });
+    expect(v.kind).toBe("REVOKE");
+    expect(v.stages.map((s) => s.role)).toEqual(["CISO"]);
+  });
+
+  it("le CISO et l'opérateur IT peuvent initier une réduction pour un employé de n'importe quel département", async () => {
+    await giveAccess(empBId, levelReaderId);
+    const byCiso = await submitRequest(orgId, cisoId, {
+      beneficiaryId: empBId, assetId, targetLevelId: null, justification: "CISO",
+    });
+    expect(byCiso.stages.map((s) => s.role)).toEqual(["COO"]);
+    await prisma.accessRequest.deleteMany({ where: { orgId } });
+
+    const byIt = await submitRequest(orgId, itOpId, {
+      beneficiaryId: empBId, assetId, targetLevelId: null, justification: "IT",
+    });
+    expect(byIt.stages.map((s) => s.role)).toEqual(["CISO"]);
+  });
+
+  // ── Fix 3 : departmentSnapshot = AccessProfile.primaryDepartmentId ───────
+
+  it("un employé membre de plusieurs départements est routé vers son département PRINCIPAL", async () => {
+    const v = await submitRequest(orgId, multiDeptId, {
+      beneficiaryId: multiDeptId, assetId, targetLevelId: levelReaderId, justification: "multi",
+    });
+    const row = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: v.id } });
+    expect(row.departmentSnapshot).toBe(deptBId);
+    await expect(decideStage(orgId, headAId, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    const decided = await decideStage(orgId, headBId, v.stages[0].id, "APPROVE", null);
+    expect(decided.stages[0].actorId).toBe(headBId);
+  });
+
+  it("département principal non arbitré : snapshot vide, aucun chef éligible (problème de routage visible)", async () => {
+    const v = await submitRequest(orgId, noPrimaryId, {
+      beneficiaryId: noPrimaryId, assetId, targetLevelId: levelReaderId, justification: "non arbitré",
+    });
+    const row = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: v.id } });
+    expect(row.departmentSnapshot).toBe("");
+    await expect(decideStage(orgId, headAId, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    await expect(decideStage(orgId, headBId, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+  });
+
+  // ── Fix 4 : actedAsPrimary scopé au département dans decideStage ─────────
+
+  it("un chef titulaire de A agissant comme suppléant de B (chef B marqué indisponible, compte actif) décide avec actedAsPrimary=false", async () => {
+    await prisma.accessRoleAssignment.create({
+      data: { orgId, role: "DEPARTMENT_HEAD", departmentId: deptBId, backupUserId: headAId, primaryUnavailable: true },
+    });
+    const v = await submitRequest(orgId, empBId, {
+      beneficiaryId: empBId, assetId, targetLevelId: levelReaderId, justification: "suppléance",
+    });
+    // Le titulaire B, marqué indisponible, n'est plus éligible.
+    await expect(decideStage(orgId, headBId, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+
+    const decided = await decideStage(orgId, headAId, v.stages[0].id, "APPROVE", null);
+    expect(decided.stages[0].actorId).toBe(headAId);
+    const stageRow = await prisma.accessApprovalStage.findUniqueOrThrow({ where: { id: v.stages[0].id } });
+    expect(stageRow.actedAsPrimary).toBe(false);
   });
 });

@@ -33,8 +33,9 @@ describe("requests-read-server", () => {
     });
     departmentId = dept.id;
     await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
+    await prisma.accessProfile.update({ where: { userId: employeeId }, data: { primaryDepartmentId: departmentId } });
 
-    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Read" } });
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Read", requestsEnabled: true } });
     assetId = asset.id;
     const level = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
     levelReaderId = level.id;
@@ -138,14 +139,11 @@ describe("requests-read-server", () => {
       where: { orgId, role: "DEPARTMENT_HEAD", departmentId },
     });
     await prisma.accessRoleAssignment.update({ where: { id: assignment.id }, data: { primaryUnavailable: true } });
-    // Pour un DEPARTMENT_HEAD, getEffectiveRoleHolders exige à la fois
-    // primaryUnavailable=true ET l'indisponibilité réelle du titulaire
-    // (isActive/lifecycle) pour que le suppléant prenne le relais — double
-    // condition documentée et testée dans roles-server.test.ts ("DEPARTMENT_HEAD :
-    // le suppléant agit si le titulaire est marqué indisponible via
-    // l'affectation dédiée"). Le propriétaire (Department.ownerId) n'est
-    // JAMAIS écarté par le seul flag primaryUnavailable — seule sa propre
-    // disponibilité (isActive) le retire de la liste des chefs effectifs.
+    // Depuis le correctif revue finale, primaryUnavailable=true suffit (OU
+    // logique, comme pour les autres rôles) — voir le test suivant, qui
+    // couvre le cas réel sans toucher au compte du titulaire. Ce test-ci
+    // désactive EN PLUS le compte du titulaire : il reste vrai sous la
+    // nouvelle règle (l'OU est un sur-ensemble de l'ancien ET).
     await prisma.user.update({ where: { id: deptHeadId }, data: { isActive: false } });
 
     expect(await listMyApprovals(orgId, deptHeadId)).toHaveLength(0);
@@ -158,6 +156,43 @@ describe("requests-read-server", () => {
     // Nettoyage : rendre le titulaire disponible à nouveau et retirer le suppléant pour ne
     // pas affecter les autres tests de ce describe.
     await prisma.user.update({ where: { id: deptHeadId }, data: { isActive: true } });
+    await prisma.accessRoleAssignment.update({ where: { id: assignment.id }, data: { primaryUnavailable: false } });
+    await setDepartmentHeadBackup(orgId, departmentId, null, deptHeadId);
+    await prisma.accessProfile.deleteMany({ where: { userId: backup.id } });
+    await prisma.user.delete({ where: { id: backup.id } });
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: v.id } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: v.id } });
+    await prisma.accessRequest.deleteMany({ where: { id: v.requestId } });
+  });
+
+  it("chef de département marqué indisponible (congé) avec compte ACTIF : le suppléant prend le relais, le titulaire ne voit plus l'étape", async () => {
+    const backup = await prisma.user.create({
+      data: { orgId, email: `backup-r2-${Date.now()}@example.com`, name: "Backup2", role: "PO" },
+    });
+    await prisma.accessProfile.create({ data: { orgId, userId: backup.id, lifecycle: "ACTIVE" } });
+
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test congé",
+    });
+    const deptStageId = v.stages[0].id;
+    expect(await listMyApprovals(orgId, deptHeadId)).toHaveLength(1);
+
+    await setDepartmentHeadBackup(orgId, departmentId, backup.id, deptHeadId);
+    const assignment = await prisma.accessRoleAssignment.findFirstOrThrow({
+      where: { orgId, role: "DEPARTMENT_HEAD", departmentId },
+    });
+    await prisma.accessRoleAssignment.update({ where: { id: assignment.id }, data: { primaryUnavailable: true } });
+
+    // Le compte du titulaire reste pleinement actif — seul le drapeau change.
+    const owner = await prisma.user.findUniqueOrThrow({ where: { id: deptHeadId } });
+    expect(owner.isActive).toBe(true);
+
+    expect(await listMyApprovals(orgId, deptHeadId)).toHaveLength(0);
+    const backupApprovals = await listMyApprovals(orgId, backup.id);
+    expect(backupApprovals).toHaveLength(1);
+    expect(backupApprovals[0].stageId).toBe(deptStageId);
+    expect(backupApprovals[0].actedAsPrimary).toBe(false);
+
     await prisma.accessRoleAssignment.update({ where: { id: assignment.id }, data: { primaryUnavailable: false } });
     await setDepartmentHeadBackup(orgId, departmentId, null, deptHeadId);
     await prisma.accessProfile.deleteMany({ where: { userId: backup.id } });

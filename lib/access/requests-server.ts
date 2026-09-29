@@ -3,8 +3,10 @@ import type { Prisma, AccessRequestState, AccessRequestKind } from "@prisma/clie
 import { prisma } from "@/lib/prisma";
 import { recordAuditInTx } from "./audit-server";
 import { getEffectiveRoleHolders } from "./roles-server";
+import { canInitiateDepartmentReduction } from "./requests-read-server";
 import { computeGrantRoute, computeReductionRoute, classifyRequest, InvalidRequestError } from "./routing";
-import type { ApprovalStageRole } from "./routing";
+import type { ApprovalStageRole, ReductionInitiatorRole } from "./routing";
+import type { EffectiveRole } from "./scope";
 
 export class RequestError extends Error {}
 
@@ -79,39 +81,98 @@ export interface SubmitRequestInput {
   periodEnd?: Date | null;
 }
 
-export async function submitRequest(
+type DbClient = Prisma.TransactionClient | typeof prisma;
+
+/**
+ * Famille d'une demande : octroi (GRANT/UPGRADE/RENEW, initié par le
+ * bénéficiaire lui-même) ou réduction (REDUCE/REVOKE, initiée par un chef de
+ * département/IT/CISO pour quelqu'un d'autre). Les deux familles n'ont ni le
+ * même initiateur autorisé ni la même fonction de routage.
+ */
+type RequestFamily = "GRANT_FAMILY" | "REDUCTION_FAMILY";
+
+function familyOf(kind: AccessRequestKind): RequestFamily {
+  return kind === "REDUCE" || kind === "REVOKE" ? "REDUCTION_FAMILY" : "GRANT_FAMILY";
+}
+
+interface DeriveRequestTermsInput {
+  beneficiaryId: string;
+  assetId: string;
+  targetLevelId: string | null;
+  periodEnd: Date | null;
+  /**
+   * Révision uniquement : la famille de la version d'origine. Si la
+   * reclassification tombe dans l'AUTRE famille, la révision est refusée
+   * (jamais de re-routage silencieux d'une réduction en octroi ou inverse).
+   */
+  expectedFamily?: RequestFamily;
+}
+
+interface DerivedRequestTerms {
+  kind: AccessRequestKind;
+  stages: ApprovalStageRole[];
+  exceptionReason: string | null;
+  departmentSnapshot: string;
+  assignmentVersion: number;
+  catalogueVersion: number;
+}
+
+/**
+ * Dérivation partagée par `submitRequest` et `reviseRequest` — une seule
+ * source de vérité pour : contrôles catalogue/cycle de vie, classification
+ * (GRANT/UPGRADE/RENEW/REDUCE/REVOKE depuis l'affectation actuelle), contrôle
+ * de l'initiateur (le bénéficiaire pour un octroi ; chef du BON département,
+ * IT ou CISO pour une réduction), département du bénéficiaire et calcul de la
+ * route. Correctif revue finale : `reviseRequest` recopiait auparavant `kind`
+ * et recalculait la route à part, sans reclassifier ni revalider — une
+ * réduction pouvait ainsi être révisée en octroi de fait, routée comme une
+ * réduction, et une réduction visant le CISO titulaire était re-routée vers
+ * le CISO lui-même.
+ *
+ * `client` : `prisma` (soumission) ou `tx` (révision, lue dans la même
+ * transaction que la création de la nouvelle version).
+ */
+async function deriveRequestTerms(
+  client: DbClient,
   orgId: string,
   actorId: string,
-  input: SubmitRequestInput
-): Promise<RequestVersionDTO> {
-  const [beneficiary, beneficiaryProfile, asset, targetLevel, currentAssignment, actorRoles, beneficiaryDepartment] = await Promise.all([
-    prisma.user.findFirst({ where: { id: input.beneficiaryId, orgId }, select: { id: true } }),
-    prisma.accessProfile.findFirst({ where: { userId: input.beneficiaryId, orgId }, select: { lifecycle: true } }),
-    prisma.accessAsset.findFirst({ where: { id: input.assetId, orgId, archivedAt: null }, select: { id: true, catalogueVersion: true } }),
+  input: DeriveRequestTermsInput
+): Promise<DerivedRequestTerms> {
+  const [beneficiary, beneficiaryProfile, asset, targetLevel, currentAssignment, actorRoles] = await Promise.all([
+    client.user.findFirst({ where: { id: input.beneficiaryId, orgId }, select: { id: true } }),
+    // `primaryDepartmentId` est le département AUTORITAIRE du bénéficiaire
+    // (phase 1 : résolu automatiquement s'il n'appartient qu'à un seul
+    // département, arbitré par le CEO via ConfigIssuesPanel sinon) — jamais
+    // une ligne `DepartmentMember` arbitraire, non déterministe pour un
+    // employé membre de plusieurs départements.
+    client.accessProfile.findFirst({
+      where: { userId: input.beneficiaryId, orgId },
+      select: { lifecycle: true, primaryDepartmentId: true },
+    }),
+    client.accessAsset.findFirst({
+      where: { id: input.assetId, orgId },
+      select: { id: true, catalogueVersion: true, archivedAt: true, requestsEnabled: true },
+    }),
     input.targetLevelId
-      ? prisma.accessLevel.findFirst({
-          where: { id: input.targetLevelId, assetId: input.assetId, archivedAt: null },
-          select: { id: true, priority: true, isAdmin: true },
+      ? client.accessLevel.findFirst({
+          where: { id: input.targetLevelId, assetId: input.assetId },
+          select: { id: true, priority: true, isAdmin: true, archivedAt: true, enabled: true },
         })
       : Promise.resolve(null),
-    prisma.accessAssignment.findFirst({ where: { orgId, userId: input.beneficiaryId, assetId: input.assetId } }),
-    getEffectiveRoleHolders(orgId, actorId),
-    // Département du bénéficiaire, au moment de la soumission : c'est ce
-    // "snapshot" que decideStage (Tâche 5) utilise pour restreindre l'étape
-    // DEPARTMENT_HEAD au(x) chef(s) du BON département, plutôt qu'à
-    // n'importe quel chef de département de l'organisation.
-    prisma.departmentMember.findFirst({
-      where: { userId: input.beneficiaryId, department: { orgId } },
-      select: { departmentId: true },
-    }),
+    client.accessAssignment.findFirst({ where: { orgId, userId: input.beneficiaryId, assetId: input.assetId } }),
+    getEffectiveRoleHolders(orgId, actorId, client),
   ]);
 
   if (!beneficiary) throw new RequestError("Bénéficiaire introuvable dans cette organisation");
   if (!asset) throw new RequestError("Actif introuvable dans cette organisation");
+  if (asset.archivedAt !== null) throw new RequestError("Cet actif est archivé — aucune demande possible");
   if (input.targetLevelId && !targetLevel) throw new RequestError("Niveau introuvable ou n'appartenant pas à cet actif");
+  if (targetLevel && (targetLevel.archivedAt !== null || !targetLevel.enabled)) {
+    throw new RequestError("Le niveau ciblé est archivé ou désactivé");
+  }
 
   const currentLevelPriority = currentAssignment?.levelId
-    ? (await prisma.accessLevel.findUnique({ where: { id: currentAssignment.levelId }, select: { priority: true } }))?.priority ?? null
+    ? (await client.accessLevel.findUnique({ where: { id: currentAssignment.levelId }, select: { priority: true } }))?.priority ?? null
     : null;
 
   const kind = classifyRequestSafe(
@@ -125,10 +186,16 @@ export async function submitRequest(
       : null,
     input.targetLevelId,
     targetLevel?.priority ?? null,
-    input.periodEnd ?? null
+    input.periodEnd
   );
 
-  const isReduction = kind === "REDUCE" || kind === "REVOKE";
+  if (input.expectedFamily && familyOf(kind) !== input.expectedFamily) {
+    throw new RequestError(
+      "Cette révision change la nature de la demande (octroi ↔ réduction) — annulez et soumettez une nouvelle demande"
+    );
+  }
+
+  const isReduction = familyOf(kind) === "REDUCTION_FAMILY";
   const isSelfRequest = actorId === input.beneficiaryId;
 
   if (isReduction && isSelfRequest) {
@@ -140,16 +207,28 @@ export async function submitRequest(
   if (!isReduction && (!beneficiaryProfile || beneficiaryProfile.lifecycle !== "ACTIVE")) {
     throw new RequestError("Le bénéficiaire n'est pas actif — octroi/montée/renouvellement impossible");
   }
+  // `requestsEnabled` ne bloque que les octrois : réduire/révoquer un accès
+  // existant doit rester possible même sur un actif fermé aux nouvelles
+  // demandes (même principe que le cycle de vie ci-dessus — le nettoyage
+  // d'accès n'est jamais empêché).
+  if (!isReduction && !asset.requestsEnabled) {
+    throw new RequestError("Cet actif n'est pas ouvert aux demandes");
+  }
+
+  // "" si aucun département principal résolu (appartenance multiple non
+  // arbitrée, ou aucun département) : volontaire, pas un TODO — une étape
+  // DEPARTMENT_HEAD sur une telle demande n'aura alors aucun acteur éligible,
+  // ce qui est un problème de routage visible (déjà remonté au CEO par
+  // ConfigIssuesPanel) plutôt qu'un contournement silencieux (contrainte
+  // globale : "aucun saut automatique ni approbateur inventé").
+  const departmentSnapshot = beneficiaryProfile?.primaryDepartmentId ?? "";
 
   let stages: ApprovalStageRole[];
   let exceptionReason: string | null;
 
   if (isReduction) {
-    const initiatorRole = pickReductionInitiatorRole(actorRoles.map((r) => r.role));
-    if (!initiatorRole) {
-      throw new RequestError("Seuls un chef de département, l'opérateur accès IT ou le CISO peuvent initier une réduction/révocation");
-    }
-    const beneficiaryRoles = await getEffectiveRoleHolders(orgId, input.beneficiaryId);
+    const initiatorRole = pickReductionInitiatorRole(actorRoles, departmentSnapshot);
+    const beneficiaryRoles = await getEffectiveRoleHolders(orgId, input.beneficiaryId, client);
     const beneficiaryIsPrimaryCiso = beneficiaryRoles.some((r) => r.role === "CISO" && r.actsAsPrimary);
     stages = computeReductionRoute(initiatorRole, beneficiaryIsPrimaryCiso);
     exceptionReason = null;
@@ -163,6 +242,60 @@ export async function submitRequest(
     stages = route.stages;
     exceptionReason = route.exceptionReason;
   }
+
+  return {
+    kind,
+    stages,
+    exceptionReason,
+    departmentSnapshot,
+    assignmentVersion: currentAssignment?.version ?? 0,
+    catalogueVersion: asset.catalogueVersion,
+  };
+}
+
+/**
+ * Rôle au titre duquel l'acteur initie une réduction/révocation, SCOPÉ au
+ * département du bénéficiaire (correctif revue finale) : l'autorisation
+ * réutilise exactement `canInitiateDepartmentReduction` (même règle que la
+ * route GET `.../reducible`, pour que les deux ne divergent jamais) — un chef
+ * de département ne peut réduire que les accès d'un employé de SON
+ * département ; CISO et IT_ACCESS_OPERATOR sont initiateurs company-wide.
+ * Aucun repli silencieux sur un rôle que l'acteur ne détient pas : échec
+ * explicite.
+ */
+function pickReductionInitiatorRole(
+  actorRoles: EffectiveRole[],
+  beneficiaryDepartmentId: string
+): ReductionInitiatorRole {
+  if (!canInitiateDepartmentReduction(actorRoles, beneficiaryDepartmentId)) {
+    const holdsAnyInitiatorRole = actorRoles.some(
+      (r) => r.role === "DEPARTMENT_HEAD" || r.role === "CISO" || r.role === "IT_ACCESS_OPERATOR"
+    );
+    throw new RequestError(
+      holdsAnyInitiatorRole
+        ? "Un chef de département ne peut initier une réduction/révocation que pour un employé de son propre département"
+        : "Seuls un chef de département, l'opérateur accès IT ou le CISO peuvent initier une réduction/révocation"
+    );
+  }
+  if (actorRoles.some((r) => r.role === "CISO")) return "CISO";
+  if (actorRoles.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === beneficiaryDepartmentId)) {
+    return "DEPARTMENT_HEAD";
+  }
+  return "IT_ACCESS_OPERATOR";
+}
+
+export async function submitRequest(
+  orgId: string,
+  actorId: string,
+  input: SubmitRequestInput
+): Promise<RequestVersionDTO> {
+  const terms = await deriveRequestTerms(prisma, orgId, actorId, {
+    beneficiaryId: input.beneficiaryId,
+    assetId: input.assetId,
+    targetLevelId: input.targetLevelId,
+    periodEnd: input.periodEnd ?? null,
+  });
+  const { kind, stages, exceptionReason } = terms;
 
   const periodStart = input.periodStart ?? new Date();
   const initialState: AccessRequestState =
@@ -184,15 +317,12 @@ export async function submitRequest(
           justification: input.justification,
           periodStart,
           periodEnd: input.periodEnd ?? null,
-          // "" si le bénéficiaire n'appartient à aucun département : c'est
-          // volontaire (pas un TODO) — une étape DEPARTMENT_HEAD sur une
-          // telle demande n'aura alors aucun acteur éligible, ce qui est un
-          // problème de routage visible plutôt qu'un contournement silencieux
-          // (contrainte globale : "aucun saut automatique ni approbateur
-          // inventé").
-          departmentSnapshot: beneficiaryDepartment?.departmentId ?? "",
-          assignmentVersion: currentAssignment?.version ?? 0,
-          catalogueVersion: asset.catalogueVersion,
+          // Département principal du bénéficiaire (voir deriveRequestTerms) :
+          // c'est ce "snapshot" que decideStage utilise pour restreindre
+          // l'étape DEPARTMENT_HEAD au(x) chef(s) du BON département.
+          departmentSnapshot: terms.departmentSnapshot,
+          assignmentVersion: terms.assignmentVersion,
+          catalogueVersion: terms.catalogueVersion,
           state: initialState,
           exceptionReason,
           stages: {
@@ -245,15 +375,6 @@ function classifyRequestSafe(
     if (err instanceof InvalidRequestError) throw new RequestError(err.message);
     throw err;
   }
-}
-
-function pickReductionInitiatorRole(
-  roles: string[]
-): "DEPARTMENT_HEAD" | "IT_ACCESS_OPERATOR" | "CISO" | null {
-  if (roles.includes("CISO")) return "CISO";
-  if (roles.includes("DEPARTMENT_HEAD")) return "DEPARTMENT_HEAD";
-  if (roles.includes("IT_ACCESS_OPERATOR")) return "IT_ACCESS_OPERATOR";
-  return null;
 }
 
 function isUniqueConstraintError(err: unknown): boolean {
@@ -356,7 +477,16 @@ export async function decideStage(
     if (!eligible) {
       throw new RequestError("Vous n'êtes plus éligible pour décider cette étape");
     }
-    const actedAsPrimary = effectiveRoles.some((r) => r.role === stage.role && r.actsAsPrimary);
+    // Même scoping départemental que l'éligibilité ci-dessus (et que
+    // `listMyApprovals`) : un acteur titulaire d'UN département mais seulement
+    // suppléant de CELUI du bénéficiaire agit ici comme suppléant, pas comme
+    // titulaire.
+    const actedAsPrimary =
+      stage.role === "DEPARTMENT_HEAD"
+        ? effectiveRoles.some(
+            (r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === version.departmentSnapshot && r.actsAsPrimary
+          )
+        : effectiveRoles.some((r) => r.role === stage.role && r.actsAsPrimary);
 
     // Revalidation : catalogue/niveau ciblé/affectation inchangés depuis la soumission.
     //
@@ -618,49 +748,47 @@ export async function reviseRequest(
         throw new RequestError("Seul l'initiateur peut réviser sa propre demande");
       }
 
+      // État EFFECTIF de la révision : les changements fusionnés sur les
+      // termes de l'ancienne version. Actif et bénéficiaire restent
+      // immuables (spec §6).
       const targetLevelId = changes.targetLevelId !== undefined ? changes.targetLevelId : oldVersion.targetLevelId;
-      const [asset, targetLevel, currentAssignment, actorRoles] = await Promise.all([
-        tx.accessAsset.findFirst({ where: { id: oldVersion.request.assetId, orgId }, select: { catalogueVersion: true } }),
-        targetLevelId
-          ? tx.accessLevel.findFirst({ where: { id: targetLevelId, assetId: oldVersion.request.assetId }, select: { priority: true, isAdmin: true } })
-          : Promise.resolve(null),
-        tx.accessAssignment.findFirst({ where: { orgId, userId: oldVersion.request.beneficiaryId, assetId: oldVersion.request.assetId } }),
-        getEffectiveRoleHolders(orgId, actorId, tx),
-      ]);
-      if (!asset) throw new RequestError("Actif introuvable");
-      if (targetLevelId && !targetLevel) throw new RequestError("Niveau introuvable ou n'appartenant pas à cet actif");
+      const periodEnd = changes.periodEnd !== undefined ? changes.periodEnd : oldVersion.periodEnd;
+      const periodStart = changes.periodStart ?? oldVersion.periodStart;
 
-      const requesterRoles = actorRoles
-        .filter((r): r is typeof r & { role: "COO" | "CISO" | "DEPARTMENT_HEAD" } =>
-          r.role === "COO" || r.role === "CISO" || r.role === "DEPARTMENT_HEAD"
-        )
-        .map((r) => ({ role: r.role, actsAsPrimary: r.actsAsPrimary }));
-      const isReduction = oldVersion.kind === "REDUCE" || oldVersion.kind === "REVOKE";
-      const route = isReduction
-        ? { stages: computeReductionRoute(pickReductionInitiatorRole(actorRoles.map((r) => r.role)) ?? "DEPARTMENT_HEAD", false), exceptionReason: null }
-        : computeGrantRoute(requesterRoles, targetLevel?.isAdmin ?? false);
+      // Reclassification, contrôles (catalogue, cycle de vie, initiateur,
+      // périmètre départemental) et route recalculés exactement comme à la
+      // soumission, contre l'état courant — jamais `oldVersion.kind` recopié.
+      // Un changement de famille (octroi ↔ réduction) est refusé.
+      const terms = await deriveRequestTerms(tx, orgId, actorId, {
+        beneficiaryId: oldVersion.request.beneficiaryId,
+        assetId: oldVersion.request.assetId,
+        targetLevelId,
+        periodEnd,
+        expectedFamily: familyOf(oldVersion.kind),
+      });
 
       const nextVersionNumber = oldVersion.versionNumber + 1;
-      const periodStart = changes.periodStart ?? oldVersion.periodStart;
       const initialState: AccessRequestState =
-        route.stages.length === 0 ? (periodStart > new Date() ? "AUTHORIZED_WAITING_START" : "READY_FOR_FULFILMENT") : "PENDING_APPROVAL";
+        terms.stages.length === 0 ? (periodStart > new Date() ? "AUTHORIZED_WAITING_START" : "READY_FOR_FULFILMENT") : "PENDING_APPROVAL";
 
       const newVersion = await tx.accessRequestVersion.create({
         data: {
           requestId: oldVersion.requestId,
           versionNumber: nextVersionNumber,
-          kind: oldVersion.kind,
+          kind: terms.kind,
           initiatorId: actorId,
           targetLevelId,
           justification: changes.justification ?? oldVersion.justification,
           periodStart,
-          periodEnd: changes.periodEnd !== undefined ? changes.periodEnd : oldVersion.periodEnd,
-          departmentSnapshot: oldVersion.departmentSnapshot,
-          assignmentVersion: currentAssignment?.version ?? 0,
-          catalogueVersion: asset.catalogueVersion,
+          periodEnd,
+          // Nouvelle version = nouvelle soumission : département principal
+          // relu à l'instant présent, cohérent avec la route recalculée.
+          departmentSnapshot: terms.departmentSnapshot,
+          assignmentVersion: terms.assignmentVersion,
+          catalogueVersion: terms.catalogueVersion,
           state: initialState,
-          exceptionReason: route.exceptionReason,
-          stages: { create: route.stages.map((role, i) => ({ sequence: i + 1, role })) },
+          exceptionReason: terms.exceptionReason,
+          stages: { create: terms.stages.map((role, i) => ({ sequence: i + 1, role })) },
         },
         include: { stages: true, request: true },
       });

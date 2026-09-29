@@ -131,12 +131,8 @@ describe("roles-server — getEffectiveRoleHolders", () => {
   });
 
   it("DEPARTMENT_HEAD : le suppléant agit si le titulaire est marqué indisponible via l'affectation dédiée", async () => {
-    // Double condition du code (lignes 149-161 de roles-server.ts, cf. son
-    // commentaire) : il faut à la fois primaryUnavailable=true sur
-    // l'affectation ET que le titulaire soit réellement indisponible
-    // (isActive=false ici) pour que le suppléant agisse — contrairement aux
-    // rôles non liés à un département, où une seule des deux conditions
-    // suffit (lib/access/roles.ts, resolveActingUser).
+    // Titulaire marqué indisponible ET inactif : le suppléant agit (cas
+    // couvert a fortiori par la règle OU du correctif revue finale).
     const owner = await createUser("dept-owner-unavailable", { isActive: false });
     const backup = await createUser("dept-backup-acting");
     const dept = await prisma.department.create({
@@ -168,21 +164,53 @@ describe("roles-server — getEffectiveRoleHolders", () => {
     });
   });
 
-  it("DEPARTMENT_HEAD : le suppléant N'agit PAS si primaryUnavailable est false, même si le titulaire est isActive=false (comportement existant, non « corrigé » ici)", async () => {
-    // Titulaire créé directement inactif : ce test documente le comportement
-    // à double condition déjà en place (lignes 149-161 de roles-server.ts) —
-    // le suppléant d'un chef de département n'agit que si primaryUnavailable
-    // est explicitement vrai, peu importe la disponibilité réelle du
-    // titulaire. C'est une incohérence mineure déjà repérée et mise de côté
-    // pour cette vague de correctifs (hors périmètre) : ce test vérifie ce
-    // que le code fait réellement, pas ce qu'il « devrait » faire.
+  it("DEPARTMENT_HEAD : titulaire marqué indisponible avec compte ACTIF — le titulaire perd le rôle, le suppléant le reprend", async () => {
+    // Cas réel (chef en congé) : seul le drapeau primaryUnavailable change,
+    // le compte du titulaire reste actif. Correctif revue finale : même
+    // schéma que les autres rôles (auparavant, le titulaire ignorait le
+    // drapeau et le suppléant exigeait EN PLUS la désactivation du compte).
+    const owner = await createUser("dept-owner-on-leave");
+    const backup = await createUser("dept-backup-on-leave");
+    const dept = await prisma.department.create({
+      data: {
+        orgId,
+        code: `RS-${Date.now()}-c`,
+        name: "Département test — titulaire en congé",
+        color: "#f4a900",
+        ownerId: owner.id,
+      },
+    });
+    await prisma.accessRoleAssignment.create({
+      data: {
+        orgId,
+        role: "DEPARTMENT_HEAD",
+        departmentId: dept.id,
+        userId: null,
+        backupUserId: backup.id,
+        primaryUnavailable: true,
+      },
+    });
+
+    const ownerEffective = await getEffectiveRoleHolders(orgId, owner.id);
+    expect(ownerEffective.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === dept.id)).toBe(false);
+
+    const backupEffective = await getEffectiveRoleHolders(orgId, backup.id);
+    expect(backupEffective).toContainEqual({
+      role: "DEPARTMENT_HEAD",
+      actsAsPrimary: false,
+      departmentId: dept.id,
+    });
+  });
+
+  it("DEPARTMENT_HEAD : le suppléant agit aussi si primaryUnavailable est false mais que le titulaire est réellement indisponible (isActive=false)", async () => {
+    // Règle OU, identique aux autres rôles : drapeau OU indisponibilité réelle.
     const owner = await createUser("dept-owner-inactive-but-not-flagged", { isActive: false });
-    const backup = await createUser("dept-backup-not-acting");
+    const backup = await createUser("dept-backup-acting-inactive-owner");
     const dept = await prisma.department.create({
       data: {
         orgId,
         code: `RS-${Date.now()}-b`,
-        name: "Département test — suppléant n'agit pas",
+        name: "Département test — titulaire inactif non marqué",
         color: "#e23c4a",
         ownerId: owner.id,
       },
@@ -200,9 +228,46 @@ describe("roles-server — getEffectiveRoleHolders", () => {
     });
 
     const effective = await getEffectiveRoleHolders(orgId, backup.id);
+    expect(effective).toContainEqual({
+      role: "DEPARTMENT_HEAD",
+      actsAsPrimary: false,
+      departmentId: dept.id,
+    });
+  });
+
+  it("DEPARTMENT_HEAD : titulaire actif et non marqué — le suppléant N'agit PAS", async () => {
+    const owner = await createUser("dept-owner-available");
+    const backup = await createUser("dept-backup-idle");
+    const dept = await prisma.department.create({
+      data: {
+        orgId,
+        code: `RS-${Date.now()}-d`,
+        name: "Département test — titulaire disponible",
+        color: "#1c3a4a",
+        ownerId: owner.id,
+      },
+    });
+    await prisma.accessRoleAssignment.create({
+      data: {
+        orgId,
+        role: "DEPARTMENT_HEAD",
+        departmentId: dept.id,
+        userId: null,
+        backupUserId: backup.id,
+        primaryUnavailable: false,
+      },
+    });
+
     expect(
-      effective.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === dept.id)
+      (await getEffectiveRoleHolders(orgId, backup.id)).some(
+        (r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === dept.id
+      )
     ).toBe(false);
+    expect(await getEffectiveRoleHolders(orgId, owner.id)).toContainEqual({
+      role: "DEPARTMENT_HEAD",
+      actsAsPrimary: true,
+      departmentId: dept.id,
+    });
   });
 
   it("utilisateur sans aucune affectation ni département possédé : tableau vide", async () => {

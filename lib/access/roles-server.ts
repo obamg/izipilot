@@ -149,19 +149,35 @@ export async function getEffectiveRoleHolders(
     }
   }
 
+  // Correctif revue finale : DEPARTMENT_HEAD suit désormais exactement le
+  // même schéma que les autres rôles. Le titulaire perd le rôle dès que
+  // l'affectation de SON département est marquée `primaryUnavailable`
+  // (congé, absence — son compte peut rester pleinement actif), et le
+  // suppléant le reprend si le titulaire est marqué indisponible OU
+  // réellement indisponible (compte désactivé, cycle de vie non ACTIVE).
+  // Auparavant, le titulaire ignorait le drapeau et le suppléant exigeait
+  // les DEUX conditions : le bouton « Indisponible » était donc sans effet
+  // pour le cas réel (chef en congé, compte actif).
+  const departmentHeadAssignmentByDept = new Map(
+    roleAssignments
+      .filter((a) => a.role === "DEPARTMENT_HEAD" && a.departmentId)
+      .map((a) => [a.departmentId as string, a])
+  );
+
   // Chef de département direct (Department.ownerId).
   for (const dept of ownedDepartments) {
-    if (availability(userId)) {
+    const assignmentForDept = departmentHeadAssignmentByDept.get(dept.id);
+    if (availability(userId) && !(assignmentForDept?.primaryUnavailable ?? false)) {
       effective.push({ role: "DEPARTMENT_HEAD", actsAsPrimary: true, departmentId: dept.id });
     }
   }
 
-  // Suppléant d'un chef de département : agit seulement si le titulaire
-  // (Department.ownerId) est explicitement marqué indisponible.
+  // Suppléant d'un chef de département : agit si le titulaire
+  // (Department.ownerId) est marqué indisponible OU réellement indisponible.
   for (const a of departmentHeadAssignments) {
     const owner = ownerByDept.get(a.departmentId as string);
     const ownerUnavailable = !owner || !availability(owner);
-    if (availability(userId) && a.primaryUnavailable && ownerUnavailable) {
+    if (availability(userId) && (a.primaryUnavailable || ownerUnavailable)) {
       effective.push({
         role: "DEPARTMENT_HEAD",
         actsAsPrimary: false,
