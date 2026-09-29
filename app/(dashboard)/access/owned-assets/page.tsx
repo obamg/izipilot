@@ -30,12 +30,21 @@ export default async function OwnedAssetsAccessPage({
   if (!req || req.view.kind !== "ASSET") notFound();
   const assetId = req.view.assetId;
 
+  const selectedAsset = nav.ownedAssets.find((a) => a.id === assetId);
+  // Un niveau n'a de sens que pour l'application sélectionnée : sinon (autre
+  // application, aucune application, id saisi à la main) on l'ignore.
+  const levelId =
+    selectedAsset && req.filters.levelId && selectedAsset.levels.some((l) => l.id === req.filters.levelId)
+      ? req.filters.levelId
+      : undefined;
+  const filters = { ...req.filters, levelId };
+
   let result;
   try {
     result = await listAssignments({
       viewer: { userId, orgId },
       view: req.view,
-      filters: req.filters,
+      filters,
       pagination: { page: query.page, pageSize: PAGE_SIZE },
     });
   } catch (err) {
@@ -43,10 +52,9 @@ export default async function OwnedAssetsAccessPage({
     throw err;
   }
 
-  const selectedAsset = nav.ownedAssets.find((a) => a.id === assetId);
   const baseQuery: Record<string, string> = { view: "owned-assets" };
   if (assetId) baseQuery.assetId = assetId;
-  if (req.filters.levelId) baseQuery.levelId = req.filters.levelId;
+  if (levelId) baseQuery.levelId = levelId;
 
   const assetCount = nav.ownedAssets.length;
 
@@ -60,7 +68,7 @@ export default async function OwnedAssetsAccessPage({
         action="/access/owned-assets"
         view="owned-assets"
         assets={{ options: nav.ownedAssets, selected: assetId, label: "Application" }}
-        levels={selectedAsset ? { options: selectedAsset.levels, selected: req.filters.levelId } : undefined}
+        levels={selectedAsset ? { options: selectedAsset.levels, selected: levelId } : undefined}
       />
       <AssignmentsTable
         rows={result.rows}
@@ -72,7 +80,11 @@ export default async function OwnedAssetsAccessPage({
         showEmployee
         showDepartment
         groupBy="asset"
-        emptyMessage="Personne n'a d'accès enregistré sur ces applications."
+        emptyMessage={
+          assetId || levelId
+            ? "Aucun accès ne correspond à ces filtres."
+            : "Personne n'a d'accès enregistré sur ces applications."
+        }
       />
     </div>
   );
