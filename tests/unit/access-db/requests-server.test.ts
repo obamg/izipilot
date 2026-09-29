@@ -544,6 +544,21 @@ describe("requests-server — clarification, révision, annulation", () => {
     await cleanup(v.requestId);
   });
 
+  it("une révision peut envoyer targetLevelId ET justification ensemble (forme envoyée par l'UI /requests/mine)", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "initial",
+    });
+    const returned = await decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", "revoir le niveau et préciser");
+    const revised = await reviseRequest(orgId, employeeId, returned.id, {
+      targetLevelId: levelAdminId,
+      justification: "niveau et justification mis à jour ensemble",
+    });
+    expect(revised.versionNumber).toBe(2);
+    expect(revised.targetLevelId).toBe(levelAdminId);
+    expect(revised.justification).toBe("niveau et justification mis à jour ensemble");
+    await cleanup(v.requestId);
+  });
+
   it("seul l'initiateur peut réviser", async () => {
     const v = await submitRequest(orgId, employeeId, {
       beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "initial",

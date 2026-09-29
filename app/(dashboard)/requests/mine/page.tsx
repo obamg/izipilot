@@ -87,7 +87,11 @@ export default async function MyRequestsPage() {
                         versionId: r.versionId,
                         state: r.state,
                         stageIdIfClarification: r.pendingClarificationStageId,
+                        assetId: r.assetId,
+                        targetLevelId: r.targetLevelId,
+                        justification: r.justification,
                       }}
+                      assets={assets}
                     />
                   </td>
                 </tr>
