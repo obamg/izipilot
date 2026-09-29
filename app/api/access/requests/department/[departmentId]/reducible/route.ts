@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
-import { listDepartmentReducibleAccess } from "@/lib/access/requests-read-server";
+import { canInitiateDepartmentReduction, listDepartmentReducibleAccess } from "@/lib/access/requests-read-server";
 
 export async function GET(
   _request: Request,
@@ -22,9 +22,7 @@ export async function GET(
   }
 
   const effectiveRoles = await getEffectiveRoleHolders(session.user.orgId, session.user.id);
-  const isThisDeptHead = effectiveRoles.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === departmentId);
-  const isCompanyWideInitiator = effectiveRoles.some((r) => r.role === "CISO" || r.role === "IT_ACCESS_OPERATOR");
-  if (!isThisDeptHead && !isCompanyWideInitiator) {
+  if (!canInitiateDepartmentReduction(effectiveRoles, departmentId)) {
     return Response.json({ error: "Non autorisé pour ce département" }, { status: 403 });
   }
 

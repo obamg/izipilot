@@ -1,6 +1,7 @@
 // lib/access/requests-read-server.ts
 import { prisma } from "@/lib/prisma";
 import { getEffectiveRoleHolders } from "./roles-server";
+import type { EffectiveRole } from "./scope";
 
 export interface RequestSummaryDTO {
   requestId: string;
@@ -210,4 +211,35 @@ export async function listDepartmentReducibleAccess(
       levelId: a.levelId as string,
       levelName: a.level!.name,
     }));
+}
+
+/**
+ * Autorise l'initiation d'une réduction/révocation d'accès pour CE
+ * département précis : le chef effectif (titulaire ou suppléant actif) de ce
+ * département, ou CISO/IT_ACCESS_OPERATOR (initiateurs company-wide — voir
+ * `ReductionInitiatorRole` dans `lib/access/routing.ts`, le même trio utilisé
+ * pour router les réductions).
+ *
+ * ⚠️ Le filtre `r.departmentId === departmentId` sur DEPARTMENT_HEAD est
+ * obligatoire : `getEffectiveRoleHolders` n'émet une entrée DEPARTMENT_HEAD
+ * que pour le(s) département(s) que l'acteur dirige effectivement (titulaire
+ * ou suppléant actif), jamais une entrée générique « est chef de département
+ * quelque part ». Sans ce filtre, le chef d'un AUTRE département passerait à
+ * tort ce contrôle — même classe de bug que le scoping départemental déjà
+ * corrigé dans `listMyApprovals` ci-dessus et dans `decideStage` (Tâche 5).
+ * Extrait de la route dans un helper testable unitairement (post-revue,
+ * Tâche 12) pour éviter que cette logique d'autorisation ne vive, seule dans
+ * tout ce module, sans couverture de test.
+ */
+export function canInitiateDepartmentReduction(
+  effectiveRoles: EffectiveRole[],
+  departmentId: string
+): boolean {
+  const isThisDeptHead = effectiveRoles.some(
+    (r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === departmentId
+  );
+  const isCompanyWideInitiator = effectiveRoles.some(
+    (r) => r.role === "CISO" || r.role === "IT_ACCESS_OPERATOR"
+  );
+  return isThisDeptHead || isCompanyWideInitiator;
 }
