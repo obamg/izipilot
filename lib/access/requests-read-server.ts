@@ -1,7 +1,7 @@
 // lib/access/requests-read-server.ts
 import { prisma } from "@/lib/prisma";
 import { getEffectiveRoleHolders } from "./roles-server";
-import { isStageDecidable } from "./requests-server";
+import { isStageDecidable } from "./stage-decidability";
 import type { EffectiveRole } from "./scope";
 
 export interface RequestSummaryDTO {
@@ -132,6 +132,24 @@ export interface PendingStageDTO extends RequestSummaryDTO {
   stageRole: string;
   stageSequence: number;
   actedAsPrimary: boolean;
+  /**
+   * `reason`/`clarificationResponse` de CETTE étape précise (celle
+   * effectivement offerte à la décision), pas dérivés de l'état de la
+   * version comme `currentStageReason` sur `RequestSummaryDTO`.
+   *
+   * Nécessaire car `respondToClarification` fait revenir la version à
+   * PENDING_APPROVAL dès que l'initiateur répond — l'étape CLARIFY'd garde
+   * alors `decision: null` (rejouable) mais la version n'est plus dans l'état
+   * CLARIFICATION_REQUIRED, donc `currentStageReason` (state-gated) redevient
+   * `null` alors même que c'est le moment où l'approbateur, en train de
+   * redécider CETTE étape, a le plus besoin de revoir la question posée et la
+   * réponse obtenue. Peuplés sans condition d'état depuis les colonnes de la
+   * ligne `AccessApprovalStage` elle-même (déjà chargées, aucune requête
+   * supplémentaire) : non nuls dès que cette étape est passée par CLARIFY au
+   * moins une fois, quel que soit l'état courant de la version.
+   */
+  stageReason: string | null;
+  stageClarificationResponse: string | null;
 }
 
 /**
@@ -191,7 +209,7 @@ export async function listMyApprovals(orgId: string, userId: string): Promise<Pe
   );
 
   // Filtre de décidabilité effective — voir la doc de la fonction ci-dessus
-  // et celle d'`isStageDecidable` (lib/access/requests-server.ts) pour le
+  // et celle d'`isStageDecidable` (lib/access/stage-decidability.ts) pour le
   // détail des deux règles (ordre des étapes, indépendance).
   const decidableStages = scopedStages.filter(
     (s) =>
@@ -229,6 +247,10 @@ export async function listMyApprovals(orgId: string, userId: string): Promise<Pe
         stageRole: s.role,
         stageSequence: s.sequence,
         actedAsPrimary,
+        // Colonnes de cette étape précise, sans condition d'état — voir la
+        // doc de `PendingStageDTO` ci-dessus.
+        stageReason: s.reason,
+        stageClarificationResponse: s.clarificationResponse,
       };
     })
     .filter((x): x is PendingStageDTO => x !== null);

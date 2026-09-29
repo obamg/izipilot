@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { submitRequest, decideStage } from "@/lib/access/requests-server";
+import { submitRequest, decideStage, respondToClarification } from "@/lib/access/requests-server";
 import { setDepartmentHeadBackup } from "@/lib/access/roles-server";
 import { listMyRequests, listMyApprovals, listDepartmentReducibleAccess } from "@/lib/access/requests-read-server";
 
@@ -197,6 +197,31 @@ describe("requests-read-server", () => {
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: afterFirst.id } });
     await prisma.accessRequestVersion.deleteMany({ where: { id: afterFirst.id } });
     await prisma.accessRequest.deleteMany({ where: { id: afterFirst.requestId } });
+  });
+
+  it("listMyApprovals (Gap 1 correctif) : expose la question et la réponse de clarification sur l'étape en cours de redécision, même revenue à PENDING_APPROVAL", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test clarif + redécision",
+    });
+    const deptStageId = v.stages[0].id;
+
+    await decideStage(orgId, deptHeadId, deptStageId, "CLARIFY", "précisez le besoin exact");
+    await respondToClarification(orgId, employeeId, deptStageId, "voici ma réponse détaillée");
+
+    // La version est repassée à PENDING_APPROVAL (respondToClarification) —
+    // `currentStageReason` (dérivé de l'état de la version) est donc `null`
+    // ici, mais l'étape elle-même porte toujours sa question et sa réponse :
+    // c'est justement le moment où l'approbateur qui redécide en a besoin.
+    const approvals = await listMyApprovals(orgId, deptHeadId);
+    const stage = approvals.find((a) => a.stageId === deptStageId);
+    expect(stage).toBeDefined();
+    expect(stage?.currentStageReason).toBeNull();
+    expect(stage?.stageReason).toBe("précisez le besoin exact");
+    expect(stage?.stageClarificationResponse).toBe("voici ma réponse détaillée");
+
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: v.id } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: v.id } });
+    await prisma.accessRequest.deleteMany({ where: { id: v.requestId } });
   });
 
   it("listDepartmentReducibleAccess renvoie les accès actifs des employés du département", async () => {

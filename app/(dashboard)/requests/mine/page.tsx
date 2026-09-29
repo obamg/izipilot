@@ -66,13 +66,18 @@ export default async function MyRequestsPage() {
                 <tr key={r.versionId} className="border-t border-border-soft">
                   <td className="py-1" title={r.justification}>
                     {r.assetName}
+                    {/* Visible en plus du title : le title seul est inutile
+                       au doigt sur mobile, où les POs saisissent (CLAUDE.md). */}
+                    <p className="text-[11px] text-izi-gray mt-0.5">{r.justification}</p>
                   </td>
                   <td className="py-1">{r.targetLevelName ?? "—"}</td>
                   <td className="py-1">{r.kind}</td>
                   <td className="py-1">
                     {r.state}
                     {r.currentStageReason && (
-                      <p className="text-[10px] text-dark-md mt-0.5">{r.currentStageReason}</p>
+                      <p className="text-[11px] text-dark-md mt-0.5 rounded-[6px] bg-gold-lt px-1.5 py-0.5">
+                        {r.currentStageReason}
+                      </p>
                     )}
                   </td>
                   <td className="py-1">

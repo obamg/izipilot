@@ -16,7 +16,15 @@ interface PendingItem {
   justification: string;
   periodStart: string;
   periodEnd: string | null;
-  currentStageReason: string | null;
+  // Question/réponse de CETTE étape précise (pas dérivées de l'état de la
+  // version — voir la doc de `PendingStageDTO` côté serveur) : non nulles dès
+  // que cette étape est passée par CLARIFY au moins une fois, même après le
+  // retour de la version à PENDING_APPROVAL une fois la réponse obtenue.
+  // Supersède `currentStageReason` (toujours `null` ici de toute façon,
+  // puisque cette liste ne contient que des versions PENDING_APPROVAL) pour
+  // ce composant précis.
+  stageReason: string | null;
+  stageClarificationResponse: string | null;
 }
 
 function formatDate(iso: string): string {
@@ -161,9 +169,14 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
               <p className="text-[11px] text-izi-gray mb-2">
                 Période : {formatDate(item.periodStart)} → {item.periodEnd ? formatDate(item.periodEnd) : "indéterminée"}
               </p>
-              {item.currentStageReason && (
-                <p className="text-[11px] text-dark-md mb-2 rounded-[6px] bg-gold-lt px-2 py-1">
-                  Motif de l&apos;étape en cours : {item.currentStageReason}
+              {item.stageReason && (
+                <p className="text-[11px] text-dark-md mb-1 rounded-[6px] bg-gold-lt px-2 py-1">
+                  Question précédente : {item.stageReason}
+                </p>
+              )}
+              {item.stageClarificationResponse && (
+                <p className="text-[11px] text-dark-md mb-2 rounded-[6px] bg-teal-lt px-2 py-1">
+                  Réponse : {item.stageClarificationResponse}
                 </p>
               )}
               <p className="text-[11px] text-izi-gray mb-2">Étape : {ROLE_LABELS[item.stageRole] ?? item.stageRole}</p>

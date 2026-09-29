@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isStageDecidable } from "@/lib/access/requests-server";
+import { isStageDecidable } from "@/lib/access/stage-decidability";
 
 describe("isStageDecidable", () => {
   const initiatorId = "user-initiator";
@@ -13,7 +13,7 @@ describe("isStageDecidable", () => {
       { id: "stage-2", sequence: 2, decision: null, actorId: null },
     ];
     const result = isStageDecidable(stage, allStages, initiatorId, beneficiaryId, actorId);
-    expect(result).toEqual({ decidable: true, reason: null });
+    expect(result).toEqual({ decidable: true });
   });
 
   it("ordre des étapes : refuse tant qu'une étape de séquence inférieure n'est pas APPROVE", () => {
@@ -33,8 +33,7 @@ describe("isStageDecidable", () => {
       { id: "stage-2", sequence: 2, decision: null, actorId: null },
     ];
     const result = isStageDecidable(stage, allStages, initiatorId, beneficiaryId, actorId);
-    expect(result.decidable).toBe(false);
-    expect(result.reason).toBe("SEQUENCE_NOT_REACHED");
+    expect(result).toEqual({ decidable: false, reason: "SEQUENCE_NOT_REACHED" });
   });
 
   it("indépendance : l'initiateur ne peut pas décider sa propre demande", () => {
@@ -65,7 +64,7 @@ describe("isStageDecidable", () => {
     const stage = { id: "stage-1", sequence: 1 };
     const allStages = [{ id: "stage-1", sequence: 1, decision: null, actorId }];
     const result = isStageDecidable(stage, allStages, initiatorId, beneficiaryId, actorId);
-    expect(result).toEqual({ decidable: true, reason: null });
+    expect(result).toEqual({ decidable: true });
   });
 
   it("priorité des motifs : l'ordre des étapes est vérifié avant l'indépendance", () => {
