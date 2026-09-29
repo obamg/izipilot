@@ -14,6 +14,9 @@ import {
   krVisibilityWhere,
 } from "@/lib/visibility";
 import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
+import { getOwnedAssetIds } from "@/lib/access/register-server";
+import { resolveReadScopes } from "@/lib/access/scope";
+import { registerNavFlags } from "@/lib/access/register";
 
 export default async function DashboardLayout({
   children,
@@ -63,7 +66,7 @@ export default async function DashboardLayout({
   if (blocked) redirect("/mon-point-du-jour");
 
   // Fetch sidebar data: products + departments with average scores
-  const [products, departments, unresolvedAlertCount, myNotificationCount, accessRoles] = await Promise.all([
+  const [products, departments, unresolvedAlertCount, myNotificationCount, accessRoles, ownedAssetIds] = await Promise.all([
     prisma.product.findMany({
       where: { orgId, isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -114,6 +117,7 @@ export default async function DashboardLayout({
       },
     }),
     getEffectiveRoleHolders(orgId, userId),
+    getOwnedAssetIds(orgId, userId),
   ]);
 
   // Compute average score for each entity
@@ -147,6 +151,9 @@ export default async function DashboardLayout({
   const canManageAccessRoles = session.user.role === "CEO";
   const canManageAccessAssets = accessRoles.some((r) => r.role === "ASSET_ADMINISTRATOR");
   const canViewAccessAudit = accessRoles.some((r) => r.role === "AUDIT_VIEWER");
+  // Vues du registre (phase 2b) : dérivées des portées, pas des rôles bruts —
+  // même logique que les pages et l'API (resolveReadScopes + registerNavFlags).
+  const registerFlags = registerNavFlags(resolveReadScopes(userId, accessRoles, ownedAssetIds));
 
   return (
     <DashboardShell
@@ -161,6 +168,8 @@ export default async function DashboardLayout({
       canManageAccessRoles={canManageAccessRoles}
       canManageAccessAssets={canManageAccessAssets}
       canViewAccessAudit={canViewAccessAudit}
+      canViewDepartmentAccess={registerFlags.hasDepartmentView}
+      canViewOwnedAssetsAccess={registerFlags.hasOwnedAssetsView}
     >
       {vapidPublicKey && <PushNudgeBanner vapidPublicKey={vapidPublicKey} />}
       {children}
