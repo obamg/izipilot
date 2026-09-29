@@ -3,6 +3,7 @@ import type { Prisma, ImportMode, ImportRowOutcome } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAuditInTx } from "./audit-server";
 import { parseSeedCsv, extractDistinctPairs, computeFileHash, type SeedPair } from "./import";
+import { parseBaselineCsv, classifyBaselineRows, type BaselineCsvRow } from "./import";
 
 export interface ImportRowDTO {
   id: string;
@@ -178,6 +179,225 @@ export async function commitCatalogueSeed(
       beneficiaryId: null,
       before: null,
       after: { mode: "CATALOGUE_SEED", totalRows: committed.totalRows },
+      reason: null,
+      outcome: "SUCCESS",
+      correlationId: null,
+    });
+
+    return committed;
+  });
+
+  return toBatchDTO(updated, await actorNameFor(actorId));
+}
+
+interface ResolvedBaselineRow {
+  outcome: ImportRowOutcome;
+  resolvedUserId: string | null;
+  resolvedAssetId: string | null;
+  resolvedLevelId: string | null;
+  reason: string | null;
+}
+
+async function resolveBaselineRow(orgId: string, row: BaselineCsvRow): Promise<ResolvedBaselineRow> {
+  const [user, profile, asset, level] = await Promise.all([
+    prisma.user.findFirst({ where: { id: row.userId, orgId }, select: { id: true } }),
+    prisma.accessProfile.findFirst({ where: { userId: row.userId, orgId }, select: { lifecycle: true } }),
+    prisma.accessAsset.findFirst({ where: { id: row.assetId, orgId, archivedAt: null }, select: { id: true } }),
+    prisma.accessLevel.findFirst({
+      where: { id: row.accessLevelId, assetId: row.assetId, archivedAt: null },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!user) {
+    return { outcome: "UNRESOLVED", resolvedUserId: null, resolvedAssetId: null, resolvedLevelId: null, reason: "Utilisateur introuvable dans cette organisation" };
+  }
+  if (!profile || profile.lifecycle !== "ACTIVE") {
+    return { outcome: "UNRESOLVED", resolvedUserId: user.id, resolvedAssetId: null, resolvedLevelId: null, reason: "Utilisateur non actif (en départ ou parti)" };
+  }
+  if (!asset) {
+    return { outcome: "UNRESOLVED", resolvedUserId: user.id, resolvedAssetId: null, resolvedLevelId: null, reason: "Actif introuvable dans cette organisation" };
+  }
+  if (!level) {
+    return { outcome: "UNRESOLVED", resolvedUserId: user.id, resolvedAssetId: asset.id, resolvedLevelId: null, reason: "Niveau introuvable ou n'appartenant pas à cet actif" };
+  }
+
+  const existing = await prisma.accessAssignment.findFirst({ where: { userId: user.id, assetId: asset.id } });
+  if (!existing) {
+    return { outcome: "TO_CREATE", resolvedUserId: user.id, resolvedAssetId: asset.id, resolvedLevelId: level.id, reason: null };
+  }
+  if (existing.status === "ACTIVE" && existing.levelId === level.id) {
+    return { outcome: "NOOP_UNCHANGED", resolvedUserId: user.id, resolvedAssetId: asset.id, resolvedLevelId: level.id, reason: null };
+  }
+  return {
+    outcome: "CONFLICT",
+    resolvedUserId: user.id,
+    resolvedAssetId: asset.id,
+    resolvedLevelId: level.id,
+    reason:
+      existing.status !== "ACTIVE"
+        ? "Une affectation existe déjà pour cet employé et cet actif mais n'est plus active — non réactivée automatiquement"
+        : "Une affectation active différente existe déjà pour cet employé et cet actif",
+  };
+}
+
+async function resolveBaselineBatch(
+  orgId: string,
+  rows: BaselineCsvRow[]
+): Promise<ResolvedBaselineRow[]> {
+  const classifications = classifyBaselineRows(rows);
+  return Promise.all(
+    rows.map((row, i) => {
+      if (classifications[i] === "INTERNAL_CONFLICT") {
+        return Promise.resolve<ResolvedBaselineRow>({
+          outcome: "CONFLICT",
+          resolvedUserId: null,
+          resolvedAssetId: null,
+          resolvedLevelId: null,
+          reason: "Incohérence dans le fichier : ce couple employé/actif porte plusieurs niveaux différents dans ce fichier",
+        });
+      }
+      if (classifications[i] === "DUPLICATE") {
+        return Promise.resolve<ResolvedBaselineRow>({
+          outcome: "NOOP_DUPLICATE",
+          resolvedUserId: null,
+          resolvedAssetId: null,
+          resolvedLevelId: null,
+          reason: null,
+        });
+      }
+      return resolveBaselineRow(orgId, row);
+    })
+  );
+}
+
+export async function previewBaselineAssignments(
+  orgId: string,
+  actorId: string,
+  fileName: string,
+  content: string
+): Promise<ImportBatchDTO> {
+  const rows = parseBaselineCsv(content);
+  const fileHash = computeFileHash(content);
+  const resolved = await resolveBaselineBatch(orgId, rows);
+
+  const batch = await prisma.importBatch.create({
+    data: {
+      orgId,
+      mode: "BASELINE_ASSIGNMENTS",
+      fileHash,
+      fileName,
+      actorId,
+      totalRows: rows.length,
+      rows: {
+        create: rows.map((row, i) => ({
+          rowIndex: i,
+          sourceFields: row as unknown as Prisma.InputJsonValue,
+          resolvedUserId: resolved[i].resolvedUserId,
+          resolvedAssetId: resolved[i].resolvedAssetId,
+          resolvedLevelId: resolved[i].resolvedLevelId,
+          outcome: resolved[i].outcome,
+          reason: resolved[i].reason,
+        })),
+      },
+    },
+    include: { rows: true },
+  });
+  return toBatchDTO(batch, await actorNameFor(actorId));
+}
+
+/**
+ * Revalide TOUJOURS entièrement contre l'état actuel de la base avant de
+ * commiter — jamais confiance dans les lignes stockées à la prévisualisation
+ * (spec : « stale previews... block the whole commit »). Tout-ou-rien : le
+ * lot ne se commite que si zéro ligne UNRESOLVED/CONFLICT après revalidation.
+ */
+export async function commitBaselineAssignments(
+  orgId: string,
+  actorId: string,
+  batchId: string
+): Promise<ImportBatchDTO> {
+  const batch = await prisma.importBatch.findFirst({
+    where: { id: batchId, orgId, mode: "BASELINE_ASSIGNMENTS" },
+    include: { rows: true },
+  });
+  if (!batch) throw new ImportError("Lot d'import introuvable");
+  if (batch.committedAt) throw new ImportError("Ce lot a déjà été commité");
+
+  const rowsSorted = [...batch.rows].sort((a, b) => a.rowIndex - b.rowIndex);
+  const sourceRows = rowsSorted.map((r) => r.sourceFields as unknown as BaselineCsvRow);
+  const resolved = await resolveBaselineBatch(orgId, sourceRows);
+  const hasBlockingRow = resolved.some((r) => r.outcome === "UNRESOLVED" || r.outcome === "CONFLICT");
+
+  const updated = await prisma.$transaction(async (tx) => {
+    for (let i = 0; i < rowsSorted.length; i++) {
+      await tx.importRow.update({
+        where: { id: rowsSorted[i].id },
+        data: {
+          resolvedUserId: resolved[i].resolvedUserId,
+          resolvedAssetId: resolved[i].resolvedAssetId,
+          resolvedLevelId: resolved[i].resolvedLevelId,
+          outcome: resolved[i].outcome,
+          reason: resolved[i].reason,
+        },
+      });
+    }
+
+    if (hasBlockingRow) {
+      return tx.importBatch.findUniqueOrThrow({ where: { id: batchId }, include: { rows: true } });
+    }
+
+    for (const r of resolved) {
+      if (r.outcome !== "TO_CREATE") continue;
+      const assignment = await tx.accessAssignment.create({
+        data: {
+          orgId,
+          userId: r.resolvedUserId as string,
+          assetId: r.resolvedAssetId as string,
+          levelId: r.resolvedLevelId as string,
+          status: "ACTIVE",
+          verification: "IMPORTED_UNREVIEWED",
+          source: "LEGACY_IMPORT",
+          periodStart: new Date(),
+        },
+      });
+      await tx.accessAssignmentEvent.create({
+        data: {
+          orgId,
+          assignmentId: assignment.id,
+          userId: assignment.userId,
+          assetId: assignment.assetId,
+          beforeLevelId: null,
+          afterLevelId: assignment.levelId,
+          actorId,
+          actorRole: "ASSET_ADMINISTRATOR",
+          sourceType: "IMPORT",
+          sourceId: batchId,
+          outcome: "ASSIGNED",
+        },
+      });
+    }
+
+    const committed = await tx.importBatch.update({
+      where: { id: batchId },
+      data: { committedAt: new Date() },
+      include: { rows: true },
+    });
+
+    await recordAuditInTx(tx, {
+      orgId,
+      actorId,
+      actorRole: "ASSET_ADMINISTRATOR",
+      primaryCoveredId: null,
+      scopeType: "IMPORT",
+      scopeId: batchId,
+      eventType: "IMPORT_COMMITTED",
+      objectType: "ImportBatch",
+      objectId: batchId,
+      objectVersion: null,
+      beneficiaryId: null,
+      before: null,
+      after: { mode: "BASELINE_ASSIGNMENTS", totalRows: committed.totalRows },
       reason: null,
       outcome: "SUCCESS",
       correlationId: null,
