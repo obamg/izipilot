@@ -45,7 +45,8 @@ export default async function DepartmentAccessPage({
     result = await listAssignments({
       viewer: { userId, orgId },
       view: req.view,
-      filters: req.filters,
+      // Pas de contrôle « niveau » dans cette vue : un levelId saisi à la main est ignoré.
+      filters: { ...req.filters, levelId: undefined },
       pagination: { page: query.page, pageSize: PAGE_SIZE },
     });
   } catch (err) {
