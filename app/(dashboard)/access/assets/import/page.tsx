@@ -4,6 +4,7 @@ import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
 import { listImportBatches } from "@/lib/access/import-server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ImportSeedPanel } from "@/components/access/ImportSeedPanel";
+import { ImportBaselinePanel } from "@/components/access/ImportBaselinePanel";
 
 export default async function AccessImportPage() {
   const session = await auth();
@@ -33,6 +34,7 @@ export default async function AccessImportPage() {
       />
       <div className="space-y-6 mt-4">
         <ImportSeedPanel />
+        <ImportBaselinePanel />
         {/* ImportBaselinePanel (Tâche 10) et ImportHistoryList (Tâche 11) viennent ici */}
         {JSON.stringify(serializedBatches).length >= 0 /* placeholder retiré Tâche 11 */}
       </div>
