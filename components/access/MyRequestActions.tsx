@@ -26,6 +26,7 @@ export function MyRequestActions({ row }: { row: RequestRow }) {
   const [clarificationText, setClarificationText] = useState("");
 
   async function cancel() {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -43,7 +44,7 @@ export function MyRequestActions({ row }: { row: RequestRow }) {
   }
 
   async function respondToClarification(stageId: string) {
-    if (!clarificationText.trim()) return;
+    if (busy || !clarificationText.trim()) return;
     setBusy(true);
     setError(null);
     try {
@@ -76,13 +77,14 @@ export function MyRequestActions({ row }: { row: RequestRow }) {
             value={clarificationText}
             onChange={(e) => setClarificationText(e.target.value)}
             placeholder="Votre réponse..."
-            className="rounded-[6px] border border-teal-md px-2 py-1 text-[11px]"
+            aria-label="Réponse à la clarification"
+            className="izi-form-input w-28 min-w-0 rounded-[6px] border border-teal-md px-2 py-1 text-[11px] text-dark"
           />
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || !clarificationText.trim()}
             onClick={() => respondToClarification(row.stageIdIfClarification as string)}
-            className="rounded-[6px] bg-teal px-2 py-1 text-[11px] font-medium text-white hover:bg-teal-dk disabled:opacity-50"
+            className="shrink-0 rounded-[6px] bg-teal px-2 py-1 text-[11px] font-medium text-white hover:bg-teal-dk disabled:opacity-50"
           >
             Répondre
           </button>
