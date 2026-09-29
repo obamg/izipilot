@@ -83,6 +83,59 @@ describe("import-server — catalogue seed", () => {
     const levelCount = await prisma.accessLevel.count({ where: { assetId: asset.id } });
     expect(levelCount).toBe(1);
   });
+
+  it("un actif archivé du même nom est réutilisé (MATCHED), jamais recréé en doublon", async () => {
+    const asset = await prisma.accessAsset.create({
+      data: { orgId, name: "ARCHIVE-TEST", archivedAt: new Date() },
+    });
+    await prisma.accessLevel.create({ data: { assetId: asset.id, name: "ARCHIVE-TEST-reader" } });
+    const csv =
+      "utilisateur;nom_complet;departement;logiciel;niveau_acces\nu1;U1;NULL;ARCHIVE-TEST;ARCHIVE-TEST-reader\n";
+    const preview = await previewCatalogueSeed(orgId, actorId, "seed-archive.csv", csv);
+    expect(preview.rows[0].outcome).toBe("MATCHED");
+    expect(preview.rows[0].resolvedAssetId).toBe(asset.id);
+
+    const committed = await commitCatalogueSeed(orgId, actorId, preview.id);
+    expect(committed.committedAt).not.toBeNull();
+    expect(committed.rows[0].outcome).toBe("MATCHED");
+
+    const assetsWithName = await prisma.accessAsset.findMany({ where: { orgId, name: "ARCHIVE-TEST" } });
+    expect(assetsWithName).toHaveLength(1);
+  });
+
+  it("un niveau archivé du même nom est réutilisé (MATCHED), jamais recréé en doublon", async () => {
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "ASSET-LEVEL-ARCHIVE-TEST" } });
+    await prisma.accessLevel.create({
+      data: { assetId: asset.id, name: "ASSET-LEVEL-ARCHIVE-TEST-reader", archivedAt: new Date() },
+    });
+
+    const csv =
+      "utilisateur;nom_complet;departement;logiciel;niveau_acces\nu1;U1;NULL;ASSET-LEVEL-ARCHIVE-TEST;ASSET-LEVEL-ARCHIVE-TEST-reader\n";
+    const preview = await previewCatalogueSeed(orgId, actorId, "seed-archive2.csv", csv);
+    expect(preview.rows[0].outcome).toBe("MATCHED");
+
+    const committed = await commitCatalogueSeed(orgId, actorId, preview.id);
+    expect(committed.committedAt).not.toBeNull();
+
+    const levelsWithName = await prisma.accessLevel.findMany({
+      where: { assetId: asset.id, name: "ASSET-LEVEL-ARCHIVE-TEST-reader" },
+    });
+    expect(levelsWithName).toHaveLength(1);
+  });
+
+  it("un nouveau brouillon reçoit sourceLabel depuis le nom source du CSV", async () => {
+    const csv =
+      "utilisateur;nom_complet;departement;logiciel;niveau_acces\nu1;U1;NULL;LABEL-TEST;LABEL-TEST-reader\n";
+    const preview = await previewCatalogueSeed(orgId, actorId, "seed-label.csv", csv);
+    await commitCatalogueSeed(orgId, actorId, preview.id);
+
+    const asset = await prisma.accessAsset.findFirstOrThrow({ where: { orgId, name: "LABEL-TEST" } });
+    expect(asset.sourceLabel).toBe("LABEL-TEST");
+    const level = await prisma.accessLevel.findFirstOrThrow({
+      where: { assetId: asset.id, name: "LABEL-TEST-reader" },
+    });
+    expect(level.sourceLabel).toBe("LABEL-TEST-reader");
+  });
 });
 
 describe("import-server — baseline assignments", () => {
