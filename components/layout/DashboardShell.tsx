@@ -22,6 +22,9 @@ interface DashboardShellProps {
   notificationCount: number;
   products: SidebarEntity[];
   departments: SidebarEntity[];
+  canManageAccessRoles: boolean;
+  canManageAccessAssets: boolean;
+  canViewAccessAudit: boolean;
 }
 
 export function DashboardShell({
@@ -34,6 +37,9 @@ export function DashboardShell({
   notificationCount,
   products,
   departments,
+  canManageAccessRoles,
+  canManageAccessAssets,
+  canViewAccessAudit,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -53,6 +59,9 @@ export function DashboardShell({
           alertCount={alertCount}
           notificationCount={notificationCount}
           userRole={userRole}
+          canManageAccessRoles={canManageAccessRoles}
+          canManageAccessAssets={canManageAccessAssets}
+          canViewAccessAudit={canViewAccessAudit}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />

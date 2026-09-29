@@ -44,6 +44,15 @@ async function main() {
     prisma.user.create({ data: { orgId: org.id, email: "menes.whannou@izichange.com", name: "Resp. RH", role: "PO", passwordHash: defaultPassword, mustChangePassword: true } }),
   ]);
 
+  // ── Profils d'accès ──────────────────────────────────────────────
+  // Un profil ACTIVE par utilisateur ; le département principal est résolu
+  // une fois les membres de département créés plus bas (voir bloc dédié).
+  for (const u of users) {
+    await prisma.accessProfile.create({
+      data: { orgId: org.id, userId: u.id, lifecycle: "ACTIVE" },
+    });
+  }
+
   const [
     ceo, mgmt1,
     poTrading, poWallet, poAfricapart, poCollecte, poPay, poCarte, poIzilab,
@@ -1318,6 +1327,25 @@ async function main() {
       },
     });
     memberCount++;
+  }
+
+  // Renseigne le département principal des profils d'accès pour les
+  // utilisateurs membres d'exactement un département.
+  const membershipCounts = await prisma.departmentMember.groupBy({
+    by: ["userId"],
+    _count: { userId: true },
+  });
+  for (const m of membershipCounts) {
+    if (m._count.userId !== 1) continue;
+    const membership = await prisma.departmentMember.findFirst({
+      where: { userId: m.userId },
+      select: { departmentId: true },
+    });
+    if (!membership) continue;
+    await prisma.accessProfile.update({
+      where: { userId: m.userId },
+      data: { primaryDepartmentId: membership.departmentId },
+    });
   }
 
   console.log(`✅ Seeded: 1 org, ${users.length} users, ${products.length} products, ${departments.length} departments, ${krCount} key results, ${actionCount} actions, ${memberCount} department members, 3 sprints, ${sprintTaskCount} sprint tasks, ${sprintStepCount} task steps, ${sprintRequestCount} task requests, ${standupCount} standups, ${recurringCount} recurring tasks`);

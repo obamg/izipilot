@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireCEO } from "@/lib/auth-guard";
 import { createUserSchema } from "@/lib/validations/admin";
+import { ensureAccessProfile } from "@/lib/access/profile-server";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
@@ -50,9 +51,13 @@ export async function POST(request: Request) {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const user = await prisma.user.create({
-    data: { orgId, email, name, role, passwordHash, mustChangePassword: true },
-    select: { id: true, email: true, name: true, role: true, isActive: true },
+  const user = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({
+      data: { orgId, email, name, role, passwordHash, mustChangePassword: true },
+      select: { id: true, email: true, name: true, role: true, isActive: true },
+    });
+    await ensureAccessProfile(tx, orgId, created.id);
+    return created;
   });
 
   return Response.json({ data: user }, { status: 201 });

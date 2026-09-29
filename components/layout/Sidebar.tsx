@@ -16,6 +16,9 @@ interface SidebarProps {
   alertCount?: number;
   notificationCount?: number;
   userRole?: string;
+  canManageAccessRoles?: boolean;
+  canManageAccessAssets?: boolean;
+  canViewAccessAudit?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -197,6 +200,9 @@ export function Sidebar({
   alertCount = 0,
   notificationCount = 0,
   userRole,
+  canManageAccessRoles,
+  canManageAccessAssets,
+  canViewAccessAudit,
   isOpen = false,
   onClose,
 }: SidebarProps) {
@@ -341,6 +347,73 @@ export function Sidebar({
               </svg>
               Suivi de l&apos;équipe
             </Link>
+          )}
+
+          {/* Gestion des accès — un lien par droit effectif, pas un lien unique
+              pour tout le module (fix wave, Critical C3) : /access/roles est
+              réservé au CEO, /access/assets à l'Administrateur des actifs,
+              /access/audit au Lecteur d'audit — chacun ne doit voir que le(s)
+              lien(s) qu'il peut réellement utiliser. */}
+          {(canManageAccessRoles || canManageAccessAssets || canViewAccessAudit) && (
+            <>
+              <div className="text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px] mt-3">
+                Accès
+              </div>
+              {canManageAccessRoles && (
+                <Link
+                  href="/access/roles"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                    pathname === "/access/roles"
+                      ? "bg-teal/[0.18] text-[#7dd8d8]"
+                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                    <rect x="3" y="11" width="18" height="10" rx="2" />
+                    <path d="M7 11V7a5 5 0 0110 0v4" />
+                  </svg>
+                  Rôles
+                </Link>
+              )}
+              {canManageAccessAssets && (
+                <Link
+                  href="/access/assets"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                    pathname === "/access/assets"
+                      ? "bg-teal/[0.18] text-[#7dd8d8]"
+                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </svg>
+                  Actifs
+                </Link>
+              )}
+              {canViewAccessAudit && (
+                <Link
+                  href="/access/audit"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                    pathname === "/access/audit"
+                      ? "bg-teal/[0.18] text-[#7dd8d8]"
+                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
+                    <line x1="9" y1="12" x2="15" y2="12" />
+                    <line x1="9" y1="16" x2="15" y2="16" />
+                  </svg>
+                  Journal d&apos;audit
+                </Link>
+              )}
+            </>
           )}
         </div>
 

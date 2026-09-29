@@ -13,6 +13,7 @@ import {
   departmentVisibilityWhere,
   krVisibilityWhere,
 } from "@/lib/visibility";
+import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
 
 export default async function DashboardLayout({
   children,
@@ -62,7 +63,7 @@ export default async function DashboardLayout({
   if (blocked) redirect("/mon-point-du-jour");
 
   // Fetch sidebar data: products + departments with average scores
-  const [products, departments, unresolvedAlertCount, myNotificationCount] = await Promise.all([
+  const [products, departments, unresolvedAlertCount, myNotificationCount, accessRoles] = await Promise.all([
     prisma.product.findMany({
       where: { orgId, isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -112,6 +113,7 @@ export default async function DashboardLayout({
         ...alertVisibilityWhere(session.user.role),
       },
     }),
+    getEffectiveRoleHolders(orgId, userId),
   ]);
 
   // Compute average score for each entity
@@ -142,6 +144,10 @@ export default async function DashboardLayout({
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
+  const canManageAccessRoles = session.user.role === "CEO";
+  const canManageAccessAssets = accessRoles.some((r) => r.role === "ASSET_ADMINISTRATOR");
+  const canViewAccessAudit = accessRoles.some((r) => r.role === "AUDIT_VIEWER");
+
   return (
     <DashboardShell
       userName={session.user.name}
@@ -152,6 +158,9 @@ export default async function DashboardLayout({
       notificationCount={myNotificationCount}
       products={sidebarProducts}
       departments={sidebarDepartments}
+      canManageAccessRoles={canManageAccessRoles}
+      canManageAccessAssets={canManageAccessAssets}
+      canViewAccessAudit={canViewAccessAudit}
     >
       {vapidPublicKey && <PushNudgeBanner vapidPublicKey={vapidPublicKey} />}
       {children}
