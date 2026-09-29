@@ -390,4 +390,42 @@ describe("requests-server — décision d'étape", () => {
     await prisma.accessAssignment.deleteMany({ where: { orgId, userId: employeeId, assetId } });
     await cleanup(final);
   });
+
+  it("une étape ne peut pas être décidée avant les étapes précédentes (ordre des séquences)", async () => {
+    const v = await freshRequest();
+    // v.stages[1] est CISO (séquence 2) ; le chef de département (séquence 1)
+    // n'a pas encore approuvé — décider CISO en premier doit être refusé.
+    await expect(decideStage(orgId, cisoId, v.stages[1].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    await cleanup(v);
+  });
+
+  it("l'escalade CISO→COO exige un motif", async () => {
+    const v = await freshRequest();
+    const afterDeptHead = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+    await expect(
+      decideStage(orgId, cisoId, afterDeptHead.stages[1].id, "APPROVE", null, true)
+    ).rejects.toThrow(RequestError);
+    await cleanup(afterDeptHead);
+  });
+
+  it("le chef d'un AUTRE département ne peut pas décider l'étape DEPARTMENT_HEAD du bénéficiaire", async () => {
+    const otherHead = await prisma.user.create({
+      data: { orgId, email: `dh2-d-${Date.now()}@example.com`, name: "OtherDeptHead", role: "PO" },
+    });
+    await prisma.accessProfile.create({ data: { orgId, userId: otherHead.id, lifecycle: "ACTIVE" } });
+    const otherDept = await prisma.department.create({
+      data: { orgId, code: "DE", name: "Dept Autre", color: "#111111", ownerId: otherHead.id },
+    });
+
+    const v = await freshRequest();
+    await expect(decideStage(orgId, otherHead.id, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    const updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+    expect(updated.stages[0].decision).toBe("APPROVE");
+    expect(updated.stages[0].actorId).toBe(deptHeadId);
+
+    await cleanup(updated);
+    await prisma.department.delete({ where: { id: otherDept.id } });
+    await prisma.accessProfile.deleteMany({ where: { userId: otherHead.id } });
+    await prisma.user.delete({ where: { id: otherHead.id } });
+  });
 });

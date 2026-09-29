@@ -1,4 +1,5 @@
 // lib/access/roles-server.ts
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAvailable } from "./roles";
 import { recordAuditInTx } from "./audit-server";
@@ -74,14 +75,22 @@ export async function listRoleAssignments(orgId: string): Promise<RoleAssignment
  * ce qui pouvait accorder le rôle à un suppléant alors que le titulaire réel
  * était pleinement actif. La requête sur les départements suppléés doit donc
  * être faite en amont, comme ci-dessous.
+ *
+ * `client` permet d'exécuter cette lecture au sein d'une transaction
+ * interactive (`tx`) plutôt que sur le client global — nécessaire pour que
+ * `decideStage` (Tâche 5) puisse revalider l'éligibilité de l'acteur de
+ * manière atomique avec la décision elle-même (fermeture d'un TOCTOU).
+ * Le défaut (`prisma`) préserve le comportement de tous les appelants
+ * existants (dont `submitRequest`, Tâche 4).
  */
 export async function getEffectiveRoleHolders(
   orgId: string,
-  userId: string
+  userId: string,
+  client: Prisma.TransactionClient | typeof prisma = prisma
 ): Promise<EffectiveRole[]> {
   const [roleAssignments, ownedDepartments] = await Promise.all([
-    prisma.accessRoleAssignment.findMany({ where: { orgId } }),
-    prisma.department.findMany({ where: { orgId, ownerId: userId }, select: { id: true } }),
+    client.accessRoleAssignment.findMany({ where: { orgId } }),
+    client.department.findMany({ where: { orgId, ownerId: userId }, select: { id: true } }),
   ]);
 
   // Départements pour lesquels cet utilisateur est suppléant d'un chef — il
@@ -91,7 +100,7 @@ export async function getEffectiveRoleHolders(
     (a) => a.role === "DEPARTMENT_HEAD" && a.backupUserId === userId && a.departmentId
   );
   const backedDepartments = departmentHeadAssignments.length
-    ? await prisma.department.findMany({
+    ? await client.department.findMany({
         where: { id: { in: departmentHeadAssignments.map((a) => a.departmentId as string) } },
         select: { id: true, ownerId: true },
       })
@@ -107,11 +116,11 @@ export async function getEffectiveRoleHolders(
   userIds.add(userId);
 
   const [users, profiles] = await Promise.all([
-    prisma.user.findMany({
+    client.user.findMany({
       where: { id: { in: [...userIds] } },
       select: { id: true, isActive: true },
     }),
-    prisma.accessProfile.findMany({
+    client.accessProfile.findMany({
       where: { userId: { in: [...userIds] } },
       select: { userId: true, lifecycle: true },
     }),

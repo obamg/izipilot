@@ -84,7 +84,7 @@ export async function submitRequest(
   actorId: string,
   input: SubmitRequestInput
 ): Promise<RequestVersionDTO> {
-  const [beneficiary, beneficiaryProfile, asset, targetLevel, currentAssignment, actorRoles] = await Promise.all([
+  const [beneficiary, beneficiaryProfile, asset, targetLevel, currentAssignment, actorRoles, beneficiaryDepartment] = await Promise.all([
     prisma.user.findFirst({ where: { id: input.beneficiaryId, orgId }, select: { id: true } }),
     prisma.accessProfile.findFirst({ where: { userId: input.beneficiaryId, orgId }, select: { lifecycle: true } }),
     prisma.accessAsset.findFirst({ where: { id: input.assetId, orgId, archivedAt: null }, select: { id: true, catalogueVersion: true } }),
@@ -96,6 +96,14 @@ export async function submitRequest(
       : Promise.resolve(null),
     prisma.accessAssignment.findFirst({ where: { orgId, userId: input.beneficiaryId, assetId: input.assetId } }),
     getEffectiveRoleHolders(orgId, actorId),
+    // Département du bénéficiaire, au moment de la soumission : c'est ce
+    // "snapshot" que decideStage (Tâche 5) utilise pour restreindre l'étape
+    // DEPARTMENT_HEAD au(x) chef(s) du BON département, plutôt qu'à
+    // n'importe quel chef de département de l'organisation.
+    prisma.departmentMember.findFirst({
+      where: { userId: input.beneficiaryId, department: { orgId } },
+      select: { departmentId: true },
+    }),
   ]);
 
   if (!beneficiary) throw new RequestError("Bénéficiaire introuvable dans cette organisation");
@@ -176,7 +184,13 @@ export async function submitRequest(
           justification: input.justification,
           periodStart,
           periodEnd: input.periodEnd ?? null,
-          departmentSnapshot: "", // renseigné par un futur incrément si nécessaire aux vues département
+          // "" si le bénéficiaire n'appartient à aucun département : c'est
+          // volontaire (pas un TODO) — une étape DEPARTMENT_HEAD sur une
+          // telle demande n'aura alors aucun acteur éligible, ce qui est un
+          // problème de routage visible plutôt qu'un contournement silencieux
+          // (contrainte globale : "aucun saut automatique ni approbateur
+          // inventé").
+          departmentSnapshot: beneficiaryDepartment?.departmentId ?? "",
           assignmentVersion: currentAssignment?.version ?? 0,
           catalogueVersion: asset.catalogueVersion,
           state: initialState,
@@ -264,69 +278,110 @@ export async function decideStage(
   if ((decision === "REJECT" || decision === "CLARIFY" || decision === "RETURN") && !reason) {
     throw new RequestError("Un motif est obligatoire pour rejeter, demander une clarification ou retourner une demande");
   }
-
-  const stage = await prisma.accessApprovalStage.findFirst({
-    where: { id: stageId, requestVersion: { request: { orgId } } },
-    include: { requestVersion: { include: { request: true, stages: true } } },
-  });
-  if (!stage) throw new RequestError("Étape introuvable dans cette organisation");
-  const version = stage.requestVersion;
-  const request = version.request;
-
-  if (version.state !== "PENDING_APPROVAL") {
-    throw new RequestError("Cette version n'est plus en attente d'approbation — décision refusée");
-  }
-  if (stage.decision !== null) {
-    throw new RequestError("Cette étape a déjà été décidée");
+  if (escalateToCoo && !reason) {
+    throw new RequestError("Un motif est obligatoire pour escalader vers COO");
   }
 
-  // Indépendance : ni l'initiateur, ni le bénéficiaire, ni un acteur ayant déjà décidé une autre étape.
-  if (actorId === version.initiatorId) {
-    throw new RequestError("L'initiateur ne peut pas décider sa propre demande");
-  }
-  if (actorId === request.beneficiaryId) {
-    throw new RequestError("Le bénéficiaire ne peut pas décider sa propre demande");
-  }
-  if (version.stages.some((s) => s.actorId === actorId && s.id !== stageId)) {
-    throw new RequestError("Un même acteur ne peut pas décider deux étapes de la même version");
-  }
-
-  // Revalidation : éligibilité de l'acteur pour ce rôle d'étape, à l'instant présent.
-  const effectiveRoles = await getEffectiveRoleHolders(orgId, actorId);
-  const eligible = effectiveRoles.some((r) => r.role === stage.role);
-  if (!eligible) {
-    throw new RequestError("Vous n'êtes plus éligible pour décider cette étape");
-  }
-  const actedAsPrimary = effectiveRoles.some((r) => r.role === stage.role && r.actsAsPrimary);
-
-  // Revalidation : catalogue/niveau ciblé/affectation inchangés depuis la soumission.
-  //
-  // ⚠️ Le niveau ciblé (AccessLevel) a son propre `archivedAt`, distinct de
-  // `AccessAsset.catalogueVersion` : archiver un niveau (`archiveLevel` dans
-  // catalogue-server.ts) ne fait PAS bumper `catalogueVersion` — seul un
-  // changement de `priority`/`isAdmin` via `updateLevel` le fait. Comparer
-  // uniquement `catalogueVersion` ne détecterait donc jamais l'archivage
-  // du niveau ciblé : il faut vérifier son `archivedAt` séparément.
-  const [asset, targetLevel, currentAssignment] = await Promise.all([
-    prisma.accessAsset.findFirst({ where: { id: request.assetId, orgId }, select: { catalogueVersion: true, archivedAt: true } }),
-    version.targetLevelId
-      ? prisma.accessLevel.findFirst({ where: { id: version.targetLevelId, assetId: request.assetId }, select: { archivedAt: true } })
-      : Promise.resolve(null),
-    prisma.accessAssignment.findFirst({ where: { orgId, userId: request.beneficiaryId, assetId: request.assetId }, select: { version: true } }),
-  ]);
-  if (!asset || asset.archivedAt !== null || asset.catalogueVersion !== version.catalogueVersion) {
-    throw new RequestError("Le catalogue a changé depuis la soumission — décision refusée, la demande doit être revue");
-  }
-  if (version.targetLevelId && (!targetLevel || targetLevel.archivedAt !== null)) {
-    throw new RequestError("Le niveau ciblé a été archivé depuis la soumission — décision refusée, la demande doit être revue");
-  }
-  if ((currentAssignment?.version ?? 0) !== version.assignmentVersion) {
-    throw new RequestError("L'affectation actuelle a changé depuis la soumission — décision refusée, la demande doit être revue");
-  }
-
+  // ⚠️ Toute la logique — y compris les lectures (étape, indépendance,
+  // éligibilité, revalidation) — s'exécute DANS cette transaction, jusqu'à
+  // l'écriture finale. Faire les lectures avant `$transaction` (comme dans
+  // une première version) ouvre un TOCTOU : deux décisions concurrentes
+  // (même étape par deux acteurs, ou même acteur sur deux étapes) peuvent
+  // toutes deux passer leurs vérifications avant qu'aucune n'ait écrit. Les
+  // écritures de clôture (`updateMany` conditionnels plus bas) sont ce qui
+  // ferme réellement la course — Postgres en Read Committed ré-évalue leur
+  // clause WHERE une fois le verrou de ligne obtenu, après le commit d'une
+  // transaction concurrente.
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.accessApprovalStage.update({
-      where: { id: stageId },
+    const stage = await tx.accessApprovalStage.findFirst({
+      where: { id: stageId, requestVersion: { request: { orgId } } },
+      include: { requestVersion: { include: { request: true, stages: true } } },
+    });
+    if (!stage) throw new RequestError("Étape introuvable dans cette organisation");
+    const version = stage.requestVersion;
+    const request = version.request;
+
+    if (version.state !== "PENDING_APPROVAL") {
+      throw new RequestError("Cette version n'est plus en attente d'approbation — décision refusée");
+    }
+    if (stage.decision !== null) {
+      throw new RequestError("Cette étape a déjà été décidée");
+    }
+
+    // Ordre des étapes : une étape ne peut être décidée que si toutes les
+    // étapes de séquence inférieure sont déjà APPROVE (jamais de saut
+    // d'étape, ex. CISO avant le chef de département).
+    const priorStagesNotYetApproved = version.stages.some(
+      (s) => s.sequence < stage.sequence && s.decision !== "APPROVE"
+    );
+    if (priorStagesNotYetApproved) {
+      throw new RequestError("Les étapes précédentes n'ont pas encore été décidées");
+    }
+
+    // Indépendance : ni l'initiateur, ni le bénéficiaire, ni un acteur ayant déjà décidé une autre étape.
+    if (actorId === version.initiatorId) {
+      throw new RequestError("L'initiateur ne peut pas décider sa propre demande");
+    }
+    if (actorId === request.beneficiaryId) {
+      throw new RequestError("Le bénéficiaire ne peut pas décider sa propre demande");
+    }
+    if (version.stages.some((s) => s.actorId === actorId && s.id !== stageId)) {
+      throw new RequestError("Un même acteur ne peut pas décider deux étapes de la même version");
+    }
+
+    // Revalidation : éligibilité de l'acteur pour ce rôle d'étape, à l'instant
+    // présent, lue dans CETTE transaction (`tx`) — pas sur le client global —
+    // pour qu'elle fasse partie de la même unité atomique que la décision.
+    //
+    // DEPARTMENT_HEAD est scopé au département du bénéficiaire au moment de
+    // la soumission (`version.departmentSnapshot`) : sans ce filtre, N'IMPORTE
+    // QUEL chef de département de l'organisation pourrait décider cette
+    // étape, pas seulement celui du bénéficiaire. CISO/COO restent non
+    // scopés : ce sont des rôles uniques par organisation (index unique
+    // partiel en base, Tâche 2), pas rattachés à un département.
+    const effectiveRoles = await getEffectiveRoleHolders(orgId, actorId, tx);
+    const eligible =
+      stage.role === "DEPARTMENT_HEAD"
+        ? effectiveRoles.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === version.departmentSnapshot)
+        : effectiveRoles.some((r) => r.role === stage.role);
+    if (!eligible) {
+      throw new RequestError("Vous n'êtes plus éligible pour décider cette étape");
+    }
+    const actedAsPrimary = effectiveRoles.some((r) => r.role === stage.role && r.actsAsPrimary);
+
+    // Revalidation : catalogue/niveau ciblé/affectation inchangés depuis la soumission.
+    //
+    // ⚠️ Le niveau ciblé (AccessLevel) a son propre `archivedAt`, distinct de
+    // `AccessAsset.catalogueVersion` : archiver un niveau (`archiveLevel` dans
+    // catalogue-server.ts) ne fait PAS bumper `catalogueVersion` — seul un
+    // changement de `priority`/`isAdmin` via `updateLevel` le fait. Comparer
+    // uniquement `catalogueVersion` ne détecterait donc jamais l'archivage
+    // du niveau ciblé : il faut vérifier son `archivedAt` séparément.
+    const [asset, targetLevel, currentAssignment] = await Promise.all([
+      tx.accessAsset.findFirst({ where: { id: request.assetId, orgId }, select: { catalogueVersion: true, archivedAt: true } }),
+      version.targetLevelId
+        ? tx.accessLevel.findFirst({ where: { id: version.targetLevelId, assetId: request.assetId }, select: { archivedAt: true } })
+        : Promise.resolve(null),
+      tx.accessAssignment.findFirst({ where: { orgId, userId: request.beneficiaryId, assetId: request.assetId }, select: { version: true } }),
+    ]);
+    if (!asset || asset.archivedAt !== null || asset.catalogueVersion !== version.catalogueVersion) {
+      throw new RequestError("Le catalogue a changé depuis la soumission — décision refusée, la demande doit être revue");
+    }
+    if (version.targetLevelId && (!targetLevel || targetLevel.archivedAt !== null)) {
+      throw new RequestError("Le niveau ciblé a été archivé depuis la soumission — décision refusée, la demande doit être revue");
+    }
+    if ((currentAssignment?.version ?? 0) !== version.assignmentVersion) {
+      throw new RequestError("L'affectation actuelle a changé depuis la soumission — décision refusée, la demande doit être revue");
+    }
+
+    // Écriture atomique et conditionnelle de la décision d'étape : la clause
+    // `decision: null` du WHERE est ré-évaluée par Postgres au moment où le
+    // verrou de ligne est obtenu (Read Committed), donc contre l'état déjà
+    // commité par une transaction concurrente le cas échéant — ce qui ferme
+    // réellement la course entre deux décisions sur la même étape (ex. une
+    // APPROVE et un REJECT simultanés), plutôt que de simplement la réduire.
+    const stageUpdateResult = await tx.accessApprovalStage.updateMany({
+      where: { id: stageId, decision: null },
       data: {
         actorId,
         actedAsPrimary,
@@ -340,18 +395,18 @@ export async function decideStage(
         decidedAt: decision === "CLARIFY" ? null : new Date(),
       },
     });
+    if (stageUpdateResult.count === 0) {
+      throw new RequestError("Cette étape a déjà été décidée");
+    }
 
     let newState: AccessRequestState = version.state;
 
     if (decision === "REJECT") {
       newState = "REJECTED";
-      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
     } else if (decision === "CLARIFY") {
       newState = "CLARIFICATION_REQUIRED";
-      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
     } else if (decision === "RETURN") {
       newState = "REVISION_REQUIRED";
-      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
     } else {
       // APPROVE
       if (escalateToCoo && stage.role === "CISO" && !version.stages.some((s) => s.role === "COO")) {
@@ -369,7 +424,19 @@ export async function decideStage(
             : "READY_FOR_FULFILMENT"
           : "PENDING_APPROVAL";
       }
-      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
+    }
+
+    // Même principe que pour l'étape : écriture atomique et conditionnelle,
+    // appliquée à toutes les transitions (APPROVE/REJECT/CLARIFY/RETURN),
+    // pas seulement à une branche — sinon deux décisions concurrentes sur
+    // deux étapes différentes de la même version pourraient toutes deux
+    // écrire un nouvel état de version l'une après l'autre sans se détecter.
+    const versionUpdateResult = await tx.accessRequestVersion.updateMany({
+      where: { id: version.id, state: "PENDING_APPROVAL" },
+      data: { state: newState },
+    });
+    if (versionUpdateResult.count === 0) {
+      throw new RequestError("Cette version n'est plus en attente d'approbation — décision refusée");
     }
 
     await recordAuditInTx(tx, {
