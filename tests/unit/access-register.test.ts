@@ -6,7 +6,9 @@ import {
   orderByForView,
   registerNavFlags,
   formatPeriod,
+  registerRequestFromQuery,
 } from "@/lib/access/register";
+import { registerQuerySchema } from "@/lib/validations/access";
 import type { ReadScope } from "@/lib/access/scope";
 
 const ORG = "org-1";
@@ -229,5 +231,63 @@ describe("formatPeriod", () => {
 
   it("fin seule", () => {
     expect(formatPeriod(null, "2026-06-30T10:00:00.000Z")).toBe("Jusqu'au 30/06/2026");
+  });
+});
+
+describe("registerQuerySchema + registerRequestFromQuery", () => {
+  it("valeurs par défaut", () => {
+    const parsed = registerQuerySchema.parse({});
+    expect(parsed).toEqual({ view: "me", page: 1, pageSize: 25 });
+    expect(registerRequestFromQuery(parsed)).toEqual({ view: { kind: "SELF" }, filters: {} });
+  });
+
+  it("une chaîne vide (option « Toutes » d'un formulaire GET) vaut absent, sans perdre les autres filtres", () => {
+    const parsed = registerQuerySchema.parse({
+      view: "department",
+      departmentId: "d1",
+      assetId: "",
+      levelId: "",
+      q: "Awa",
+      page: "2",
+    });
+    expect(parsed).toEqual({
+      view: "department",
+      departmentId: "d1",
+      q: "Awa",
+      page: 2,
+      pageSize: 25,
+    });
+  });
+
+  it("rejette une page non numérique et un pageSize trop grand", () => {
+    expect(registerQuerySchema.safeParse({ page: "abc" }).success).toBe(false);
+    expect(registerQuerySchema.safeParse({ pageSize: "500" }).success).toBe(false);
+  });
+
+  it("rejette une recherche de plus de 100 caractères", () => {
+    expect(registerQuerySchema.safeParse({ q: "x".repeat(101) }).success).toBe(false);
+  });
+
+  it("vue département : departmentId obligatoire, assetId devient un filtre", () => {
+    expect(registerRequestFromQuery(registerQuerySchema.parse({ view: "department" }))).toBeNull();
+    expect(
+      registerRequestFromQuery(
+        registerQuerySchema.parse({ view: "department", departmentId: "ALL", assetId: "a1" })
+      )
+    ).toEqual({
+      view: { kind: "DEPARTMENT", departmentId: "ALL" },
+      filters: { assetId: "a1" },
+    });
+  });
+
+  it("vue actifs : assetId restreint la vue elle-même, pas un filtre", () => {
+    expect(
+      registerRequestFromQuery(
+        registerQuerySchema.parse({ view: "owned-assets", assetId: "a1", levelId: "l1" })
+      )
+    ).toEqual({
+      view: { kind: "ASSET", assetId: "a1" },
+      filters: { levelId: "l1" },
+    });
   });
 });

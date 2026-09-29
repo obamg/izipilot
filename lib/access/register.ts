@@ -5,6 +5,7 @@
 // donc qu'affiner (FEATURE-PROMPT §3 : filtrer par portée avant pagination,
 // totaux, recherche et sérialisation).
 import type { Prisma } from "@prisma/client";
+import type { RegisterQuery } from "@/lib/validations/access";
 import type { ReadScope } from "./scope";
 
 export const CURRENT_ASSIGNMENT_STATUSES = ["ACTIVE", "EXPIRED_REMOVAL_PENDING"] as const;
@@ -129,4 +130,27 @@ export function formatPeriod(periodStart: string | null, periodEnd: string | nul
   if (periodStart) return `Depuis le ${formatDay(periodStart)} · en cours`;
   if (periodEnd) return `Jusqu'au ${formatDay(periodEnd)}`;
   return "Non renseignée";
+}
+
+/**
+ * Traduit une requête validée en vue + filtres. Pour la vue actifs, assetId
+ * restreint la vue (et passe donc par authorizeView) ; pour les autres vues,
+ * c'est un simple filtre combiné en AND.
+ */
+export function registerRequestFromQuery(
+  query: RegisterQuery
+): { view: RegisterView; filters: RegisterFilters } | null {
+  const filters: RegisterFilters = {};
+  if (query.levelId) filters.levelId = query.levelId;
+  if (query.q) filters.q = query.q;
+
+  if (query.view === "owned-assets") {
+    return { view: { kind: "ASSET", ...(query.assetId && { assetId: query.assetId }) }, filters };
+  }
+  if (query.assetId) filters.assetId = query.assetId;
+  if (query.view === "department") {
+    if (!query.departmentId) return null;
+    return { view: { kind: "DEPARTMENT", departmentId: query.departmentId }, filters };
+  }
+  return { view: { kind: "SELF" }, filters };
 }

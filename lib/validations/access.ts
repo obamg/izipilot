@@ -47,3 +47,31 @@ export const updateLevelSchema = z.object({
   isAdmin: z.boolean().nullable().optional(),
   enabled: z.boolean().optional(),
 });
+
+// ── Registre — vues de lecture (phase 2b) ────────────────────────────────
+// Un formulaire GET envoie "" pour l'option « Toutes » : on la traite comme
+// absente plutôt que de faire échouer toute la requête.
+// (.optional().transform plutôt que z.preprocess : en Zod 4, un preprocess
+// autour d'un champ optionnel peut rendre la clé obligatoire.)
+const optionalId = z
+  .string()
+  .max(64)
+  .optional()
+  .transform((v) => (v ? v : undefined));
+
+export const registerQuerySchema = z.object({
+  view: z.enum(["me", "department", "owned-assets"]).default("me"),
+  departmentId: optionalId,
+  assetId: optionalId,
+  levelId: optionalId,
+  q: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export type RegisterQuery = z.infer<typeof registerQuerySchema>;
