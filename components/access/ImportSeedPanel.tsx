@@ -113,7 +113,9 @@ export function ImportSeedPanel() {
                   <tr key={r.id} className="border-t border-border-soft">
                     <td className="py-1 px-2">{r.sourceFields.logiciel}</td>
                     <td className="py-1 px-2">{r.sourceFields.niveauAcces}</td>
-                    <td className="py-1 px-2">{r.outcome === "MATCHED" ? "Déjà au catalogue" : "Sera créé"}</td>
+                    <td className="py-1 px-2">
+                      {r.outcome === "MATCHED" ? "Déjà au catalogue" : batch.committedAt ? "Créé" : "Sera créé"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
