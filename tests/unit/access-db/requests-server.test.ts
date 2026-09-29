@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { submitRequest, decideStage, RequestError } from "@/lib/access/requests-server";
+import {
+  submitRequest,
+  decideStage,
+  respondToClarification,
+  reviseRequest,
+  cancelRequest,
+  RequestError,
+} from "@/lib/access/requests-server";
 
 describe("requests-server — soumission", () => {
   let orgId: string;
@@ -427,5 +434,134 @@ describe("requests-server — décision d'étape", () => {
     await prisma.department.delete({ where: { id: otherDept.id } });
     await prisma.accessProfile.deleteMany({ where: { userId: otherHead.id } });
     await prisma.user.delete({ where: { id: otherHead.id } });
+  });
+});
+
+describe("requests-server — clarification, révision, annulation", () => {
+  let orgId: string;
+  let employeeId: string;
+  let deptHeadId: string;
+  let cisoId: string;
+  let departmentId: string;
+  let assetId: string;
+  let levelReaderId: string;
+  let levelAdminId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test Clarify Org", slug: `test-clarify-${Date.now()}` },
+    });
+    orgId = org.id;
+
+    const [employee, deptHead, ciso] = await Promise.all([
+      prisma.user.create({ data: { orgId, email: `emp-c-${Date.now()}@example.com`, name: "Employee", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `dh-c-${Date.now()}@example.com`, name: "DeptHead", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `ciso-c-${Date.now()}@example.com`, name: "Ciso", role: "PO" } }),
+    ]);
+    employeeId = employee.id;
+    deptHeadId = deptHead.id;
+    cisoId = ciso.id;
+
+    await Promise.all(
+      [employeeId, deptHeadId, cisoId].map((userId) =>
+        prisma.accessProfile.create({ data: { orgId, userId, lifecycle: "ACTIVE" } })
+      )
+    );
+
+    const dept = await prisma.department.create({
+      data: { orgId, code: "DC", name: "Dept Clarify", color: "#000000", ownerId: deptHeadId },
+    });
+    departmentId = dept.id;
+    await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
+    await prisma.accessRoleAssignment.create({ data: { orgId, role: "CISO", userId: cisoId } });
+
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Clarify" } });
+    assetId = asset.id;
+    const levelReader = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
+    levelReaderId = levelReader.id;
+    const levelAdmin = await prisma.accessLevel.create({ data: { assetId, name: "Admin", priority: 10, isAdmin: true } });
+    levelAdminId = levelAdmin.id;
+  });
+
+  afterAll(async () => {
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
+    await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
+    await prisma.accessRequest.deleteMany({ where: { orgId } });
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
+    await prisma.accessLevel.deleteMany({ where: { asset: { orgId } } });
+    await prisma.accessAsset.deleteMany({ where: { orgId } });
+    await prisma.departmentMember.deleteMany({ where: { department: { orgId } } });
+    await prisma.department.deleteMany({ where: { orgId } });
+    await prisma.accessProfile.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  async function cleanup(requestId: string) {
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { requestId } } });
+    await prisma.accessRequestVersion.deleteMany({ where: { requestId } });
+    await prisma.accessRequest.deleteMany({ where: { id: requestId } });
+  }
+
+  it("répondre à une clarification remet la même étape à décider", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test",
+    });
+    const clarified = await decideStage(orgId, deptHeadId, v.stages[0].id, "CLARIFY", "précisez");
+    const responded = await respondToClarification(orgId, employeeId, v.stages[0].id, "voici la précision");
+    expect(responded.state).toBe("PENDING_APPROVAL");
+    expect(responded.stages[0].decision).toBeNull();
+    expect(responded.stages[0].clarificationResponse).toBe("voici la précision");
+    await cleanup(v.requestId);
+  });
+
+  it("seul l'initiateur peut répondre à une clarification", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test",
+    });
+    await decideStage(orgId, deptHeadId, v.stages[0].id, "CLARIFY", "précisez");
+    await expect(respondToClarification(orgId, deptHeadId, v.stages[0].id, "réponse")).rejects.toThrow(RequestError);
+    await cleanup(v.requestId);
+  });
+
+  it("une révision crée une nouvelle version, recalcule la route, invalide l'ancienne", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "initial",
+    });
+    const returned = await decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", "revoir le niveau");
+    const revised = await reviseRequest(orgId, employeeId, returned.id, { targetLevelId: levelAdminId });
+    expect(revised.versionNumber).toBe(2);
+    expect(revised.state).toBe("PENDING_APPROVAL");
+    // Le niveau cible étant admin, la route recalculée inclut COO :
+    expect(revised.stages.some((s) => s.role === "COO")).toBe(true);
+    const oldVersionStillExists = await prisma.accessRequestVersion.findUnique({ where: { id: returned.id } });
+    expect(oldVersionStillExists?.state).toBe("REVISION_REQUIRED");
+    await cleanup(v.requestId);
+  });
+
+  it("seul l'initiateur peut réviser", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "initial",
+    });
+    const returned = await decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", "revoir");
+    await expect(reviseRequest(orgId, deptHeadId, returned.id, { justification: "x" })).rejects.toThrow(RequestError);
+    await cleanup(v.requestId);
+  });
+
+  it("l'initiateur peut annuler tant que la demande n'est pas terminale", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "à annuler",
+    });
+    await cancelRequest(orgId, employeeId, v.requestId);
+    const stillExists = await prisma.accessRequest.findUnique({ where: { id: v.requestId } });
+    expect(stillExists).toBeNull();
+  });
+
+  it("seul l'initiateur peut annuler", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test",
+    });
+    await expect(cancelRequest(orgId, deptHeadId, v.requestId)).rejects.toThrow(RequestError);
+    await cleanup(v.requestId);
   });
 });

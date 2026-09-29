@@ -265,6 +265,15 @@ function isUniqueConstraintError(err: unknown): boolean {
   );
 }
 
+function isRecordNotFoundError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 export type DecisionType = "APPROVE" | "REJECT" | "CLARIFY" | "RETURN";
 
 export async function decideStage(
@@ -478,4 +487,282 @@ export async function decideStage(
   });
 
   return toVersionDTO(updated as VersionWithStages);
+}
+
+/**
+ * Réponse de l'initiateur à une clarification demandée par un approbateur
+ * (`decideStage(..., "CLARIFY", ...)`). Prend le **même `stageId`** que celui
+ * décidé avec CLARIFY — cette étape porte `clarificationResponse` et est
+ * remise à zéro (decision/decidedAt null) pour être re-décidée par le même
+ * rôle.
+ *
+ * ⚠️ Même discipline transactionnelle que `decideStage` (Tâche 5) : la
+ * lecture de l'étape/version (état, initiateur) se fait avec `tx`, DANS la
+ * transaction, pas sur le client `prisma` global avant — sinon deux réponses
+ * concurrentes à la même clarification pourraient toutes deux passer la
+ * vérification `state === "CLARIFICATION_REQUIRED"` avant qu'aucune n'ait
+ * écrit. La fermeture réelle de cette course est l'`updateMany` conditionnel
+ * sur la version ci-dessous : sa clause `state: "CLARIFICATION_REQUIRED"` est
+ * ré-évaluée par Postgres au moment du verrou de ligne, contre l'état déjà
+ * commité par une transaction concurrente le cas échéant. Une fois ce verrou
+ * gagné, l'écriture de l'étape elle-même n'a pas besoin d'être conditionnelle
+ * : l'exclusivité est déjà acquise pour cette version.
+ */
+export async function respondToClarification(
+  orgId: string,
+  actorId: string,
+  stageId: string,
+  response: string
+): Promise<RequestVersionDTO> {
+  const updated = await prisma.$transaction(async (tx) => {
+    const stage = await tx.accessApprovalStage.findFirst({
+      where: { id: stageId, requestVersion: { request: { orgId } } },
+      include: { requestVersion: { include: { request: true, stages: true } } },
+    });
+    if (!stage) throw new RequestError("Étape introuvable dans cette organisation");
+    const version = stage.requestVersion;
+
+    if (version.state !== "CLARIFICATION_REQUIRED") {
+      throw new RequestError("Cette demande n'est pas en attente de clarification");
+    }
+    if (actorId !== version.initiatorId) {
+      throw new RequestError("Seul l'initiateur peut répondre à une clarification");
+    }
+
+    const versionUpdateResult = await tx.accessRequestVersion.updateMany({
+      where: { id: version.id, state: "CLARIFICATION_REQUIRED" },
+      data: { state: "PENDING_APPROVAL" },
+    });
+    if (versionUpdateResult.count === 0) {
+      throw new RequestError("Cette demande n'est plus en attente de clarification");
+    }
+
+    await tx.accessApprovalStage.update({
+      where: { id: stageId },
+      data: { clarificationResponse: response, decision: null, decidedAt: null },
+    });
+
+    await recordAuditInTx(tx, {
+      orgId,
+      actorId,
+      actorRole: null,
+      primaryCoveredId: version.request.beneficiaryId,
+      scopeType: "ACCESS_REQUEST",
+      scopeId: version.requestId,
+      eventType: "REQUEST_CLARIFICATION_ANSWERED",
+      objectType: "AccessApprovalStage",
+      objectId: stageId,
+      objectVersion: null,
+      beneficiaryId: version.request.beneficiaryId,
+      before: null,
+      after: { clarificationResponse: response },
+      reason: null,
+      outcome: "SUCCESS",
+      correlationId: null,
+    });
+
+    return tx.accessRequestVersion.findUnique({ where: { id: version.id }, include: { stages: true, request: true } });
+  });
+
+  return toVersionDTO(updated as VersionWithStages);
+}
+
+export interface ReviseRequestChanges {
+  targetLevelId?: string | null;
+  justification?: string;
+  periodStart?: Date;
+  periodEnd?: Date | null;
+}
+
+/**
+ * Révision d'une demande retournée (`decideStage(..., "RETURN", ...)`) :
+ * crée une NOUVELLE version (jamais de mutation de l'ancienne, qui reste en
+ * base avec son état `REVISION_REQUIRED` pour l'historique) et recalcule la
+ * route d'approbation depuis zéro — jamais une simple copie des étapes de
+ * l'ancienne version, car le changement (ex. niveau ciblé) peut changer la
+ * route requise (ex. ajout de COO si le nouveau niveau est admin).
+ *
+ * ⚠️ Toutes les lectures utilisées pour reconstruire la route (actif, niveau
+ * ciblé, affectation actuelle, rôles effectifs de l'acteur) se font avec
+ * `tx`, DANS la même transaction que la lecture initiale de validation —
+ * même discipline que `decideStage`. `getEffectiveRoleHolders` est appelé
+ * avec `tx` (son 3e paramètre optionnel) pour que la revalidation du rôle de
+ * l'acteur fasse partie de la même unité atomique.
+ *
+ * Concurrence : créer une version est un `create`, pas un `update` — il n'y a
+ * donc pas de prédicat d'état à opposer à un `updateMany`. Le risque réel est
+ * que deux révisions concurrentes de la MÊME ancienne version calculent
+ * toutes deux `versionNumber = oldVersion.versionNumber + 1` et tentent de
+ * créer la même paire (requestId, versionNumber). C'est la contrainte unique
+ * `@@unique([requestId, versionNumber])` en base qui ferme cette course : la
+ * transaction perdante échoue avec `P2002`, traduit ici en `RequestError`
+ * plutôt que de laisser fuiter l'erreur Prisma brute.
+ */
+export async function reviseRequest(
+  orgId: string,
+  actorId: string,
+  versionId: string,
+  changes: ReviseRequestChanges
+): Promise<RequestVersionDTO> {
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const oldVersion = await tx.accessRequestVersion.findFirst({
+        where: { id: versionId, request: { orgId } },
+        include: { request: true },
+      });
+      if (!oldVersion) throw new RequestError("Version introuvable dans cette organisation");
+      if (oldVersion.state !== "REVISION_REQUIRED") {
+        throw new RequestError("Cette version n'est pas en attente de révision");
+      }
+      if (actorId !== oldVersion.initiatorId) {
+        throw new RequestError("Seul l'initiateur peut réviser sa propre demande");
+      }
+
+      const targetLevelId = changes.targetLevelId !== undefined ? changes.targetLevelId : oldVersion.targetLevelId;
+      const [asset, targetLevel, currentAssignment, actorRoles] = await Promise.all([
+        tx.accessAsset.findFirst({ where: { id: oldVersion.request.assetId, orgId }, select: { catalogueVersion: true } }),
+        targetLevelId
+          ? tx.accessLevel.findFirst({ where: { id: targetLevelId, assetId: oldVersion.request.assetId }, select: { priority: true, isAdmin: true } })
+          : Promise.resolve(null),
+        tx.accessAssignment.findFirst({ where: { orgId, userId: oldVersion.request.beneficiaryId, assetId: oldVersion.request.assetId } }),
+        getEffectiveRoleHolders(orgId, actorId, tx),
+      ]);
+      if (!asset) throw new RequestError("Actif introuvable");
+      if (targetLevelId && !targetLevel) throw new RequestError("Niveau introuvable ou n'appartenant pas à cet actif");
+
+      const requesterRoles = actorRoles
+        .filter((r): r is typeof r & { role: "COO" | "CISO" | "DEPARTMENT_HEAD" } =>
+          r.role === "COO" || r.role === "CISO" || r.role === "DEPARTMENT_HEAD"
+        )
+        .map((r) => ({ role: r.role, actsAsPrimary: r.actsAsPrimary }));
+      const isReduction = oldVersion.kind === "REDUCE" || oldVersion.kind === "REVOKE";
+      const route = isReduction
+        ? { stages: computeReductionRoute(pickReductionInitiatorRole(actorRoles.map((r) => r.role)) ?? "DEPARTMENT_HEAD", false), exceptionReason: null }
+        : computeGrantRoute(requesterRoles, targetLevel?.isAdmin ?? false);
+
+      const nextVersionNumber = oldVersion.versionNumber + 1;
+      const periodStart = changes.periodStart ?? oldVersion.periodStart;
+      const initialState: AccessRequestState =
+        route.stages.length === 0 ? (periodStart > new Date() ? "AUTHORIZED_WAITING_START" : "READY_FOR_FULFILMENT") : "PENDING_APPROVAL";
+
+      const newVersion = await tx.accessRequestVersion.create({
+        data: {
+          requestId: oldVersion.requestId,
+          versionNumber: nextVersionNumber,
+          kind: oldVersion.kind,
+          initiatorId: actorId,
+          targetLevelId,
+          justification: changes.justification ?? oldVersion.justification,
+          periodStart,
+          periodEnd: changes.periodEnd !== undefined ? changes.periodEnd : oldVersion.periodEnd,
+          departmentSnapshot: oldVersion.departmentSnapshot,
+          assignmentVersion: currentAssignment?.version ?? 0,
+          catalogueVersion: asset.catalogueVersion,
+          state: initialState,
+          exceptionReason: route.exceptionReason,
+          stages: { create: route.stages.map((role, i) => ({ sequence: i + 1, role })) },
+        },
+        include: { stages: true, request: true },
+      });
+
+      await recordAuditInTx(tx, {
+        orgId,
+        actorId,
+        actorRole: null,
+        primaryCoveredId: oldVersion.request.beneficiaryId,
+        scopeType: "ACCESS_REQUEST",
+        scopeId: oldVersion.requestId,
+        eventType: "REQUEST_REVISED",
+        objectType: "AccessRequestVersion",
+        objectId: newVersion.id,
+        objectVersion: newVersion.versionNumber,
+        beneficiaryId: oldVersion.request.beneficiaryId,
+        before: { versionNumber: oldVersion.versionNumber },
+        after: { versionNumber: newVersion.versionNumber, kind: newVersion.kind, state: initialState },
+        reason: null,
+        outcome: "SUCCESS",
+        correlationId: null,
+      });
+
+      return newVersion;
+    });
+
+    return toVersionDTO(created as VersionWithStages);
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      throw new RequestError("Cette demande a déjà été révisée entre-temps");
+    }
+    throw err;
+  }
+}
+
+/**
+ * Annulation par l'initiateur, tant que la demande n'est pas terminale.
+ * REJECT/CANCELLED suppriment déjà `AccessRequest` (cascade sur les
+ * versions/étapes) — annuler une demande déjà terminale échoue donc
+ * naturellement au `findFirst` initial ("Demande introuvable").
+ *
+ * ⚠️ Même discipline que `decideStage`/`respondToClarification`/
+ * `reviseRequest` : lecture de la demande/version courante et vérification
+ * de l'initiateur DANS la transaction (`tx`), pas sur `prisma` avant.
+ * L'écriture de l'état de la version courante est un `updateMany`
+ * conditionnel (prédicat sur l'état lu dans cette même transaction) : si une
+ * décision concurrente (ex. REJECT via `decideStage`) a déjà fait avancer
+ * cette version, le compte à 0 fait échouer proprement l'annulation plutôt
+ * que d'écraser silencieusement un état déjà changé.
+ *
+ * La suppression de `AccessRequest` elle-même peut échouer avec `P2025` si
+ * une autre transaction concurrente (double annulation, ou décision
+ * terminale) l'a déjà supprimée entre notre lecture et cette écriture —
+ * traduit ici en `RequestError` plutôt que de laisser fuiter l'erreur Prisma
+ * brute.
+ */
+export async function cancelRequest(orgId: string, actorId: string, requestId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const request = await tx.accessRequest.findFirst({
+      where: { id: requestId, orgId },
+      include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
+    });
+    if (!request) throw new RequestError("Demande introuvable dans cette organisation");
+    const currentVersion = request.versions[0];
+    if (!currentVersion || currentVersion.initiatorId !== actorId) {
+      throw new RequestError("Seul l'initiateur peut annuler cette demande");
+    }
+
+    const versionUpdateResult = await tx.accessRequestVersion.updateMany({
+      where: { id: currentVersion.id, state: currentVersion.state },
+      data: { state: "CANCELLED" },
+    });
+    if (versionUpdateResult.count === 0) {
+      throw new RequestError("Cette demande a été modifiée entre-temps — annulation refusée");
+    }
+
+    try {
+      await tx.accessRequest.delete({ where: { id: requestId } });
+    } catch (err) {
+      if (isRecordNotFoundError(err)) {
+        throw new RequestError("Cette demande a déjà été annulée ou traitée");
+      }
+      throw err;
+    }
+
+    await recordAuditInTx(tx, {
+      orgId,
+      actorId,
+      actorRole: null,
+      primaryCoveredId: request.beneficiaryId,
+      scopeType: "ACCESS_REQUEST",
+      scopeId: requestId,
+      eventType: "REQUEST_CANCELLED",
+      objectType: "AccessRequestVersion",
+      objectId: currentVersion.id,
+      objectVersion: currentVersion.versionNumber,
+      beneficiaryId: request.beneficiaryId,
+      before: null,
+      after: { state: "CANCELLED" },
+      reason: null,
+      outcome: "SUCCESS",
+      correlationId: null,
+    });
+  });
 }
