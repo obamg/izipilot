@@ -21,7 +21,12 @@ export async function PUT(
   }
 
   try {
-    await setDepartmentHeadBackup(session.user.orgId, departmentId, parsed.data.backupUserId);
+    await setDepartmentHeadBackup(
+      session.user.orgId,
+      departmentId,
+      parsed.data.backupUserId,
+      session.user.id
+    );
     return Response.json({ ok: true });
   } catch (err) {
     if (err instanceof RoleAssignmentError) {

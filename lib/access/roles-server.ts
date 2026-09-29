@@ -1,6 +1,7 @@
 // lib/access/roles-server.ts
 import { prisma } from "@/lib/prisma";
 import { isAvailable } from "./roles";
+import { recordAuditInTx } from "./audit-server";
 import type { EffectiveRole } from "./scope";
 import type { AccessModuleRole } from "./types";
 
@@ -304,41 +305,90 @@ export async function listDepartmentHeadCoverage(orgId: string): Promise<Departm
  * demande routée par son département, sans recours pour le Platform
  * Administrator. `backupUserId: null` retire le suppléant (supprime la
  * ligne s'il n'y a plus rien d'autre à y conserver en phase 3a).
+ *
+ * Toute la fonction s'exécute dans une transaction unique : la mutation et
+ * l'écriture de l'`AccessAuditEvent` via `recordAuditInTx` sont atomiques
+ * (contrainte globale du plan phase 3a — jamais `recordAudit` non
+ * transactionnel pour une mutation de ce module). `actorId` est celui de
+ * l'appelant (session CEO) ; aucun événement n'est écrit pour un retrait
+ * sans effet (backupUserId déjà null, aucune ligne à supprimer).
  */
 export async function setDepartmentHeadBackup(
   orgId: string,
   departmentId: string,
-  backupUserId: string | null
+  backupUserId: string | null,
+  actorId: string
 ): Promise<void> {
-  const department = await prisma.department.findFirst({ where: { id: departmentId, orgId } });
-  if (!department) throw new RoleAssignmentError("Département introuvable dans cette organisation");
+  await prisma.$transaction(async (tx) => {
+    const department = await tx.department.findFirst({ where: { id: departmentId, orgId } });
+    if (!department) throw new RoleAssignmentError("Département introuvable dans cette organisation");
 
-  if (backupUserId !== null && backupUserId === department.ownerId) {
-    throw new RoleAssignmentError("Le suppléant ne peut pas être la même personne que le chef de département");
-  }
+    if (backupUserId !== null && backupUserId === department.ownerId) {
+      throw new RoleAssignmentError("Le suppléant ne peut pas être la même personne que le chef de département");
+    }
 
-  const existing = await prisma.accessRoleAssignment.findFirst({
-    where: { orgId, role: "DEPARTMENT_HEAD", departmentId },
+    const existing = await tx.accessRoleAssignment.findFirst({
+      where: { orgId, role: "DEPARTMENT_HEAD", departmentId },
+    });
+    const beforeSnapshot = existing
+      ? { backupUserId: existing.backupUserId, primaryUnavailable: existing.primaryUnavailable }
+      : null;
+
+    if (backupUserId === null) {
+      if (!existing) return; // rien à retirer : pas de mutation, pas d'événement d'audit
+      await tx.accessRoleAssignment.delete({ where: { id: existing.id } });
+      await recordAuditInTx(tx, {
+        orgId,
+        actorId,
+        actorRole: null,
+        primaryCoveredId: department.ownerId,
+        scopeType: "ROLE_ASSIGNMENT",
+        scopeId: existing.id,
+        eventType: "DEPARTMENT_HEAD_BACKUP_REMOVED",
+        objectType: "AccessRoleAssignment",
+        objectId: existing.id,
+        objectVersion: null,
+        beneficiaryId: existing.backupUserId,
+        before: beforeSnapshot,
+        after: null,
+        reason: null,
+        outcome: "SUCCESS",
+        correlationId: null,
+      });
+      return;
+    }
+
+    const memberCount = await tx.user.count({ where: { id: backupUserId, orgId } });
+    if (memberCount !== 1) {
+      throw new RoleAssignmentError("Le suppléant n'appartient pas à cette organisation");
+    }
+
+    const row = existing
+      ? await tx.accessRoleAssignment.update({
+          where: { id: existing.id },
+          data: { backupUserId, revision: { increment: 1 } },
+        })
+      : await tx.accessRoleAssignment.create({
+          data: { orgId, role: "DEPARTMENT_HEAD", departmentId, backupUserId },
+        });
+
+    await recordAuditInTx(tx, {
+      orgId,
+      actorId,
+      actorRole: null,
+      primaryCoveredId: department.ownerId,
+      scopeType: "ROLE_ASSIGNMENT",
+      scopeId: row.id,
+      eventType: "DEPARTMENT_HEAD_BACKUP_SET",
+      objectType: "AccessRoleAssignment",
+      objectId: row.id,
+      objectVersion: row.revision,
+      beneficiaryId: backupUserId,
+      before: beforeSnapshot,
+      after: { backupUserId: row.backupUserId, primaryUnavailable: row.primaryUnavailable },
+      reason: null,
+      outcome: "SUCCESS",
+      correlationId: null,
+    });
   });
-
-  if (backupUserId === null) {
-    if (existing) await prisma.accessRoleAssignment.delete({ where: { id: existing.id } });
-    return;
-  }
-
-  const memberCount = await prisma.user.count({ where: { id: backupUserId, orgId } });
-  if (memberCount !== 1) {
-    throw new RoleAssignmentError("Le suppléant n'appartient pas à cette organisation");
-  }
-
-  if (existing) {
-    await prisma.accessRoleAssignment.update({
-      where: { id: existing.id },
-      data: { backupUserId, revision: { increment: 1 } },
-    });
-  } else {
-    await prisma.accessRoleAssignment.create({
-      data: { orgId, role: "DEPARTMENT_HEAD", departmentId, backupUserId },
-    });
-  }
 }

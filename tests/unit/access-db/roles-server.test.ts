@@ -254,16 +254,30 @@ describe("roles-server — suppléant de chef de département", () => {
     expect(row?.assignmentId).toBeNull();
   });
 
-  it("assigne un suppléant : coverage le reflète", async () => {
-    await setDepartmentHeadBackup(orgId, departmentId, backupId);
+  it("assigne un suppléant : coverage le reflète et un AccessAuditEvent SET est écrit", async () => {
+    await setDepartmentHeadBackup(orgId, departmentId, backupId, ownerId);
     const coverage = await listDepartmentHeadCoverage(orgId);
     const row = coverage.find((c) => c.departmentId === departmentId);
     expect(row?.backupUserId).toBe(backupId);
     expect(row?.assignmentId).not.toBeNull();
+
+    const event = await prisma.accessAuditEvent.findFirst({
+      where: {
+        orgId,
+        objectType: "AccessRoleAssignment",
+        objectId: row?.assignmentId as string,
+        eventType: "DEPARTMENT_HEAD_BACKUP_SET",
+      },
+      orderBy: { occurredAt: "desc" },
+    });
+    expect(event).not.toBeNull();
+    expect(event?.actorId).toBe(ownerId);
+    expect(event?.beneficiaryId).toBe(backupId);
+    expect(event?.outcome).toBe("SUCCESS");
   });
 
   it("le suppléant ne peut pas être le chef lui-même", async () => {
-    await expect(setDepartmentHeadBackup(orgId, departmentId, ownerId)).rejects.toThrow();
+    await expect(setDepartmentHeadBackup(orgId, departmentId, ownerId, ownerId)).rejects.toThrow();
   });
 
   it("le suppléant doit appartenir à la même organisation", async () => {
@@ -273,17 +287,38 @@ describe("roles-server — suppléant de chef de département", () => {
     const outsider = await prisma.user.create({
       data: { orgId: otherOrg.id, email: `outsider-${Date.now()}@example.com`, name: "Outsider", role: "PO" },
     });
-    await expect(setDepartmentHeadBackup(orgId, departmentId, outsider.id)).rejects.toThrow();
+    await expect(setDepartmentHeadBackup(orgId, departmentId, outsider.id, ownerId)).rejects.toThrow();
     await prisma.user.delete({ where: { id: outsider.id } });
     await prisma.organization.delete({ where: { id: otherOrg.id } });
   });
 
-  it("retirer le suppléant (null) supprime la ligne", async () => {
-    await setDepartmentHeadBackup(orgId, departmentId, backupId);
-    await setDepartmentHeadBackup(orgId, departmentId, null);
+  it("retirer le suppléant (null) supprime la ligne et un AccessAuditEvent REMOVED est écrit", async () => {
+    await setDepartmentHeadBackup(orgId, departmentId, backupId, ownerId);
+    const before = await listDepartmentHeadCoverage(orgId);
+    const assignmentId = before.find((c) => c.departmentId === departmentId)?.assignmentId as string;
+
+    await setDepartmentHeadBackup(orgId, departmentId, null, ownerId);
     const coverage = await listDepartmentHeadCoverage(orgId);
     const row = coverage.find((c) => c.departmentId === departmentId);
     expect(row?.backupUserId).toBeNull();
     expect(row?.assignmentId).toBeNull();
+
+    const event = await prisma.accessAuditEvent.findFirst({
+      where: {
+        orgId,
+        objectType: "AccessRoleAssignment",
+        objectId: assignmentId,
+        eventType: "DEPARTMENT_HEAD_BACKUP_REMOVED",
+      },
+    });
+    expect(event).not.toBeNull();
+    expect(event?.beneficiaryId).toBe(backupId);
+  });
+
+  it("retirer un suppléant déjà absent n'écrit aucun AccessAuditEvent (pas de mutation, pas d'audit)", async () => {
+    const countBefore = await prisma.accessAuditEvent.count({ where: { orgId } });
+    await setDepartmentHeadBackup(orgId, departmentId, null, ownerId);
+    const countAfter = await prisma.accessAuditEvent.count({ where: { orgId } });
+    expect(countAfter).toBe(countBefore);
   });
 });
