@@ -138,7 +138,11 @@ export async function commitCatalogueSeed(
         const existing = await tx.accessAsset.findFirst({
           where: { orgId, name: pair.logiciel },
         });
-        const asset = existing ?? (await tx.accessAsset.create({ data: { orgId, name: pair.logiciel } }));
+        const asset =
+          existing ??
+          (await tx.accessAsset.create({
+            data: { orgId, name: pair.logiciel, sourceLabel: pair.logiciel },
+          }));
         assetId = asset.id;
         assetIdByName.set(pair.logiciel, assetId);
       }
@@ -149,7 +153,13 @@ export async function commitCatalogueSeed(
       const outcome: "MATCHED" | "DRAFT_CREATED" = level ? "MATCHED" : "DRAFT_CREATED";
       if (!level) {
         level = await tx.accessLevel.create({
-          data: { assetId, name: pair.niveauAcces, priority: null, isAdmin: null },
+          data: {
+            assetId,
+            name: pair.niveauAcces,
+            priority: null,
+            isAdmin: null,
+            sourceLabel: pair.niveauAcces,
+          },
         });
       }
 
