@@ -19,6 +19,7 @@ interface SidebarProps {
   canManageAccessRoles?: boolean;
   canManageAccessAssets?: boolean;
   canViewAccessAudit?: boolean;
+  canApproveRequests?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -182,6 +183,16 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: "/requests/mine",
+    label: "Mes demandes",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+        <path d="M9 6h11M9 12h11M9 18h11" />
+        <path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />
+      </svg>
+    ),
+  },
 ] as const;
 
 const ADMIN_ITEMS = [
@@ -203,6 +214,7 @@ export function Sidebar({
   canManageAccessRoles,
   canManageAccessAssets,
   canViewAccessAudit,
+  canApproveRequests,
   isOpen = false,
   onClose,
 }: SidebarProps) {
@@ -288,6 +300,28 @@ export function Sidebar({
               </Link>
             );
           })}
+
+          {/* Mes approbations — chef de département, CISO ou COO effectif
+              (rôles cumulables). Volontairement en dehors du bloc conditionnel
+              "Accès" ci-dessous : ce lien n'a rien à voir avec les rôles
+              d'administration du module (rôles/actifs/audit). */}
+          {canApproveRequests && (
+            <Link
+              href="/requests/approvals"
+              onClick={onClose}
+              className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                isNavActive("/requests/approvals")
+                  ? "bg-teal/[0.18] text-[#7dd8d8]"
+                  : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                <path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Mes approbations
+            </Link>
+          )}
 
           {/* Flux de tableau — CEO, Management et PO (périmètre limité pour un PO) */}
           {(userRole === "CEO" || userRole === "MANAGEMENT" || userRole === "PO") && (

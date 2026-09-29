@@ -147,6 +147,9 @@ export default async function DashboardLayout({
   const canManageAccessRoles = session.user.role === "CEO";
   const canManageAccessAssets = accessRoles.some((r) => r.role === "ASSET_ADMINISTRATOR");
   const canViewAccessAudit = accessRoles.some((r) => r.role === "AUDIT_VIEWER");
+  const canApproveRequests = accessRoles.some(
+    (r) => r.role === "DEPARTMENT_HEAD" || r.role === "CISO" || r.role === "COO"
+  );
 
   return (
     <DashboardShell
@@ -161,6 +164,7 @@ export default async function DashboardLayout({
       canManageAccessRoles={canManageAccessRoles}
       canManageAccessAssets={canManageAccessAssets}
       canViewAccessAudit={canViewAccessAudit}
+      canApproveRequests={canApproveRequests}
     >
       {vapidPublicKey && <PushNudgeBanner vapidPublicKey={vapidPublicKey} />}
       {children}

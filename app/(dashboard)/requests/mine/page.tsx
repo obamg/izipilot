@@ -3,16 +3,18 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listMyRequests } from "@/lib/access/requests-read-server";
+import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SubmitRequestForm } from "@/components/access/SubmitRequestForm";
 import { MyRequestActions } from "@/components/access/MyRequestActions";
+import { DepartmentReductionPanel } from "@/components/access/DepartmentReductionPanel";
 
 export default async function MyRequestsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const orgId = session.user.orgId;
-  const [myRequests, assets] = await Promise.all([
+  const [myRequests, assets, effectiveRoles] = await Promise.all([
     listMyRequests(orgId, session.user.id),
     prisma.accessAsset.findMany({
       where: { orgId, archivedAt: null, requestsEnabled: true },
@@ -23,13 +25,21 @@ export default async function MyRequestsPage() {
       },
       orderBy: { name: "asc" },
     }),
+    getEffectiveRoleHolders(orgId, session.user.id),
   ]);
 
   const serializedRequests = myRequests.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
 
+  const headedDepartmentIds = effectiveRoles
+    .filter((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId !== null)
+    .map((r) => r.departmentId as string);
+
   return (
     <div>
       <PageHeader title="Mes demandes" subtitle="Soumettre et suivre vos demandes d'accès" />
+      {headedDepartmentIds.map((id) => (
+        <DepartmentReductionPanel key={id} departmentId={id} />
+      ))}
       <SubmitRequestForm assets={assets} currentUserId={session.user.id} />
       <div className="mt-6">
         <h2 className="font-serif text-[16px] text-dark mb-3">Historique</h2>
