@@ -6,6 +6,7 @@ import {
   respondToClarification,
   reviseRequest,
   cancelRequest,
+  decideBatch,
   RequestError,
 } from "@/lib/access/requests-server";
 
@@ -563,5 +564,86 @@ describe("requests-server — clarification, révision, annulation", () => {
     });
     await expect(cancelRequest(orgId, deptHeadId, v.requestId)).rejects.toThrow(RequestError);
     await cleanup(v.requestId);
+  });
+});
+
+describe("requests-server — décisions en lot", () => {
+  let orgId: string;
+  let employeeAId: string;
+  let employeeBId: string;
+  let deptHeadId: string;
+  let departmentId: string;
+  let assetId: string;
+  let levelReaderId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test Batch Org", slug: `test-batch-decide-${Date.now()}` },
+    });
+    orgId = org.id;
+
+    const [employeeA, employeeB, deptHead] = await Promise.all([
+      prisma.user.create({ data: { orgId, email: `empa-${Date.now()}@example.com`, name: "EmployeeA", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `empb-${Date.now()}@example.com`, name: "EmployeeB", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `dh-b-${Date.now()}@example.com`, name: "DeptHead", role: "PO" } }),
+    ]);
+    employeeAId = employeeA.id;
+    employeeBId = employeeB.id;
+    deptHeadId = deptHead.id;
+
+    await Promise.all(
+      [employeeAId, employeeBId, deptHeadId].map((userId) =>
+        prisma.accessProfile.create({ data: { orgId, userId, lifecycle: "ACTIVE" } })
+      )
+    );
+
+    const dept = await prisma.department.create({
+      data: { orgId, code: "DB", name: "Dept Batch", color: "#000000", ownerId: deptHeadId },
+    });
+    departmentId = dept.id;
+    await prisma.departmentMember.createMany({
+      data: [{ departmentId, userId: employeeAId }, { departmentId, userId: employeeBId }],
+    });
+
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Batch" } });
+    assetId = asset.id;
+    const level = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
+    levelReaderId = level.id;
+  });
+
+  afterAll(async () => {
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
+    await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
+    await prisma.accessRequest.deleteMany({ where: { orgId } });
+    await prisma.accessLevel.deleteMany({ where: { asset: { orgId } } });
+    await prisma.accessAsset.deleteMany({ where: { orgId } });
+    await prisma.departmentMember.deleteMany({ where: { department: { orgId } } });
+    await prisma.department.deleteMany({ where: { orgId } });
+    await prisma.accessProfile.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  it("chaque item du lot a un résultat indépendant — un échec n'empêche pas les autres", async () => {
+    const vA = await submitRequest(orgId, employeeAId, {
+      beneficiaryId: employeeAId, assetId, targetLevelId: levelReaderId, justification: "A",
+    });
+    const vB = await submitRequest(orgId, employeeBId, {
+      beneficiaryId: employeeBId, assetId, targetLevelId: levelReaderId, justification: "B",
+    });
+
+    const results = await decideBatch(orgId, deptHeadId, [
+      { stageId: vA.stages[0].id, decision: "APPROVE", reason: null },
+      { stageId: "id-inexistant", decision: "APPROVE", reason: null },
+      { stageId: vB.stages[0].id, decision: "APPROVE", reason: null },
+    ]);
+
+    expect(results[0]).toEqual({ stageId: vA.stages[0].id, ok: true, error: null });
+    expect(results[1].ok).toBe(false);
+    expect(results[2]).toEqual({ stageId: vB.stages[0].id, ok: true, error: null });
+
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: { in: [vA.id, vB.id] } } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: { in: [vA.id, vB.id] } } });
+    await prisma.accessRequest.deleteMany({ where: { id: { in: [vA.requestId, vB.requestId] } } });
   });
 });

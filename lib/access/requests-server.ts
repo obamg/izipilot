@@ -766,3 +766,43 @@ export async function cancelRequest(orgId: string, actorId: string, requestId: s
     });
   });
 }
+
+export interface BatchDecisionItem {
+  stageId: string;
+  decision: DecisionType;
+  reason: string | null;
+  escalateToCoo?: boolean;
+}
+
+export interface BatchDecisionItemResult {
+  stageId: string;
+  ok: boolean;
+  error: string | null;
+}
+
+/**
+ * Chaque item est indépendant (spec §9 : "Each item has independent
+ * version, decision, task, and result... proceed without waiting for
+ * pending/rejected siblings") — jamais de transaction commune entre items,
+ * un échec ne doit affecter aucun autre item du lot.
+ */
+export async function decideBatch(
+  orgId: string,
+  actorId: string,
+  items: BatchDecisionItem[]
+): Promise<BatchDecisionItemResult[]> {
+  const results: BatchDecisionItemResult[] = [];
+  for (const item of items) {
+    try {
+      await decideStage(orgId, actorId, item.stageId, item.decision, item.reason, item.escalateToCoo);
+      results.push({ stageId: item.stageId, ok: true, error: null });
+    } catch (err) {
+      results.push({
+        stageId: item.stageId,
+        ok: false,
+        error: err instanceof RequestError ? err.message : "Erreur inattendue",
+      });
+    }
+  }
+  return results;
+}
