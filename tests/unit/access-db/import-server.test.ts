@@ -5,6 +5,7 @@ import {
   commitCatalogueSeed,
   previewBaselineAssignments,
   commitBaselineAssignments,
+  listImportBatches,
   ImportError,
 } from "@/lib/access/import-server";
 
@@ -278,5 +279,64 @@ describe("import-server — baseline assignments", () => {
     const assignment = await prisma.accessAssignment.findFirstOrThrow({ where: { userId: employeeId, assetId } });
     await prisma.accessAssignmentEvent.deleteMany({ where: { assignmentId: assignment.id } });
     await prisma.accessAssignment.delete({ where: { id: assignment.id } });
+  });
+});
+
+describe("import-server — historique", () => {
+  let orgId: string;
+  let actorId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test History Org", slug: `test-history-${Date.now()}` },
+    });
+    orgId = org.id;
+    const actor = await prisma.user.create({
+      data: { orgId, email: `actor-hist-${Date.now()}@example.com`, name: "Actor", role: "CEO" },
+    });
+    actorId = actor.id;
+  });
+
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  it("liste les lots de l'org, triés du plus récent au plus ancien, filtrable par mode", async () => {
+    await previewCatalogueSeed(
+      orgId, actorId, "a.csv",
+      "utilisateur;nom_complet;departement;logiciel;niveau_acces\nu;U;NULL;L;N\n"
+    );
+    await previewBaselineAssignments(orgId, actorId, "b.csv", "user_id;asset_id;access_level_id\nu1;a1;l1\n");
+
+    const all = await listImportBatches(orgId);
+    expect(all).toHaveLength(2);
+    expect(all[0].fileName).toBe("b.csv");
+    expect(all[0].actorName).toBe("Actor");
+
+    const seedOnly = await listImportBatches(orgId, "CATALOGUE_SEED");
+    expect(seedOnly).toHaveLength(1);
+    expect(seedOnly[0].fileName).toBe("a.csv");
+  });
+
+  it("n'affiche jamais les lots d'une autre organisation", async () => {
+    const otherOrg = await prisma.organization.create({
+      data: { name: "Other Org", slug: `other-${Date.now()}` },
+    });
+    const otherActor = await prisma.user.create({
+      data: { orgId: otherOrg.id, email: `other-${Date.now()}@example.com`, name: "Other", role: "CEO" },
+    });
+    await previewCatalogueSeed(
+      otherOrg.id, otherActor.id, "isolated.csv",
+      "utilisateur;nom_complet;departement;logiciel;niveau_acces\nu;U;NULL;L;N\n"
+    );
+
+    const mine = await listImportBatches(orgId);
+    expect(mine.some((b) => b.fileName === "isolated.csv")).toBe(false);
+
+    await prisma.importBatch.deleteMany({ where: { orgId: otherOrg.id } });
+    await prisma.user.delete({ where: { id: otherActor.id } });
+    await prisma.organization.delete({ where: { id: otherOrg.id } });
   });
 });
