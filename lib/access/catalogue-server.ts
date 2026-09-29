@@ -204,11 +204,12 @@ export interface UpdateLevelInput {
  */
 export async function updateLevel(
   levelId: string,
+  assetId: string,
   orgId: string,
   input: UpdateLevelInput
 ): Promise<LevelDTO> {
   const existing = await prisma.accessLevel.findFirst({
-    where: { id: levelId, asset: { orgId } },
+    where: { id: levelId, assetId, asset: { orgId } },
   });
   if (!existing) throw new CatalogueError("Niveau introuvable");
 
@@ -234,9 +235,13 @@ export async function updateLevel(
   return levelToDTO(level);
 }
 
-export async function archiveLevel(levelId: string, orgId: string): Promise<LevelDTO> {
+export async function archiveLevel(
+  levelId: string,
+  assetId: string,
+  orgId: string
+): Promise<LevelDTO> {
   const existing = await prisma.accessLevel.findFirst({
-    where: { id: levelId, asset: { orgId } },
+    where: { id: levelId, assetId, asset: { orgId } },
   });
   if (!existing) throw new CatalogueError("Niveau introuvable");
 

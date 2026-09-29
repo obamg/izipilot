@@ -53,17 +53,43 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
   }
 
   async function toggleAdmin(level: LevelDTO) {
-    await fetch(`/api/access/assets/${asset.id}/levels/${level.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isAdmin: !level.isAdmin }),
-    });
-    onChanged();
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/access/assets/${asset.id}/levels/${level.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isAdmin: !level.isAdmin }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Erreur lors de la mise à jour du niveau");
+      }
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function archiveLevel(level: LevelDTO) {
-    await fetch(`/api/access/assets/${asset.id}/levels/${level.id}`, { method: "DELETE" });
-    onChanged();
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/access/assets/${asset.id}/levels/${level.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Erreur lors de l'archivage du niveau");
+      }
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

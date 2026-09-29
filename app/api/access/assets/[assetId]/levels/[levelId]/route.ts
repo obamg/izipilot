@@ -16,7 +16,7 @@ export async function PATCH(
     }
     throw err;
   }
-  const { levelId } = await params;
+  const { assetId, levelId } = await params;
 
   const body = await request.json();
   const parsed = updateLevelSchema.safeParse(body);
@@ -28,7 +28,7 @@ export async function PATCH(
   }
 
   try {
-    const level = await updateLevel(levelId, ctx.orgId, parsed.data);
+    const level = await updateLevel(levelId, assetId, ctx.orgId, parsed.data);
 
     await recordAudit({
       orgId: ctx.orgId,
@@ -71,10 +71,10 @@ export async function DELETE(
     }
     throw err;
   }
-  const { levelId } = await params;
+  const { assetId, levelId } = await params;
 
   try {
-    const level = await archiveLevel(levelId, ctx.orgId);
+    const level = await archiveLevel(levelId, assetId, ctx.orgId);
 
     await recordAudit({
       orgId: ctx.orgId,

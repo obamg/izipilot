@@ -44,7 +44,7 @@ export function ConfigIssuesPanel({ issues, departments }: ConfigIssuesPanelProp
   }
 
   return (
-    <div className="mb-4 rounded-[10px] border border-[#f4a900]/30 bg-[#fffbe6] px-4 py-3">
+    <div className="mb-4 rounded-[10px] border border-gold/30 bg-gold-lt px-4 py-3">
       <p className="text-[12px] font-semibold text-dark mb-2">
         {total} employé{total > 1 ? "s" : ""} sans département principal
       </p>
@@ -53,9 +53,11 @@ export function ConfigIssuesPanel({ issues, departments }: ConfigIssuesPanelProp
           <li key={u.id} className="flex flex-wrap items-center gap-2 text-[11px] text-izi-gray">
             <span>
               {u.name}
-              {u.departmentCount > 1
-                ? ` (membre de ${u.departmentCount} départements)`
-                : " (membre d'aucun département)"}
+              {u.departmentCount === 0
+                ? " (membre d'aucun département)"
+                : u.departmentCount === 1
+                  ? " (membre d'un seul département, à confirmer)"
+                  : ` (membre de ${u.departmentCount} départements)`}
             </span>
             <select
               value={selected[u.id] ?? ""}
