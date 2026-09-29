@@ -25,6 +25,7 @@ interface DashboardShellProps {
   canManageAccessRoles: boolean;
   canManageAccessAssets: boolean;
   canViewAccessAudit: boolean;
+  canApproveRequests: boolean;
 }
 
 export function DashboardShell({
@@ -40,6 +41,7 @@ export function DashboardShell({
   canManageAccessRoles,
   canManageAccessAssets,
   canViewAccessAudit,
+  canApproveRequests,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -62,6 +64,7 @@ export function DashboardShell({
           canManageAccessRoles={canManageAccessRoles}
           canManageAccessAssets={canManageAccessAssets}
           canViewAccessAudit={canViewAccessAudit}
+          canApproveRequests={canApproveRequests}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />

@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
+import {
+  getEffectiveRoleHolders,
+  listDepartmentHeadCoverage,
+  setDepartmentHeadBackup,
+} from "@/lib/access/roles-server";
 
 describe("roles-server — getEffectiveRoleHolders", () => {
   let orgId: string;
@@ -127,12 +131,8 @@ describe("roles-server — getEffectiveRoleHolders", () => {
   });
 
   it("DEPARTMENT_HEAD : le suppléant agit si le titulaire est marqué indisponible via l'affectation dédiée", async () => {
-    // Double condition du code (lignes 149-161 de roles-server.ts, cf. son
-    // commentaire) : il faut à la fois primaryUnavailable=true sur
-    // l'affectation ET que le titulaire soit réellement indisponible
-    // (isActive=false ici) pour que le suppléant agisse — contrairement aux
-    // rôles non liés à un département, où une seule des deux conditions
-    // suffit (lib/access/roles.ts, resolveActingUser).
+    // Titulaire marqué indisponible ET inactif : le suppléant agit (cas
+    // couvert a fortiori par la règle OU du correctif revue finale).
     const owner = await createUser("dept-owner-unavailable", { isActive: false });
     const backup = await createUser("dept-backup-acting");
     const dept = await prisma.department.create({
@@ -164,21 +164,53 @@ describe("roles-server — getEffectiveRoleHolders", () => {
     });
   });
 
-  it("DEPARTMENT_HEAD : le suppléant N'agit PAS si primaryUnavailable est false, même si le titulaire est isActive=false (comportement existant, non « corrigé » ici)", async () => {
-    // Titulaire créé directement inactif : ce test documente le comportement
-    // à double condition déjà en place (lignes 149-161 de roles-server.ts) —
-    // le suppléant d'un chef de département n'agit que si primaryUnavailable
-    // est explicitement vrai, peu importe la disponibilité réelle du
-    // titulaire. C'est une incohérence mineure déjà repérée et mise de côté
-    // pour cette vague de correctifs (hors périmètre) : ce test vérifie ce
-    // que le code fait réellement, pas ce qu'il « devrait » faire.
+  it("DEPARTMENT_HEAD : titulaire marqué indisponible avec compte ACTIF — le titulaire perd le rôle, le suppléant le reprend", async () => {
+    // Cas réel (chef en congé) : seul le drapeau primaryUnavailable change,
+    // le compte du titulaire reste actif. Correctif revue finale : même
+    // schéma que les autres rôles (auparavant, le titulaire ignorait le
+    // drapeau et le suppléant exigeait EN PLUS la désactivation du compte).
+    const owner = await createUser("dept-owner-on-leave");
+    const backup = await createUser("dept-backup-on-leave");
+    const dept = await prisma.department.create({
+      data: {
+        orgId,
+        code: `RS-${Date.now()}-c`,
+        name: "Département test — titulaire en congé",
+        color: "#f4a900",
+        ownerId: owner.id,
+      },
+    });
+    await prisma.accessRoleAssignment.create({
+      data: {
+        orgId,
+        role: "DEPARTMENT_HEAD",
+        departmentId: dept.id,
+        userId: null,
+        backupUserId: backup.id,
+        primaryUnavailable: true,
+      },
+    });
+
+    const ownerEffective = await getEffectiveRoleHolders(orgId, owner.id);
+    expect(ownerEffective.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === dept.id)).toBe(false);
+
+    const backupEffective = await getEffectiveRoleHolders(orgId, backup.id);
+    expect(backupEffective).toContainEqual({
+      role: "DEPARTMENT_HEAD",
+      actsAsPrimary: false,
+      departmentId: dept.id,
+    });
+  });
+
+  it("DEPARTMENT_HEAD : le suppléant agit aussi si primaryUnavailable est false mais que le titulaire est réellement indisponible (isActive=false)", async () => {
+    // Règle OU, identique aux autres rôles : drapeau OU indisponibilité réelle.
     const owner = await createUser("dept-owner-inactive-but-not-flagged", { isActive: false });
-    const backup = await createUser("dept-backup-not-acting");
+    const backup = await createUser("dept-backup-acting-inactive-owner");
     const dept = await prisma.department.create({
       data: {
         orgId,
         code: `RS-${Date.now()}-b`,
-        name: "Département test — suppléant n'agit pas",
+        name: "Département test — titulaire inactif non marqué",
         color: "#e23c4a",
         ownerId: owner.id,
       },
@@ -196,9 +228,46 @@ describe("roles-server — getEffectiveRoleHolders", () => {
     });
 
     const effective = await getEffectiveRoleHolders(orgId, backup.id);
+    expect(effective).toContainEqual({
+      role: "DEPARTMENT_HEAD",
+      actsAsPrimary: false,
+      departmentId: dept.id,
+    });
+  });
+
+  it("DEPARTMENT_HEAD : titulaire actif et non marqué — le suppléant N'agit PAS", async () => {
+    const owner = await createUser("dept-owner-available");
+    const backup = await createUser("dept-backup-idle");
+    const dept = await prisma.department.create({
+      data: {
+        orgId,
+        code: `RS-${Date.now()}-d`,
+        name: "Département test — titulaire disponible",
+        color: "#1c3a4a",
+        ownerId: owner.id,
+      },
+    });
+    await prisma.accessRoleAssignment.create({
+      data: {
+        orgId,
+        role: "DEPARTMENT_HEAD",
+        departmentId: dept.id,
+        userId: null,
+        backupUserId: backup.id,
+        primaryUnavailable: false,
+      },
+    });
+
     expect(
-      effective.some((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === dept.id)
+      (await getEffectiveRoleHolders(orgId, backup.id)).some(
+        (r) => r.role === "DEPARTMENT_HEAD" && r.departmentId === dept.id
+      )
     ).toBe(false);
+    expect(await getEffectiveRoleHolders(orgId, owner.id)).toContainEqual({
+      role: "DEPARTMENT_HEAD",
+      actsAsPrimary: true,
+      departmentId: dept.id,
+    });
   });
 
   it("utilisateur sans aucune affectation ni département possédé : tableau vide", async () => {
@@ -206,5 +275,115 @@ describe("roles-server — getEffectiveRoleHolders", () => {
 
     const effective = await getEffectiveRoleHolders(orgId, plain.id);
     expect(effective).toEqual([]);
+  });
+});
+
+describe("roles-server — suppléant de chef de département", () => {
+  let orgId: string;
+  let departmentId: string;
+  let ownerId: string;
+  let backupId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test DeptBackup Org", slug: `test-deptbackup-${Date.now()}` },
+    });
+    orgId = org.id;
+    const owner = await prisma.user.create({
+      data: { orgId, email: `owner-${Date.now()}@example.com`, name: "Owner", role: "PO" },
+    });
+    ownerId = owner.id;
+    const backup = await prisma.user.create({
+      data: { orgId, email: `backup-${Date.now()}@example.com`, name: "Backup", role: "PO" },
+    });
+    backupId = backup.id;
+    const dept = await prisma.department.create({
+      data: { orgId, code: "DX", name: "Département Test", color: "#000000", ownerId },
+    });
+    departmentId = dept.id;
+  });
+
+  afterAll(async () => {
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
+    await prisma.department.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  it("aucun suppléant configuré : coverage renvoie backupUserId null", async () => {
+    const coverage = await listDepartmentHeadCoverage(orgId);
+    const row = coverage.find((c) => c.departmentId === departmentId);
+    expect(row).toBeDefined();
+    expect(row?.ownerId).toBe(ownerId);
+    expect(row?.backupUserId).toBeNull();
+    expect(row?.assignmentId).toBeNull();
+  });
+
+  it("assigne un suppléant : coverage le reflète et un AccessAuditEvent SET est écrit", async () => {
+    await setDepartmentHeadBackup(orgId, departmentId, backupId, ownerId);
+    const coverage = await listDepartmentHeadCoverage(orgId);
+    const row = coverage.find((c) => c.departmentId === departmentId);
+    expect(row?.backupUserId).toBe(backupId);
+    expect(row?.assignmentId).not.toBeNull();
+
+    const event = await prisma.accessAuditEvent.findFirst({
+      where: {
+        orgId,
+        objectType: "AccessRoleAssignment",
+        objectId: row?.assignmentId as string,
+        eventType: "DEPARTMENT_HEAD_BACKUP_SET",
+      },
+      orderBy: { occurredAt: "desc" },
+    });
+    expect(event).not.toBeNull();
+    expect(event?.actorId).toBe(ownerId);
+    expect(event?.beneficiaryId).toBe(backupId);
+    expect(event?.outcome).toBe("SUCCESS");
+  });
+
+  it("le suppléant ne peut pas être le chef lui-même", async () => {
+    await expect(setDepartmentHeadBackup(orgId, departmentId, ownerId, ownerId)).rejects.toThrow();
+  });
+
+  it("le suppléant doit appartenir à la même organisation", async () => {
+    const otherOrg = await prisma.organization.create({
+      data: { name: "Other Org DeptBackup", slug: `other-deptbackup-${Date.now()}` },
+    });
+    const outsider = await prisma.user.create({
+      data: { orgId: otherOrg.id, email: `outsider-${Date.now()}@example.com`, name: "Outsider", role: "PO" },
+    });
+    await expect(setDepartmentHeadBackup(orgId, departmentId, outsider.id, ownerId)).rejects.toThrow();
+    await prisma.user.delete({ where: { id: outsider.id } });
+    await prisma.organization.delete({ where: { id: otherOrg.id } });
+  });
+
+  it("retirer le suppléant (null) supprime la ligne et un AccessAuditEvent REMOVED est écrit", async () => {
+    await setDepartmentHeadBackup(orgId, departmentId, backupId, ownerId);
+    const before = await listDepartmentHeadCoverage(orgId);
+    const assignmentId = before.find((c) => c.departmentId === departmentId)?.assignmentId as string;
+
+    await setDepartmentHeadBackup(orgId, departmentId, null, ownerId);
+    const coverage = await listDepartmentHeadCoverage(orgId);
+    const row = coverage.find((c) => c.departmentId === departmentId);
+    expect(row?.backupUserId).toBeNull();
+    expect(row?.assignmentId).toBeNull();
+
+    const event = await prisma.accessAuditEvent.findFirst({
+      where: {
+        orgId,
+        objectType: "AccessRoleAssignment",
+        objectId: assignmentId,
+        eventType: "DEPARTMENT_HEAD_BACKUP_REMOVED",
+      },
+    });
+    expect(event).not.toBeNull();
+    expect(event?.beneficiaryId).toBe(backupId);
+  });
+
+  it("retirer un suppléant déjà absent n'écrit aucun AccessAuditEvent (pas de mutation, pas d'audit)", async () => {
+    const countBefore = await prisma.accessAuditEvent.count({ where: { orgId } });
+    await setDepartmentHeadBackup(orgId, departmentId, null, ownerId);
+    const countAfter = await prisma.accessAuditEvent.count({ where: { orgId } });
+    expect(countAfter).toBe(countBefore);
   });
 });

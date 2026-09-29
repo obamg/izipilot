@@ -1,6 +1,8 @@
 // lib/access/roles-server.ts
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isAvailable } from "./roles";
+import { recordAuditInTx } from "./audit-server";
 import type { EffectiveRole } from "./scope";
 import type { AccessModuleRole } from "./types";
 
@@ -73,14 +75,22 @@ export async function listRoleAssignments(orgId: string): Promise<RoleAssignment
  * ce qui pouvait accorder le rôle à un suppléant alors que le titulaire réel
  * était pleinement actif. La requête sur les départements suppléés doit donc
  * être faite en amont, comme ci-dessous.
+ *
+ * `client` permet d'exécuter cette lecture au sein d'une transaction
+ * interactive (`tx`) plutôt que sur le client global — nécessaire pour que
+ * `decideStage` (Tâche 5) puisse revalider l'éligibilité de l'acteur de
+ * manière atomique avec la décision elle-même (fermeture d'un TOCTOU).
+ * Le défaut (`prisma`) préserve le comportement de tous les appelants
+ * existants (dont `submitRequest`, Tâche 4).
  */
 export async function getEffectiveRoleHolders(
   orgId: string,
-  userId: string
+  userId: string,
+  client: Prisma.TransactionClient | typeof prisma = prisma
 ): Promise<EffectiveRole[]> {
   const [roleAssignments, ownedDepartments] = await Promise.all([
-    prisma.accessRoleAssignment.findMany({ where: { orgId } }),
-    prisma.department.findMany({ where: { orgId, ownerId: userId }, select: { id: true } }),
+    client.accessRoleAssignment.findMany({ where: { orgId } }),
+    client.department.findMany({ where: { orgId, ownerId: userId }, select: { id: true } }),
   ]);
 
   // Départements pour lesquels cet utilisateur est suppléant d'un chef — il
@@ -90,7 +100,7 @@ export async function getEffectiveRoleHolders(
     (a) => a.role === "DEPARTMENT_HEAD" && a.backupUserId === userId && a.departmentId
   );
   const backedDepartments = departmentHeadAssignments.length
-    ? await prisma.department.findMany({
+    ? await client.department.findMany({
         where: { id: { in: departmentHeadAssignments.map((a) => a.departmentId as string) } },
         select: { id: true, ownerId: true },
       })
@@ -106,11 +116,11 @@ export async function getEffectiveRoleHolders(
   userIds.add(userId);
 
   const [users, profiles] = await Promise.all([
-    prisma.user.findMany({
+    client.user.findMany({
       where: { id: { in: [...userIds] } },
       select: { id: true, isActive: true },
     }),
-    prisma.accessProfile.findMany({
+    client.accessProfile.findMany({
       where: { userId: { in: [...userIds] } },
       select: { userId: true, lifecycle: true },
     }),
@@ -139,19 +149,35 @@ export async function getEffectiveRoleHolders(
     }
   }
 
+  // Correctif revue finale : DEPARTMENT_HEAD suit désormais exactement le
+  // même schéma que les autres rôles. Le titulaire perd le rôle dès que
+  // l'affectation de SON département est marquée `primaryUnavailable`
+  // (congé, absence — son compte peut rester pleinement actif), et le
+  // suppléant le reprend si le titulaire est marqué indisponible OU
+  // réellement indisponible (compte désactivé, cycle de vie non ACTIVE).
+  // Auparavant, le titulaire ignorait le drapeau et le suppléant exigeait
+  // les DEUX conditions : le bouton « Indisponible » était donc sans effet
+  // pour le cas réel (chef en congé, compte actif).
+  const departmentHeadAssignmentByDept = new Map(
+    roleAssignments
+      .filter((a) => a.role === "DEPARTMENT_HEAD" && a.departmentId)
+      .map((a) => [a.departmentId as string, a])
+  );
+
   // Chef de département direct (Department.ownerId).
   for (const dept of ownedDepartments) {
-    if (availability(userId)) {
+    const assignmentForDept = departmentHeadAssignmentByDept.get(dept.id);
+    if (availability(userId) && !(assignmentForDept?.primaryUnavailable ?? false)) {
       effective.push({ role: "DEPARTMENT_HEAD", actsAsPrimary: true, departmentId: dept.id });
     }
   }
 
-  // Suppléant d'un chef de département : agit seulement si le titulaire
-  // (Department.ownerId) est explicitement marqué indisponible.
+  // Suppléant d'un chef de département : agit si le titulaire
+  // (Department.ownerId) est marqué indisponible OU réellement indisponible.
   for (const a of departmentHeadAssignments) {
     const owner = ownerByDept.get(a.departmentId as string);
     const ownerUnavailable = !owner || !availability(owner);
-    if (availability(userId) && a.primaryUnavailable && ownerUnavailable) {
+    if (availability(userId) && (a.primaryUnavailable || ownerUnavailable)) {
       effective.push({
         role: "DEPARTMENT_HEAD",
         actsAsPrimary: false,
@@ -257,4 +283,137 @@ function isUniqueConstraintError(err: unknown): boolean {
     "code" in err &&
     (err as { code: string }).code === "P2002"
   );
+}
+
+export interface DepartmentHeadCoverageDTO {
+  departmentId: string;
+  departmentName: string;
+  ownerId: string;
+  ownerName: string;
+  assignmentId: string | null;
+  backupUserId: string | null;
+  backupUserName: string | null;
+  primaryUnavailable: boolean;
+}
+
+export async function listDepartmentHeadCoverage(orgId: string): Promise<DepartmentHeadCoverageDTO[]> {
+  const departments = await prisma.department.findMany({
+    where: { orgId, isActive: true },
+    select: { id: true, name: true, ownerId: true, owner: { select: { name: true } } },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  const assignments = await prisma.accessRoleAssignment.findMany({
+    where: { orgId, role: "DEPARTMENT_HEAD" },
+    include: { backupUser: { select: { name: true } } },
+  });
+  const assignmentByDept = new Map(assignments.map((a) => [a.departmentId as string, a]));
+
+  return departments.map((d) => {
+    const assignment = assignmentByDept.get(d.id);
+    return {
+      departmentId: d.id,
+      departmentName: d.name,
+      ownerId: d.ownerId,
+      ownerName: d.owner.name,
+      assignmentId: assignment?.id ?? null,
+      backupUserId: assignment?.backupUserId ?? null,
+      backupUserName: assignment?.backupUser?.name ?? null,
+      primaryUnavailable: assignment?.primaryUnavailable ?? false,
+    };
+  });
+}
+
+/**
+ * Comble la lacune de la phase 1 (Ruling D) : sans ceci, un chef de
+ * département indisponible sans suppléant bloque définitivement toute
+ * demande routée par son département, sans recours pour le Platform
+ * Administrator. `backupUserId: null` retire le suppléant (supprime la
+ * ligne s'il n'y a plus rien d'autre à y conserver en phase 3a).
+ *
+ * Toute la fonction s'exécute dans une transaction unique : la mutation et
+ * l'écriture de l'`AccessAuditEvent` via `recordAuditInTx` sont atomiques
+ * (contrainte globale du plan phase 3a — jamais `recordAudit` non
+ * transactionnel pour une mutation de ce module). `actorId` est celui de
+ * l'appelant (session CEO) ; aucun événement n'est écrit pour un retrait
+ * sans effet (backupUserId déjà null, aucune ligne à supprimer).
+ */
+export async function setDepartmentHeadBackup(
+  orgId: string,
+  departmentId: string,
+  backupUserId: string | null,
+  actorId: string
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const department = await tx.department.findFirst({ where: { id: departmentId, orgId } });
+    if (!department) throw new RoleAssignmentError("Département introuvable dans cette organisation");
+
+    if (backupUserId !== null && backupUserId === department.ownerId) {
+      throw new RoleAssignmentError("Le suppléant ne peut pas être la même personne que le chef de département");
+    }
+
+    const existing = await tx.accessRoleAssignment.findFirst({
+      where: { orgId, role: "DEPARTMENT_HEAD", departmentId },
+    });
+    const beforeSnapshot = existing
+      ? { backupUserId: existing.backupUserId, primaryUnavailable: existing.primaryUnavailable }
+      : null;
+
+    if (backupUserId === null) {
+      if (!existing) return; // rien à retirer : pas de mutation, pas d'événement d'audit
+      await tx.accessRoleAssignment.delete({ where: { id: existing.id } });
+      await recordAuditInTx(tx, {
+        orgId,
+        actorId,
+        actorRole: null,
+        primaryCoveredId: department.ownerId,
+        scopeType: "ROLE_ASSIGNMENT",
+        scopeId: existing.id,
+        eventType: "DEPARTMENT_HEAD_BACKUP_REMOVED",
+        objectType: "AccessRoleAssignment",
+        objectId: existing.id,
+        objectVersion: null,
+        beneficiaryId: existing.backupUserId,
+        before: beforeSnapshot,
+        after: null,
+        reason: null,
+        outcome: "SUCCESS",
+        correlationId: null,
+      });
+      return;
+    }
+
+    const memberCount = await tx.user.count({ where: { id: backupUserId, orgId } });
+    if (memberCount !== 1) {
+      throw new RoleAssignmentError("Le suppléant n'appartient pas à cette organisation");
+    }
+
+    const row = existing
+      ? await tx.accessRoleAssignment.update({
+          where: { id: existing.id },
+          data: { backupUserId, revision: { increment: 1 } },
+        })
+      : await tx.accessRoleAssignment.create({
+          data: { orgId, role: "DEPARTMENT_HEAD", departmentId, backupUserId },
+        });
+
+    await recordAuditInTx(tx, {
+      orgId,
+      actorId,
+      actorRole: null,
+      primaryCoveredId: department.ownerId,
+      scopeType: "ROLE_ASSIGNMENT",
+      scopeId: row.id,
+      eventType: "DEPARTMENT_HEAD_BACKUP_SET",
+      objectType: "AccessRoleAssignment",
+      objectId: row.id,
+      objectVersion: row.revision,
+      beneficiaryId: backupUserId,
+      before: beforeSnapshot,
+      after: { backupUserId: row.backupUserId, primaryUnavailable: row.primaryUnavailable },
+      reason: null,
+      outcome: "SUCCESS",
+      correlationId: null,
+    });
+  });
 }
