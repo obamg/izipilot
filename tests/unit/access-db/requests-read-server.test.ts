@@ -240,6 +240,54 @@ describe("requests-read-server", () => {
     await prisma.accessAssignment.delete({ where: { id: assignment.id } });
   });
 
+  it("listDepartmentReducibleAccess (gap primaryDepartmentId) : un DepartmentMember du département dont le primaryDepartmentId pointe ailleurs n'apparaît pas", async () => {
+    // Second département, distinct de `departmentId`, qui sera le
+    // `primaryDepartmentId` AUTORITAIRE de l'employé multi-appartenance.
+    const otherDeptHead = await prisma.user.create({
+      data: { orgId, email: `dh3-r-${Date.now()}@example.com`, name: "DeptHead3", role: "PO" },
+    });
+    const otherDept = await prisma.department.create({
+      data: { orgId, code: "DRD3", name: "Dept Read 3", color: "#222222", ownerId: otherDeptHead.id },
+    });
+
+    // Employé membre (DepartmentMember) de `departmentId` — le département
+    // testé — mais dont le `primaryDepartmentId` (source AUTORITAIRE, celle
+    // utilisée par `submitRequest`/`canInitiateDepartmentReduction`) pointe
+    // vers `otherDept`. Reproduit exactement le cas d'appartenance multiple
+    // non arbitrée décrit dans le gap : membre de A, mais rattaché à B.
+    const multiMember = await prisma.user.create({
+      data: { orgId, email: `multi-r-${Date.now()}@example.com`, name: "MultiMember", role: "PO" },
+    });
+    await prisma.accessProfile.create({
+      data: { orgId, userId: multiMember.id, lifecycle: "ACTIVE", primaryDepartmentId: otherDept.id },
+    });
+    await prisma.departmentMember.create({ data: { departmentId, userId: multiMember.id } });
+
+    const assignment = await prisma.accessAssignment.create({
+      data: { orgId, userId: multiMember.id, assetId, levelId: levelReaderId, status: "ACTIVE" },
+    });
+
+    // Avant le correctif, cette requête se basait sur `DepartmentMember` et
+    // aurait listé `multiMember` ici — alors que `submitRequest` (branche
+    // réduction) l'aurait rejeté car son `primaryDepartmentId` n'est pas
+    // `departmentId`. Régression : ne doit plus apparaître.
+    const reducibleForQueriedDept = await listDepartmentReducibleAccess(orgId, departmentId);
+    expect(reducibleForQueriedDept.find((r) => r.userId === multiMember.id)).toBeUndefined();
+
+    // Contrôle positif : il apparaît bien dans la liste de SON
+    // `primaryDepartmentId` (otherDept), preuve que la résolution suit bien
+    // `AccessProfile.primaryDepartmentId` et pas juste un filtre trop strict.
+    const reducibleForPrimaryDept = await listDepartmentReducibleAccess(orgId, otherDept.id);
+    expect(reducibleForPrimaryDept.find((r) => r.userId === multiMember.id)).toBeDefined();
+
+    await prisma.accessAssignment.delete({ where: { id: assignment.id } });
+    await prisma.departmentMember.deleteMany({ where: { userId: multiMember.id } });
+    await prisma.accessProfile.deleteMany({ where: { userId: multiMember.id } });
+    await prisma.user.delete({ where: { id: multiMember.id } });
+    await prisma.department.deleteMany({ where: { id: otherDept.id } });
+    await prisma.user.delete({ where: { id: otherDeptHead.id } });
+  });
+
   it("chef de département indisponible sans suppléant : personne n'est éligible ; configurer un suppléant le débloque (Review Focus #5)", async () => {
     const backup = await prisma.user.create({
       data: { orgId, email: `backup-r-${Date.now()}@example.com`, name: "Backup", role: "PO" },

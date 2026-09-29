@@ -265,13 +265,30 @@ export interface DepartmentEmployeeAssetDTO {
   levelName: string;
 }
 
-/** Accès actifs des employés du département — base pour initier une réduction/révocation. */
+/**
+ * Accès actifs des employés du département — base pour initier une
+ * réduction/révocation.
+ *
+ * Résolution des membres via `AccessProfile.primaryDepartmentId` (et non la
+ * table de jointure `DepartmentMember`) — correctif gap post-Tâche 5 :
+ * `submitRequest` (branche réduction, via `canInitiateDepartmentReduction`)
+ * autorise l'initiation en se basant sur `primaryDepartmentId`, département
+ * AUTORITAIRE du bénéficiaire (voir `deriveRequestTerms` dans
+ * requests-server.ts). Un employé `DepartmentMember` de plusieurs
+ * départements n'a qu'UN SEUL `primaryDepartmentId` ; lister via
+ * `DepartmentMember` ferait apparaître cet employé dans le panneau de
+ * réduction de CHAQUE département dont il est membre, alors que
+ * `submitRequest` rejetterait la soumission depuis tous ces départements sauf
+ * celui qui est effectivement son `primaryDepartmentId`. Les deux sources
+ * doivent rester alignées pour que la liste n'annonce jamais une réduction
+ * qui échouera ensuite avec une `RequestError`.
+ */
 export async function listDepartmentReducibleAccess(
   orgId: string,
   departmentId: string
 ): Promise<DepartmentEmployeeAssetDTO[]> {
-  const members = await prisma.departmentMember.findMany({
-    where: { departmentId },
+  const members = await prisma.accessProfile.findMany({
+    where: { orgId, primaryDepartmentId: departmentId },
     select: { userId: true },
   });
   const userIds = members.map((m) => m.userId);
