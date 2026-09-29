@@ -225,6 +225,21 @@ enum AccessAssignmentSource {
   REQUEST
 }
 
+enum ImportMode {
+  CATALOGUE_SEED
+  BASELINE_ASSIGNMENTS
+}
+
+enum ImportRowOutcome {
+  MATCHED
+  DRAFT_CREATED
+  TO_CREATE
+  NOOP_UNCHANGED
+  NOOP_DUPLICATE
+  UNRESOLVED
+  CONFLICT
+}
+
 // ============================================================================
 // ORGANISATION (Multi-tenant root)
 // ============================================================================
@@ -271,6 +286,7 @@ model Organization {
   accessAssignments      AccessAssignment[]
   accessAssignmentEvents AccessAssignmentEvent[]
   accessAuditEvents      AccessAuditEvent[]
+  importBatches          ImportBatch[]
 
   @@map("organizations")
 }
@@ -1706,4 +1722,39 @@ model AccessAuditEvent {
   @@index([orgId, actorId])
   @@index([orgId, correlationId])
   @@map("access_audit_events")
+}
+
+model ImportBatch {
+  id          String     @id @default(cuid())
+  orgId       String
+  mode        ImportMode
+  fileHash    String
+  fileName    String
+  actorId     String
+  totalRows   Int
+  committedAt DateTime?
+  createdAt   DateTime   @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  rows ImportRow[]
+
+  @@index([orgId, mode, createdAt])
+  @@map("import_batches")
+}
+
+model ImportRow {
+  id              String           @id @default(cuid())
+  batchId         String
+  rowIndex        Int
+  sourceFields    Json
+  resolvedAssetId String?
+  resolvedLevelId String?
+  resolvedUserId  String?
+  outcome         ImportRowOutcome
+  reason          String?
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@map("import_rows")
 }
