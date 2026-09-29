@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
+import {
+  getEffectiveRoleHolders,
+  listDepartmentHeadCoverage,
+  setDepartmentHeadBackup,
+} from "@/lib/access/roles-server";
 
 describe("roles-server — getEffectiveRoleHolders", () => {
   let orgId: string;
@@ -206,5 +210,80 @@ describe("roles-server — getEffectiveRoleHolders", () => {
 
     const effective = await getEffectiveRoleHolders(orgId, plain.id);
     expect(effective).toEqual([]);
+  });
+});
+
+describe("roles-server — suppléant de chef de département", () => {
+  let orgId: string;
+  let departmentId: string;
+  let ownerId: string;
+  let backupId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test DeptBackup Org", slug: `test-deptbackup-${Date.now()}` },
+    });
+    orgId = org.id;
+    const owner = await prisma.user.create({
+      data: { orgId, email: `owner-${Date.now()}@example.com`, name: "Owner", role: "PO" },
+    });
+    ownerId = owner.id;
+    const backup = await prisma.user.create({
+      data: { orgId, email: `backup-${Date.now()}@example.com`, name: "Backup", role: "PO" },
+    });
+    backupId = backup.id;
+    const dept = await prisma.department.create({
+      data: { orgId, code: "DX", name: "Département Test", color: "#000000", ownerId },
+    });
+    departmentId = dept.id;
+  });
+
+  afterAll(async () => {
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
+    await prisma.department.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  it("aucun suppléant configuré : coverage renvoie backupUserId null", async () => {
+    const coverage = await listDepartmentHeadCoverage(orgId);
+    const row = coverage.find((c) => c.departmentId === departmentId);
+    expect(row).toBeDefined();
+    expect(row?.ownerId).toBe(ownerId);
+    expect(row?.backupUserId).toBeNull();
+    expect(row?.assignmentId).toBeNull();
+  });
+
+  it("assigne un suppléant : coverage le reflète", async () => {
+    await setDepartmentHeadBackup(orgId, departmentId, backupId);
+    const coverage = await listDepartmentHeadCoverage(orgId);
+    const row = coverage.find((c) => c.departmentId === departmentId);
+    expect(row?.backupUserId).toBe(backupId);
+    expect(row?.assignmentId).not.toBeNull();
+  });
+
+  it("le suppléant ne peut pas être le chef lui-même", async () => {
+    await expect(setDepartmentHeadBackup(orgId, departmentId, ownerId)).rejects.toThrow();
+  });
+
+  it("le suppléant doit appartenir à la même organisation", async () => {
+    const otherOrg = await prisma.organization.create({
+      data: { name: "Other Org DeptBackup", slug: `other-deptbackup-${Date.now()}` },
+    });
+    const outsider = await prisma.user.create({
+      data: { orgId: otherOrg.id, email: `outsider-${Date.now()}@example.com`, name: "Outsider", role: "PO" },
+    });
+    await expect(setDepartmentHeadBackup(orgId, departmentId, outsider.id)).rejects.toThrow();
+    await prisma.user.delete({ where: { id: outsider.id } });
+    await prisma.organization.delete({ where: { id: otherOrg.id } });
+  });
+
+  it("retirer le suppléant (null) supprime la ligne", async () => {
+    await setDepartmentHeadBackup(orgId, departmentId, backupId);
+    await setDepartmentHeadBackup(orgId, departmentId, null);
+    const coverage = await listDepartmentHeadCoverage(orgId);
+    const row = coverage.find((c) => c.departmentId === departmentId);
+    expect(row?.backupUserId).toBeNull();
+    expect(row?.assignmentId).toBeNull();
   });
 });

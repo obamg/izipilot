@@ -258,3 +258,87 @@ function isUniqueConstraintError(err: unknown): boolean {
     (err as { code: string }).code === "P2002"
   );
 }
+
+export interface DepartmentHeadCoverageDTO {
+  departmentId: string;
+  departmentName: string;
+  ownerId: string;
+  ownerName: string;
+  assignmentId: string | null;
+  backupUserId: string | null;
+  backupUserName: string | null;
+  primaryUnavailable: boolean;
+}
+
+export async function listDepartmentHeadCoverage(orgId: string): Promise<DepartmentHeadCoverageDTO[]> {
+  const departments = await prisma.department.findMany({
+    where: { orgId, isActive: true },
+    select: { id: true, name: true, ownerId: true, owner: { select: { name: true } } },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  const assignments = await prisma.accessRoleAssignment.findMany({
+    where: { orgId, role: "DEPARTMENT_HEAD" },
+    include: { backupUser: { select: { name: true } } },
+  });
+  const assignmentByDept = new Map(assignments.map((a) => [a.departmentId as string, a]));
+
+  return departments.map((d) => {
+    const assignment = assignmentByDept.get(d.id);
+    return {
+      departmentId: d.id,
+      departmentName: d.name,
+      ownerId: d.ownerId,
+      ownerName: d.owner.name,
+      assignmentId: assignment?.id ?? null,
+      backupUserId: assignment?.backupUserId ?? null,
+      backupUserName: assignment?.backupUser?.name ?? null,
+      primaryUnavailable: assignment?.primaryUnavailable ?? false,
+    };
+  });
+}
+
+/**
+ * Comble la lacune de la phase 1 (Ruling D) : sans ceci, un chef de
+ * département indisponible sans suppléant bloque définitivement toute
+ * demande routée par son département, sans recours pour le Platform
+ * Administrator. `backupUserId: null` retire le suppléant (supprime la
+ * ligne s'il n'y a plus rien d'autre à y conserver en phase 3a).
+ */
+export async function setDepartmentHeadBackup(
+  orgId: string,
+  departmentId: string,
+  backupUserId: string | null
+): Promise<void> {
+  const department = await prisma.department.findFirst({ where: { id: departmentId, orgId } });
+  if (!department) throw new RoleAssignmentError("Département introuvable dans cette organisation");
+
+  if (backupUserId !== null && backupUserId === department.ownerId) {
+    throw new RoleAssignmentError("Le suppléant ne peut pas être la même personne que le chef de département");
+  }
+
+  const existing = await prisma.accessRoleAssignment.findFirst({
+    where: { orgId, role: "DEPARTMENT_HEAD", departmentId },
+  });
+
+  if (backupUserId === null) {
+    if (existing) await prisma.accessRoleAssignment.delete({ where: { id: existing.id } });
+    return;
+  }
+
+  const memberCount = await prisma.user.count({ where: { id: backupUserId, orgId } });
+  if (memberCount !== 1) {
+    throw new RoleAssignmentError("Le suppléant n'appartient pas à cette organisation");
+  }
+
+  if (existing) {
+    await prisma.accessRoleAssignment.update({
+      where: { id: existing.id },
+      data: { backupUserId, revision: { increment: 1 } },
+    });
+  } else {
+    await prisma.accessRoleAssignment.create({
+      data: { orgId, role: "DEPARTMENT_HEAD", departmentId, backupUserId },
+    });
+  }
+}
