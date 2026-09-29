@@ -55,3 +55,6 @@ next-env.d.ts
 
 # uploaded attachments (local dev — prod uses a Docker volume)
 /var/uploads
+
+# per-worktree docker port remap (avoids clashing with another worktree's db)
+docker-compose.override.yml
