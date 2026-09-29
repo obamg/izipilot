@@ -408,3 +408,19 @@ export async function commitBaselineAssignments(
 
   return toBatchDTO(updated, await actorNameFor(actorId));
 }
+
+export async function listImportBatches(orgId: string, mode?: ImportMode): Promise<ImportBatchDTO[]> {
+  const batches = await prisma.importBatch.findMany({
+    where: { orgId, ...(mode && { mode }) },
+    include: { rows: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const actorIds = [...new Set(batches.map((b) => b.actorId))];
+  const actors = actorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(actors.map((a) => [a.id, a.name]));
+
+  return batches.map((b) => toBatchDTO(b, nameById.get(b.actorId) ?? null));
+}
