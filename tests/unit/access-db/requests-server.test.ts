@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { submitRequest, RequestError } from "@/lib/access/requests-server";
+import { submitRequest, decideStage, RequestError } from "@/lib/access/requests-server";
 
 describe("requests-server — soumission", () => {
   let orgId: string;
@@ -178,5 +178,216 @@ describe("requests-server — soumission", () => {
 
     await prisma.accessProfile.deleteMany({ where: { userId: departed.id } });
     await prisma.user.delete({ where: { id: departed.id } });
+  });
+});
+
+describe("requests-server — décision d'étape", () => {
+  let orgId: string;
+  let employeeId: string;
+  let deptHeadId: string;
+  let cisoId: string;
+  let cooId: string;
+  let departmentId: string;
+  let assetId: string;
+  let levelReaderId: string;
+
+  beforeAll(async () => {
+    const org = await prisma.organization.create({
+      data: { name: "Test Decide Org", slug: `test-decide-${Date.now()}` },
+    });
+    orgId = org.id;
+
+    const [employee, deptHead, ciso, coo] = await Promise.all([
+      prisma.user.create({ data: { orgId, email: `emp-d-${Date.now()}@example.com`, name: "Employee", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `dh-d-${Date.now()}@example.com`, name: "DeptHead", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `ciso-d-${Date.now()}@example.com`, name: "Ciso", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `coo-d-${Date.now()}@example.com`, name: "Coo", role: "PO" } }),
+    ]);
+    employeeId = employee.id;
+    deptHeadId = deptHead.id;
+    cisoId = ciso.id;
+    cooId = coo.id;
+
+    await Promise.all(
+      [employeeId, deptHeadId, cisoId, cooId].map((userId) =>
+        prisma.accessProfile.create({ data: { orgId, userId, lifecycle: "ACTIVE" } })
+      )
+    );
+
+    const dept = await prisma.department.create({
+      data: { orgId, code: "DD", name: "Dept Decide", color: "#000000", ownerId: deptHeadId },
+    });
+    departmentId = dept.id;
+    await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
+
+    await prisma.accessRoleAssignment.create({ data: { orgId, role: "CISO", userId: cisoId } });
+    await prisma.accessRoleAssignment.create({ data: { orgId, role: "COO", userId: cooId } });
+
+    const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Decide" } });
+    assetId = asset.id;
+    const level = await prisma.accessLevel.create({ data: { assetId, name: "Reader", priority: 1, isAdmin: false } });
+    levelReaderId = level.id;
+  });
+
+  afterAll(async () => {
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
+    await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
+    await prisma.accessRequest.deleteMany({ where: { orgId } });
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
+    await prisma.accessLevel.deleteMany({ where: { asset: { orgId } } });
+    await prisma.accessAsset.deleteMany({ where: { orgId } });
+    await prisma.departmentMember.deleteMany({ where: { department: { orgId } } });
+    await prisma.department.deleteMany({ where: { orgId } });
+    await prisma.accessProfile.deleteMany({ where: { orgId } });
+    await prisma.user.deleteMany({ where: { orgId } });
+    await prisma.organization.delete({ where: { id: orgId } });
+  });
+
+  async function freshRequest() {
+    return submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId,
+      assetId,
+      targetLevelId: levelReaderId,
+      justification: "test décision",
+    });
+  }
+
+  async function cleanup(version: { id: string; requestId: string }) {
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: version.id } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: version.id } });
+    await prisma.accessRequest.deleteMany({ where: { id: version.requestId } });
+  }
+
+  it("le chef de département approuve : passe à l'étape CISO, reste PENDING_APPROVAL", async () => {
+    const v = await freshRequest();
+    const deptStage = v.stages[0];
+    const updated = await decideStage(orgId, deptHeadId, deptStage.id, "APPROVE", null);
+    expect(updated.state).toBe("PENDING_APPROVAL");
+    expect(updated.stages[0].decision).toBe("APPROVE");
+    expect(updated.stages[0].actorId).toBe(deptHeadId);
+    await cleanup(updated);
+  });
+
+  it("le CISO approuve la dernière étape : la demande devient READY_FOR_FULFILMENT", async () => {
+    const v = await freshRequest();
+    let updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+    updated = await decideStage(orgId, cisoId, updated.stages[1].id, "APPROVE", null);
+    expect(updated.state).toBe("READY_FOR_FULFILMENT");
+    await cleanup(updated);
+  });
+
+  it("le bénéficiaire ne peut jamais décider une étape de sa propre demande", async () => {
+    const v = await freshRequest();
+    await expect(decideStage(orgId, employeeId, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    await cleanup(v);
+  });
+
+  it("un acteur ne peut pas décider deux étapes différentes de la même version", async () => {
+    // deptHeadId est aussi promu CISO temporairement pour ce test précis.
+    //
+    // ⚠️ Écart volontaire par rapport au brief : créer un second titulaire
+    // CISO via accessRoleAssignment.create (userId: deptHeadId) viole
+    // l'index unique partiel `access_role_assignments_org_ciso_unique`
+    // (Tâche 2 — un seul titulaire CISO par org). On obtient le même effet
+    // (deptHeadId devient effectivement éligible CISO, cf. getEffectiveRoleHolders)
+    // en le déclarant suppléant du titulaire CISO existant et en marquant ce
+    // titulaire indisponible — ce qui respecte la contrainte tout en
+    // continuant à prouver que le garde-fou "double signature" bloque même
+    // un acteur par ailleurs éligible pour le second rôle.
+    const existingCiso = await prisma.accessRoleAssignment.findFirst({ where: { orgId, role: "CISO" } });
+    await prisma.accessRoleAssignment.update({
+      where: { id: existingCiso!.id },
+      data: { backupUserId: deptHeadId, primaryUnavailable: true },
+    });
+    const v = await freshRequest();
+    const afterFirst = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+    await expect(decideStage(orgId, deptHeadId, afterFirst.stages[1].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    await prisma.accessRoleAssignment.update({
+      where: { id: existingCiso!.id },
+      data: { backupUserId: null, primaryUnavailable: false },
+    });
+    await cleanup(afterFirst);
+  });
+
+  it("REJECT à n'importe quelle étape termine la demande, AccessRequest supprimé", async () => {
+    const v = await freshRequest();
+    const updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "REJECT", "motif de rejet");
+    expect(updated.state).toBe("REJECTED");
+    const requestStillExists = await prisma.accessRequest.findUnique({ where: { id: v.requestId } });
+    expect(requestStillExists).toBeNull();
+    // La version reste en base pour l'historique même si AccessRequest est supprimé —
+    // mais la contrainte de cascade sur AccessRequestVersion.requestId la supprime aussi.
+    // Rien à nettoyer de plus ici.
+  });
+
+  it("CLARIFY laisse l'étape courante, la version passe à CLARIFICATION_REQUIRED", async () => {
+    const v = await freshRequest();
+    const updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "CLARIFY", "précisez le besoin");
+    expect(updated.state).toBe("CLARIFICATION_REQUIRED");
+    expect(updated.stages[0].reason).toBe("précisez le besoin");
+    expect(updated.stages[0].decision).toBeNull();
+    await cleanup(updated);
+  });
+
+  it("RETURN passe à REVISION_REQUIRED, motif obligatoire", async () => {
+    const v = await freshRequest();
+    await expect(decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", null)).rejects.toThrow(RequestError);
+    const updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", "revoir la période");
+    expect(updated.state).toBe("REVISION_REQUIRED");
+    await cleanup(updated);
+  });
+
+  it("REJECT sans motif est refusé", async () => {
+    const v = await freshRequest();
+    await expect(decideStage(orgId, deptHeadId, v.stages[0].id, "REJECT", null)).rejects.toThrow(RequestError);
+    await cleanup(v);
+  });
+
+  it("escalade CISO→COO ajoute une étape COO après l'approbation CISO", async () => {
+    const v = await freshRequest();
+    let updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+    updated = await decideStage(orgId, cisoId, updated.stages[1].id, "APPROVE", "escalade motivée", true);
+    expect(updated.state).toBe("PENDING_APPROVAL");
+    expect(updated.stages).toHaveLength(3);
+    expect(updated.stages[2].role).toBe("COO");
+    expect(updated.stages[2].decision).toBeNull();
+    updated = await decideStage(orgId, cooId, updated.stages[2].id, "APPROVE", null);
+    expect(updated.state).toBe("READY_FOR_FULFILMENT");
+    await cleanup(updated);
+  });
+
+  it("revalidation : un niveau archivé entre soumission et décision bloque la décision", async () => {
+    const v = await freshRequest();
+    await prisma.accessLevel.update({ where: { id: levelReaderId }, data: { archivedAt: new Date() } });
+    await expect(decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null)).rejects.toThrow(RequestError);
+    await prisma.accessLevel.update({ where: { id: levelReaderId }, data: { archivedAt: null } });
+    await cleanup(v);
+  });
+
+  it("escalade CISO→COO sur une RÉDUCTION ajoute COO ensuite, sans recalculer toute la route (spec §10)", async () => {
+    // Une réduction routée par computeReductionRoute part avec CISO seul (jamais COO
+    // automatique, même vers un niveau admin — Review Focus #4). L'escalade doit
+    // ajouter une étape COO à la suite, pas remplacer/recalculer la route existante.
+    await prisma.accessAssignment.create({
+      data: { orgId, userId: employeeId, assetId, levelId: levelReaderId, status: "ACTIVE" },
+    });
+    const reduction = await submitRequest(orgId, deptHeadId, {
+      beneficiaryId: employeeId,
+      assetId,
+      targetLevelId: null,
+      justification: "réduction à escalader",
+    });
+    expect(reduction.kind).toBe("REVOKE");
+    expect(reduction.stages.map((s) => s.role)).toEqual(["CISO"]);
+
+    const escalated = await decideStage(orgId, cisoId, reduction.stages[0].id, "APPROVE", "escalade motivée", true);
+    expect(escalated.stages.map((s) => s.role)).toEqual(["CISO", "COO"]);
+    expect(escalated.state).toBe("PENDING_APPROVAL");
+
+    const final = await decideStage(orgId, cooId, escalated.stages[1].id, "APPROVE", null);
+    expect(final.state).toBe("READY_FOR_FULFILMENT");
+
+    await prisma.accessAssignment.deleteMany({ where: { orgId, userId: employeeId, assetId } });
+    await cleanup(final);
   });
 });

@@ -250,3 +250,165 @@ function isUniqueConstraintError(err: unknown): boolean {
     (err as { code: string }).code === "P2002"
   );
 }
+
+export type DecisionType = "APPROVE" | "REJECT" | "CLARIFY" | "RETURN";
+
+export async function decideStage(
+  orgId: string,
+  actorId: string,
+  stageId: string,
+  decision: DecisionType,
+  reason: string | null,
+  escalateToCoo = false
+): Promise<RequestVersionDTO> {
+  if ((decision === "REJECT" || decision === "CLARIFY" || decision === "RETURN") && !reason) {
+    throw new RequestError("Un motif est obligatoire pour rejeter, demander une clarification ou retourner une demande");
+  }
+
+  const stage = await prisma.accessApprovalStage.findFirst({
+    where: { id: stageId, requestVersion: { request: { orgId } } },
+    include: { requestVersion: { include: { request: true, stages: true } } },
+  });
+  if (!stage) throw new RequestError("Étape introuvable dans cette organisation");
+  const version = stage.requestVersion;
+  const request = version.request;
+
+  if (version.state !== "PENDING_APPROVAL") {
+    throw new RequestError("Cette version n'est plus en attente d'approbation — décision refusée");
+  }
+  if (stage.decision !== null) {
+    throw new RequestError("Cette étape a déjà été décidée");
+  }
+
+  // Indépendance : ni l'initiateur, ni le bénéficiaire, ni un acteur ayant déjà décidé une autre étape.
+  if (actorId === version.initiatorId) {
+    throw new RequestError("L'initiateur ne peut pas décider sa propre demande");
+  }
+  if (actorId === request.beneficiaryId) {
+    throw new RequestError("Le bénéficiaire ne peut pas décider sa propre demande");
+  }
+  if (version.stages.some((s) => s.actorId === actorId && s.id !== stageId)) {
+    throw new RequestError("Un même acteur ne peut pas décider deux étapes de la même version");
+  }
+
+  // Revalidation : éligibilité de l'acteur pour ce rôle d'étape, à l'instant présent.
+  const effectiveRoles = await getEffectiveRoleHolders(orgId, actorId);
+  const eligible = effectiveRoles.some((r) => r.role === stage.role);
+  if (!eligible) {
+    throw new RequestError("Vous n'êtes plus éligible pour décider cette étape");
+  }
+  const actedAsPrimary = effectiveRoles.some((r) => r.role === stage.role && r.actsAsPrimary);
+
+  // Revalidation : catalogue/niveau ciblé/affectation inchangés depuis la soumission.
+  //
+  // ⚠️ Le niveau ciblé (AccessLevel) a son propre `archivedAt`, distinct de
+  // `AccessAsset.catalogueVersion` : archiver un niveau (`archiveLevel` dans
+  // catalogue-server.ts) ne fait PAS bumper `catalogueVersion` — seul un
+  // changement de `priority`/`isAdmin` via `updateLevel` le fait. Comparer
+  // uniquement `catalogueVersion` ne détecterait donc jamais l'archivage
+  // du niveau ciblé : il faut vérifier son `archivedAt` séparément.
+  const [asset, targetLevel, currentAssignment] = await Promise.all([
+    prisma.accessAsset.findFirst({ where: { id: request.assetId, orgId }, select: { catalogueVersion: true, archivedAt: true } }),
+    version.targetLevelId
+      ? prisma.accessLevel.findFirst({ where: { id: version.targetLevelId, assetId: request.assetId }, select: { archivedAt: true } })
+      : Promise.resolve(null),
+    prisma.accessAssignment.findFirst({ where: { orgId, userId: request.beneficiaryId, assetId: request.assetId }, select: { version: true } }),
+  ]);
+  if (!asset || asset.archivedAt !== null || asset.catalogueVersion !== version.catalogueVersion) {
+    throw new RequestError("Le catalogue a changé depuis la soumission — décision refusée, la demande doit être revue");
+  }
+  if (version.targetLevelId && (!targetLevel || targetLevel.archivedAt !== null)) {
+    throw new RequestError("Le niveau ciblé a été archivé depuis la soumission — décision refusée, la demande doit être revue");
+  }
+  if ((currentAssignment?.version ?? 0) !== version.assignmentVersion) {
+    throw new RequestError("L'affectation actuelle a changé depuis la soumission — décision refusée, la demande doit être revue");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.accessApprovalStage.update({
+      where: { id: stageId },
+      data: {
+        actorId,
+        actedAsPrimary,
+        // CLARIFY ne « décide » pas l'étape : elle doit rester rejouable
+        // (decision === null) une fois la clarification obtenue — sinon le
+        // garde-fou « stage.decision !== null → déjà décidée » plus haut
+        // bloquerait définitivement toute décision ultérieure sur cette
+        // étape.
+        decision: decision === "CLARIFY" ? null : decision,
+        reason,
+        decidedAt: decision === "CLARIFY" ? null : new Date(),
+      },
+    });
+
+    let newState: AccessRequestState = version.state;
+
+    if (decision === "REJECT") {
+      newState = "REJECTED";
+      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
+    } else if (decision === "CLARIFY") {
+      newState = "CLARIFICATION_REQUIRED";
+      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
+    } else if (decision === "RETURN") {
+      newState = "REVISION_REQUIRED";
+      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
+    } else {
+      // APPROVE
+      if (escalateToCoo && stage.role === "CISO" && !version.stages.some((s) => s.role === "COO")) {
+        await tx.accessApprovalStage.create({
+          data: { requestVersionId: version.id, sequence: stage.sequence + 1, role: "COO" },
+        });
+        newState = "PENDING_APPROVAL";
+      } else {
+        const remaining = await tx.accessApprovalStage.count({
+          where: { requestVersionId: version.id, decision: null, id: { not: stageId } },
+        });
+        newState = remaining === 0
+          ? version.periodStart > new Date()
+            ? "AUTHORIZED_WAITING_START"
+            : "READY_FOR_FULFILMENT"
+          : "PENDING_APPROVAL";
+      }
+      await tx.accessRequestVersion.update({ where: { id: version.id }, data: { state: newState } });
+    }
+
+    await recordAuditInTx(tx, {
+      orgId,
+      actorId,
+      actorRole: stage.role,
+      primaryCoveredId: request.beneficiaryId,
+      scopeType: "ACCESS_REQUEST",
+      scopeId: request.id,
+      eventType: `REQUEST_${decision}`,
+      objectType: "AccessApprovalStage",
+      objectId: stageId,
+      objectVersion: null,
+      beneficiaryId: request.beneficiaryId,
+      before: { decision: null },
+      after: { decision, reason, newState },
+      reason,
+      outcome: "SUCCESS",
+      correlationId: null,
+    });
+
+    // ⚠️ Capturer le DTO final AVANT un éventuel REJECT : supprimer
+    // `AccessRequest` cascade-supprime immédiatement `AccessRequestVersion`
+    // (onDelete: Cascade dans le schéma) et, en cascade, ses
+    // `AccessApprovalStage` — dans la MÊME transaction, pas seulement au
+    // commit. Un `findUnique` sur la version APRÈS ce delete renverrait donc
+    // `null`. On lit le résultat pendant qu'il existe encore, puis on
+    // supprime la demande si nécessaire.
+    const finalVersion = await tx.accessRequestVersion.findUnique({
+      where: { id: version.id },
+      include: { stages: true, request: true },
+    });
+
+    if (decision === "REJECT") {
+      await tx.accessRequest.delete({ where: { id: request.id } });
+    }
+
+    return finalVersion;
+  });
+
+  return toVersionDTO(updated as VersionWithStages);
+}
