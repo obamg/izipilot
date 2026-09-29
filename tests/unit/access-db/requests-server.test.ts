@@ -509,6 +509,7 @@ describe("requests-server — clarification, révision, annulation", () => {
       beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test",
     });
     const clarified = await decideStage(orgId, deptHeadId, v.stages[0].id, "CLARIFY", "précisez");
+    expect(clarified.state).toBe("CLARIFICATION_REQUIRED");
     const responded = await respondToClarification(orgId, employeeId, v.stages[0].id, "voici la précision");
     expect(responded.state).toBe("PENDING_APPROVAL");
     expect(responded.stages[0].decision).toBeNull();
