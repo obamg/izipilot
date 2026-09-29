@@ -225,6 +225,37 @@ enum AccessAssignmentSource {
   REQUEST
 }
 
+enum AccessRequestKind {
+  GRANT
+  UPGRADE
+  RENEW
+  REDUCE
+  REVOKE
+}
+
+enum AccessRequestState {
+  PENDING_APPROVAL
+  CLARIFICATION_REQUIRED
+  REVISION_REQUIRED
+  AUTHORIZED_WAITING_START
+  READY_FOR_FULFILMENT
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalStageRole {
+  DEPARTMENT_HEAD
+  CISO
+  COO
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+  CLARIFY
+  RETURN
+}
+
 enum ImportMode {
   CATALOGUE_SEED
   BASELINE_ASSIGNMENTS
@@ -286,6 +317,7 @@ model Organization {
   accessAssignments      AccessAssignment[]
   accessAssignmentEvents AccessAssignmentEvent[]
   accessAuditEvents      AccessAuditEvent[]
+  accessRequests         AccessRequest[]
   importBatches          ImportBatch[]
 
   @@map("organizations")
@@ -1757,4 +1789,70 @@ model ImportRow {
 
   @@index([batchId])
   @@map("import_rows")
+}
+
+// ============================================================================
+// GESTION DES ACCÈS — Phase 3a (demandes, versions, étapes d'approbation)
+// ============================================================================
+
+model AccessRequest {
+  id            String   @id @default(cuid())
+  orgId         String
+  beneficiaryId String
+  assetId       String
+  createdAt     DateTime @default(now())
+
+  org      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  versions AccessRequestVersion[]
+
+  @@unique([orgId, beneficiaryId, assetId], map: "one_nonterminal_request_enforced_in_service")
+  @@index([orgId, beneficiaryId])
+  @@index([orgId, assetId])
+  @@map("access_requests")
+}
+
+model AccessRequestVersion {
+  id                 String              @id @default(cuid())
+  requestId          String
+  versionNumber      Int
+  kind               AccessRequestKind
+  initiatorId        String
+  targetLevelId      String?
+  justification      String              @db.Text
+  periodStart        DateTime
+  periodEnd          DateTime?
+  departmentSnapshot String
+  assignmentVersion  Int
+  catalogueVersion   Int
+  state              AccessRequestState
+  exceptionReason    String?
+  revision           Int                 @default(1)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  request AccessRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  stages  AccessApprovalStage[]
+
+  @@unique([requestId, versionNumber])
+  @@index([requestId])
+  @@map("access_request_versions")
+}
+
+model AccessApprovalStage {
+  id                    String             @id @default(cuid())
+  requestVersionId      String
+  sequence              Int
+  role                  ApprovalStageRole
+  actorId               String?
+  actedAsPrimary        Boolean?
+  decision              ApprovalDecision?
+  reason                String?
+  clarificationResponse String?            @db.Text
+  decidedAt             DateTime?
+
+  requestVersion AccessRequestVersion @relation(fields: [requestVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([requestVersionId, sequence])
+  @@index([requestVersionId])
+  @@map("access_approval_stages")
 }
