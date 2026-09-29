@@ -69,11 +69,11 @@ async function resolveSeedPair(
   pair: SeedPair
 ): Promise<{ outcome: "MATCHED" | "DRAFT_CREATED"; resolvedAssetId: string | null; resolvedLevelId: string | null }> {
   const asset = await prisma.accessAsset.findFirst({
-    where: { orgId, name: pair.logiciel, archivedAt: null },
+    where: { orgId, name: pair.logiciel },
   });
   if (!asset) return { outcome: "DRAFT_CREATED", resolvedAssetId: null, resolvedLevelId: null };
   const level = await prisma.accessLevel.findFirst({
-    where: { assetId: asset.id, name: pair.niveauAcces, archivedAt: null },
+    where: { assetId: asset.id, name: pair.niveauAcces },
   });
   if (!level) return { outcome: "DRAFT_CREATED", resolvedAssetId: asset.id, resolvedLevelId: null };
   return { outcome: "MATCHED", resolvedAssetId: asset.id, resolvedLevelId: level.id };
@@ -136,7 +136,7 @@ export async function commitCatalogueSeed(
       let assetId = assetIdByName.get(pair.logiciel);
       if (!assetId) {
         const existing = await tx.accessAsset.findFirst({
-          where: { orgId, name: pair.logiciel, archivedAt: null },
+          where: { orgId, name: pair.logiciel },
         });
         const asset = existing ?? (await tx.accessAsset.create({ data: { orgId, name: pair.logiciel } }));
         assetId = asset.id;
@@ -144,7 +144,7 @@ export async function commitCatalogueSeed(
       }
 
       let level = await tx.accessLevel.findFirst({
-        where: { assetId, name: pair.niveauAcces, archivedAt: null },
+        where: { assetId, name: pair.niveauAcces },
       });
       const outcome: "MATCHED" | "DRAFT_CREATED" = level ? "MATCHED" : "DRAFT_CREATED";
       if (!level) {
