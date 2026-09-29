@@ -169,9 +169,15 @@ export async function commitCatalogueSeed(
       });
     }
 
-    const committed = await tx.importBatch.update({
-      where: { id: batchId },
+    const { count } = await tx.importBatch.updateMany({
+      where: { id: batchId, orgId, committedAt: null },
       data: { committedAt: new Date() },
+    });
+    if (count === 0) {
+      throw new ImportError("Ce lot a déjà été commité");
+    }
+    const committed = await tx.importBatch.findUniqueOrThrow({
+      where: { id: batchId },
       include: { rows: true },
     });
 
@@ -388,9 +394,15 @@ export async function commitBaselineAssignments(
       });
     }
 
-    const committed = await tx.importBatch.update({
-      where: { id: batchId },
+    const { count } = await tx.importBatch.updateMany({
+      where: { id: batchId, orgId, committedAt: null },
       data: { committedAt: new Date() },
+    });
+    if (count === 0) {
+      throw new ImportError("Ce lot a déjà été commité");
+    }
+    const committed = await tx.importBatch.findUniqueOrThrow({
+      where: { id: batchId },
       include: { rows: true },
     });
 
