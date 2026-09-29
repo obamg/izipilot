@@ -397,6 +397,61 @@ function isRecordNotFoundError(err: unknown): boolean {
 
 export type DecisionType = "APPROVE" | "REJECT" | "CLARIFY" | "RETURN";
 
+export type StageDecidabilityReason =
+  | "SEQUENCE_NOT_REACHED"
+  | "ACTOR_IS_INITIATOR"
+  | "ACTOR_IS_BENEFICIARY"
+  | "ACTOR_ALREADY_DECIDED_ANOTHER_STAGE";
+
+export interface StageDecidability {
+  decidable: boolean;
+  reason: StageDecidabilityReason | null;
+}
+
+/**
+ * Prédicat pur — aucune lecture, l'appelant fournit déjà tout — partagé entre
+ * `decideStage` (contrôle bloquant, avec message d'erreur spécifique par
+ * motif) et `listMyApprovals` (filtre de visibilité : une étape que cet
+ * acteur ne pourrait de toute façon pas décider ne doit pas apparaître dans
+ * sa liste, pour éviter les résultats "en erreur" mystérieux d'une
+ * approbation en lot). Seule source de vérité pour ces deux règles :
+ *
+ * - Ordre des étapes : une étape ne peut être décidée que si toutes les
+ *   étapes de séquence inférieure sont déjà APPROVE (jamais de saut d'étape,
+ *   ex. CISO avant le chef de département).
+ * - Indépendance : ni l'initiateur, ni le bénéficiaire, ni un acteur ayant
+ *   déjà décidé une autre étape de la même version.
+ *
+ * Ne couvre PAS l'éligibilité de rôle (CISO/COO/DEPARTMENT_HEAD scopé
+ * département) ni la revalidation catalogue/niveau/affectation : ces
+ * contrôles-là dépendent de lectures fraîches (rôles effectifs, catalogue) et
+ * restent propres à `decideStage`.
+ */
+export function isStageDecidable(
+  stage: { id: string; sequence: number },
+  allStages: { id: string; sequence: number; decision: string | null; actorId: string | null }[],
+  versionInitiatorId: string,
+  beneficiaryId: string,
+  actorId: string
+): StageDecidability {
+  const priorStagesNotYetApproved = allStages.some(
+    (s) => s.sequence < stage.sequence && s.decision !== "APPROVE"
+  );
+  if (priorStagesNotYetApproved) {
+    return { decidable: false, reason: "SEQUENCE_NOT_REACHED" };
+  }
+  if (actorId === versionInitiatorId) {
+    return { decidable: false, reason: "ACTOR_IS_INITIATOR" };
+  }
+  if (actorId === beneficiaryId) {
+    return { decidable: false, reason: "ACTOR_IS_BENEFICIARY" };
+  }
+  if (allStages.some((s) => s.actorId === actorId && s.id !== stage.id)) {
+    return { decidable: false, reason: "ACTOR_ALREADY_DECIDED_ANOTHER_STAGE" };
+  }
+  return { decidable: true, reason: null };
+}
+
 export async function decideStage(
   orgId: string,
   actorId: string,
@@ -438,25 +493,26 @@ export async function decideStage(
       throw new RequestError("Cette étape a déjà été décidée");
     }
 
-    // Ordre des étapes : une étape ne peut être décidée que si toutes les
-    // étapes de séquence inférieure sont déjà APPROVE (jamais de saut
-    // d'étape, ex. CISO avant le chef de département).
-    const priorStagesNotYetApproved = version.stages.some(
-      (s) => s.sequence < stage.sequence && s.decision !== "APPROVE"
+    // Ordre des étapes + indépendance : prédicat unique partagé avec
+    // `listMyApprovals` (`isStageDecidable`, défini plus haut) — voir sa
+    // documentation pour le détail des deux règles. Les messages restent
+    // spécifiques par motif ici (utiles pour l'UI) ; la logique elle-même ne
+    // vit plus qu'à un seul endroit.
+    const decidability = isStageDecidable(
+      { id: stage.id, sequence: stage.sequence },
+      version.stages,
+      version.initiatorId,
+      request.beneficiaryId,
+      actorId
     );
-    if (priorStagesNotYetApproved) {
-      throw new RequestError("Les étapes précédentes n'ont pas encore été décidées");
-    }
-
-    // Indépendance : ni l'initiateur, ni le bénéficiaire, ni un acteur ayant déjà décidé une autre étape.
-    if (actorId === version.initiatorId) {
-      throw new RequestError("L'initiateur ne peut pas décider sa propre demande");
-    }
-    if (actorId === request.beneficiaryId) {
-      throw new RequestError("Le bénéficiaire ne peut pas décider sa propre demande");
-    }
-    if (version.stages.some((s) => s.actorId === actorId && s.id !== stageId)) {
-      throw new RequestError("Un même acteur ne peut pas décider deux étapes de la même version");
+    if (!decidability.decidable) {
+      const message: Record<StageDecidabilityReason, string> = {
+        SEQUENCE_NOT_REACHED: "Les étapes précédentes n'ont pas encore été décidées",
+        ACTOR_IS_INITIATOR: "L'initiateur ne peut pas décider sa propre demande",
+        ACTOR_IS_BENEFICIARY: "Le bénéficiaire ne peut pas décider sa propre demande",
+        ACTOR_ALREADY_DECIDED_ANOTHER_STAGE: "Un même acteur ne peut pas décider deux étapes de la même version",
+      };
+      throw new RequestError(message[decidability.reason as StageDecidabilityReason]);
     }
 
     // Revalidation : éligibilité de l'acteur pour ce rôle d'étape, à l'instant

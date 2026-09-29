@@ -1,6 +1,7 @@
 // lib/access/requests-read-server.ts
 import { prisma } from "@/lib/prisma";
 import { getEffectiveRoleHolders } from "./roles-server";
+import { isStageDecidable } from "./requests-server";
 import type { EffectiveRole } from "./scope";
 
 export interface RequestSummaryDTO {
@@ -16,7 +17,22 @@ export interface RequestSummaryDTO {
   targetLevelName: string | null;
   state: string;
   createdAt: Date;
+  justification: string;
+  periodStart: Date;
+  periodEnd: Date | null;
   pendingClarificationStageId: string | null;
+  /**
+   * Motif de l'étape actuellement "bloquante", pour que l'écran affiche
+   * pourquoi la demande est dans cet état sans obliger l'utilisateur à
+   * deviner :
+   * - CLARIFICATION_REQUIRED → le `reason` de l'étape CLARIFY'd
+   *   (`decision === null`, même sélection que `pendingClarificationStageId`
+   *   ci-dessous — il y en a exactement une).
+   * - REVISION_REQUIRED → le `reason` de l'étape `decision === "RETURN"`
+   *   (il y en a exactement une).
+   * - Sinon → null.
+   */
+  currentStageReason: string | null;
 }
 
 interface VersionForSummary {
@@ -27,6 +43,9 @@ interface VersionForSummary {
   targetLevelId: string | null;
   state: string;
   createdAt: Date;
+  justification: string;
+  periodStart: Date;
+  periodEnd: Date | null;
   request: { beneficiaryId: string; assetId: string };
   // ⚠️ Doit être trié par `sequence` ASC par l'appelant (voir les `orderBy`
   // dans `listMyRequests`/`listMyApprovals` ci-dessous). Une étape CLARIFY'd
@@ -38,7 +57,13 @@ interface VersionForSummary {
   // postérieure n'a pu être décidée avant elle). Sans ce tri, `.find()`
   // peut retourner l'id d'une étape future au lieu de celle en attente de
   // clarification.
-  stages: { id: string; decision: string | null }[];
+  //
+  // `reason` est déjà retourné par Prisma sans changement de requête : ni
+  // `listMyRequests` ni `listMyApprovals` n'appliquent de `select` sur
+  // `stages` (seulement `orderBy`), donc tous les champs scalaires — dont
+  // `reason` — sont déjà présents à l'exécution ; seul ce type devait être
+  // élargi pour que `toSummaries` puisse le lire.
+  stages: { id: string; decision: string | null; reason: string | null }[];
 }
 
 async function toSummaries(versions: VersionForSummary[]): Promise<RequestSummaryDTO[]> {
@@ -70,8 +95,17 @@ async function toSummaries(versions: VersionForSummary[]): Promise<RequestSummar
     targetLevelName: v.targetLevelId ? levelNameById.get(v.targetLevelId) ?? "?" : null,
     state: v.state,
     createdAt: v.createdAt,
+    justification: v.justification,
+    periodStart: v.periodStart,
+    periodEnd: v.periodEnd,
     pendingClarificationStageId:
       v.state === "CLARIFICATION_REQUIRED" ? v.stages.find((s) => s.decision === null)?.id ?? null : null,
+    currentStageReason:
+      v.state === "CLARIFICATION_REQUIRED"
+        ? v.stages.find((s) => s.decision === null)?.reason ?? null
+        : v.state === "REVISION_REQUIRED"
+          ? v.stages.find((s) => s.decision === "RETURN")?.reason ?? null
+          : null,
   }));
 }
 
@@ -114,6 +148,17 @@ export interface PendingStageDTO extends RequestSummaryDTO {
  * décider l'une de ces étapes hors périmètre, les lister est déjà une fuite
  * de visibilité. CISO/COO ne sont pas scopés : rôles uniques par
  * organisation, jamais rattachés à un département.
+ *
+ * Décidabilité effective (gap post-Tâche 5) : le scoping départemental et
+ * l'éligibilité de rôle ne suffisent pas — une étape peut rester listée alors
+ * que `decideStage` la rejetterait de toute façon (étape de séquence
+ * antérieure pas encore APPROVE, ou acteur non indépendant : initiateur,
+ * bénéficiaire, ou ayant déjà décidé une autre étape de la même version).
+ * `isStageDecidable` (même prédicat que `decideStage`, seule source de
+ * vérité) filtre ces cas pour que la liste ne montre que ce que l'utilisateur
+ * peut réellement décider maintenant — sinon l'approbation en lot produit des
+ * résultats "en erreur" mystérieux pour des étapes qui n'auraient jamais dû
+ * apparaître.
  */
 export async function listMyApprovals(orgId: string, userId: string): Promise<PendingStageDTO[]> {
   const effectiveRoles = await getEffectiveRoleHolders(orgId, userId);
@@ -145,11 +190,25 @@ export async function listMyApprovals(orgId: string, userId: string): Promise<Pe
     s.role === "DEPARTMENT_HEAD" ? headedDepartmentIds.has(s.requestVersion.departmentSnapshot) : true
   );
 
-  const versions = scopedStages.map((s) => s.requestVersion);
+  // Filtre de décidabilité effective — voir la doc de la fonction ci-dessus
+  // et celle d'`isStageDecidable` (lib/access/requests-server.ts) pour le
+  // détail des deux règles (ordre des étapes, indépendance).
+  const decidableStages = scopedStages.filter(
+    (s) =>
+      isStageDecidable(
+        { id: s.id, sequence: s.sequence },
+        s.requestVersion.stages,
+        s.requestVersion.initiatorId,
+        s.requestVersion.request.beneficiaryId,
+        userId
+      ).decidable
+  );
+
+  const versions = decidableStages.map((s) => s.requestVersion);
   const summaries = await toSummaries(versions);
   const summaryByVersionId = new Map(summaries.map((s) => [s.versionId, s]));
 
-  return scopedStages
+  return decidableStages
     .map((s): PendingStageDTO | null => {
       const summary = summaryByVersionId.get(s.requestVersionId);
       if (!summary) return null;

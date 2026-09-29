@@ -28,7 +28,12 @@ export default async function MyRequestsPage() {
     getEffectiveRoleHolders(orgId, session.user.id),
   ]);
 
-  const serializedRequests = myRequests.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+  const serializedRequests = myRequests.map((r) => ({
+    ...r,
+    createdAt: r.createdAt.toISOString(),
+    periodStart: r.periodStart.toISOString(),
+    periodEnd: r.periodEnd ? r.periodEnd.toISOString() : null,
+  }));
 
   const headedDepartmentIds = effectiveRoles
     .filter((r) => r.role === "DEPARTMENT_HEAD" && r.departmentId !== null)
@@ -59,10 +64,17 @@ export default async function MyRequestsPage() {
             <tbody>
               {serializedRequests.map((r) => (
                 <tr key={r.versionId} className="border-t border-border-soft">
-                  <td className="py-1">{r.assetName}</td>
+                  <td className="py-1" title={r.justification}>
+                    {r.assetName}
+                  </td>
                   <td className="py-1">{r.targetLevelName ?? "—"}</td>
                   <td className="py-1">{r.kind}</td>
-                  <td className="py-1">{r.state}</td>
+                  <td className="py-1">
+                    {r.state}
+                    {r.currentStageReason && (
+                      <p className="text-[10px] text-dark-md mt-0.5">{r.currentStageReason}</p>
+                    )}
+                  </td>
                   <td className="py-1">
                     <MyRequestActions
                       row={{

@@ -13,6 +13,14 @@ interface PendingItem {
   targetLevelName: string | null;
   kind: string;
   createdAt: string;
+  justification: string;
+  periodStart: string;
+  periodEnd: string | null;
+  currentStageReason: string | null;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR");
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -149,6 +157,15 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
                 <strong>{item.beneficiaryName}</strong> — {item.kind} — {item.assetName}
                 {item.targetLevelName ? ` (${item.targetLevelName})` : ""}
               </p>
+              <p className="text-[12px] text-dark-md mb-1">{item.justification}</p>
+              <p className="text-[11px] text-izi-gray mb-2">
+                Période : {formatDate(item.periodStart)} → {item.periodEnd ? formatDate(item.periodEnd) : "indéterminée"}
+              </p>
+              {item.currentStageReason && (
+                <p className="text-[11px] text-dark-md mb-2 rounded-[6px] bg-gold-lt px-2 py-1">
+                  Motif de l&apos;étape en cours : {item.currentStageReason}
+                </p>
+              )}
               <p className="text-[11px] text-izi-gray mb-2">Étape : {ROLE_LABELS[item.stageRole] ?? item.stageRole}</p>
               <textarea
                 value={reasonById[item.stageId] ?? ""}

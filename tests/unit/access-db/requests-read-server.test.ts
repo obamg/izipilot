@@ -8,6 +8,7 @@ describe("requests-read-server", () => {
   let orgId: string;
   let employeeId: string;
   let deptHeadId: string;
+  let cisoId: string;
   let departmentId: string;
   let assetId: string;
   let levelReaderId: string;
@@ -18,14 +19,16 @@ describe("requests-read-server", () => {
     });
     orgId = org.id;
 
-    const [employee, deptHead] = await Promise.all([
+    const [employee, deptHead, ciso] = await Promise.all([
       prisma.user.create({ data: { orgId, email: `emp-r-${Date.now()}@example.com`, name: "Employee", role: "PO" } }),
       prisma.user.create({ data: { orgId, email: `dh-r-${Date.now()}@example.com`, name: "DeptHead", role: "PO" } }),
+      prisma.user.create({ data: { orgId, email: `ciso-r-${Date.now()}@example.com`, name: "Ciso", role: "PO" } }),
     ]);
     employeeId = employee.id;
     deptHeadId = deptHead.id;
+    cisoId = ciso.id;
     await Promise.all(
-      [employeeId, deptHeadId].map((userId) => prisma.accessProfile.create({ data: { orgId, userId, lifecycle: "ACTIVE" } }))
+      [employeeId, deptHeadId, cisoId].map((userId) => prisma.accessProfile.create({ data: { orgId, userId, lifecycle: "ACTIVE" } }))
     );
 
     const dept = await prisma.department.create({
@@ -34,6 +37,8 @@ describe("requests-read-server", () => {
     departmentId = dept.id;
     await prisma.departmentMember.create({ data: { departmentId, userId: employeeId } });
     await prisma.accessProfile.update({ where: { userId: employeeId }, data: { primaryDepartmentId: departmentId } });
+
+    await prisma.accessRoleAssignment.create({ data: { orgId, role: "CISO", userId: cisoId } });
 
     const asset = await prisma.accessAsset.create({ data: { orgId, name: "Asset Read", requestsEnabled: true } });
     assetId = asset.id;
@@ -45,6 +50,7 @@ describe("requests-read-server", () => {
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
     await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
+    await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
     await prisma.accessAssignment.deleteMany({ where: { orgId } });
     await prisma.accessLevel.deleteMany({ where: { asset: { orgId } } });
     await prisma.accessAsset.deleteMany({ where: { orgId } });
@@ -56,8 +62,9 @@ describe("requests-read-server", () => {
   });
 
   it("listMyRequests renvoie les demandes de l'utilisateur avec les noms résolus", async () => {
+    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const v = await submitRequest(orgId, employeeId, {
-      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test lecture",
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test lecture", periodEnd,
     });
     const mine = await listMyRequests(orgId, employeeId);
     expect(mine).toHaveLength(1);
@@ -65,19 +72,45 @@ describe("requests-read-server", () => {
     expect(mine[0].targetLevelName).toBe("Reader");
     expect(mine[0].beneficiaryName).toBe("Employee");
     expect(mine[0].pendingClarificationStageId).toBeNull();
+    // Gap 1 : justification/période exposées, aucun motif d'étape bloquante
+    // tant que la demande est simplement PENDING_APPROVAL.
+    expect(mine[0].justification).toBe("test lecture");
+    expect(mine[0].periodStart).toBeInstanceOf(Date);
+    expect(mine[0].periodEnd?.getTime()).toBe(periodEnd.getTime());
+    expect(mine[0].currentStageReason).toBeNull();
 
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: v.id } });
     await prisma.accessRequestVersion.deleteMany({ where: { id: v.id } });
     await prisma.accessRequest.deleteMany({ where: { id: v.requestId } });
   });
 
-  it("listMyRequests renvoie l'id de l'étape en attente de clarification", async () => {
+  it("listMyRequests renvoie l'id de l'étape en attente de clarification et son motif (Gap 1 : currentStageReason)", async () => {
     const v = await submitRequest(orgId, employeeId, {
       beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test clarif",
     });
-    await decideStage(orgId, deptHeadId, v.stages[0].id, "CLARIFY", "précisez");
+    await decideStage(orgId, deptHeadId, v.stages[0].id, "CLARIFY", "précisez le besoin");
     const mine = await listMyRequests(orgId, employeeId);
     expect(mine[0].pendingClarificationStageId).toBe(v.stages[0].id);
+    expect(mine[0].currentStageReason).toBe("précisez le besoin");
+    expect(mine[0].justification).toBe("test clarif");
+    expect(mine[0].periodEnd).toBeNull();
+
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: v.id } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: v.id } });
+    await prisma.accessRequest.deleteMany({ where: { id: v.requestId } });
+  });
+
+  it("listMyRequests renvoie le motif de retour pour une demande REVISION_REQUIRED (Gap 1 : currentStageReason)", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test retour",
+    });
+    const returned = await decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", "revoir la période demandée");
+    expect(returned.state).toBe("REVISION_REQUIRED");
+
+    const mine = await listMyRequests(orgId, employeeId);
+    expect(mine[0].state).toBe("REVISION_REQUIRED");
+    expect(mine[0].currentStageReason).toBe("revoir la période demandée");
+    expect(mine[0].pendingClarificationStageId).toBeNull();
 
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: v.id } });
     await prisma.accessRequestVersion.deleteMany({ where: { id: v.id } });
@@ -91,6 +124,11 @@ describe("requests-read-server", () => {
     const pending = await listMyApprovals(orgId, deptHeadId);
     expect(pending).toHaveLength(1);
     expect(pending[0].stageRole).toBe("DEPARTMENT_HEAD");
+    // Gap 1 : les mêmes champs justification/période sont exposés côté
+    // approbateur ; aucun motif d'étape bloquante pour une étape PENDING_APPROVAL.
+    expect(pending[0].justification).toBe("test approbation");
+    expect(pending[0].periodStart).toBeInstanceOf(Date);
+    expect(pending[0].currentStageReason).toBeNull();
 
     const decided = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
     const afterDecision = await listMyApprovals(orgId, deptHeadId);
@@ -99,6 +137,66 @@ describe("requests-read-server", () => {
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: decided.id } });
     await prisma.accessRequestVersion.deleteMany({ where: { id: decided.id } });
     await prisma.accessRequest.deleteMany({ where: { id: decided.requestId } });
+  });
+
+  it("listMyApprovals (Gap 2 — ordre des étapes) : le CISO ne voit pas l'étape tant que le chef de département n'a pas approuvé, puis la voit ensuite", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test ordre des étapes",
+    });
+    expect(v.stages.map((s) => s.role)).toEqual(["DEPARTMENT_HEAD", "CISO"]);
+    const cisoStageId = v.stages[1].id;
+
+    // Avant l'approbation du chef de département : le CISO est éligible au
+    // rôle mais l'étape n'est pas encore décidable (ordre des séquences) —
+    // elle ne doit donc pas apparaître dans sa liste.
+    const beforeApproval = await listMyApprovals(orgId, cisoId);
+    expect(beforeApproval.find((a) => a.stageId === cisoStageId)).toBeUndefined();
+
+    const afterDeptHeadApproval = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+
+    // Après approbation du chef de département : l'étape CISO devient décidable.
+    const afterApproval = await listMyApprovals(orgId, cisoId);
+    const found = afterApproval.find((a) => a.stageId === cisoStageId);
+    expect(found).toBeDefined();
+    expect(found?.stageRole).toBe("CISO");
+
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: afterDeptHeadApproval.id } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: afterDeptHeadApproval.id } });
+    await prisma.accessRequest.deleteMany({ where: { id: afterDeptHeadApproval.requestId } });
+  });
+
+  it("listMyApprovals (Gap 2 — indépendance) : un acteur ayant déjà décidé une étape de la version n'en voit pas une seconde (suppléance CISO)", async () => {
+    // Même mécanisme que le test « double signature » de decideStage (Tâche 5) :
+    // deptHeadId devient suppléant du titulaire CISO (le titulaire indisponible),
+    // ce qui le rend effectivement éligible CISO SANS violer l'index unique
+    // partiel sur le titulaire CISO par org.
+    const existingCiso = await prisma.accessRoleAssignment.findFirstOrThrow({ where: { orgId, role: "CISO" } });
+    await prisma.accessRoleAssignment.update({
+      where: { id: existingCiso.id },
+      data: { backupUserId: deptHeadId, primaryUnavailable: true },
+    });
+
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "test indépendance suppléance",
+    });
+    expect(v.stages.map((s) => s.role)).toEqual(["DEPARTMENT_HEAD", "CISO"]);
+
+    const afterFirst = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
+    const cisoStageId = afterFirst.stages[1].id;
+
+    // deptHeadId est effectivement éligible CISO (suppléant du titulaire
+    // indisponible) mais a déjà décidé la première étape de cette même
+    // version : la seconde ne doit pas apparaître dans sa liste.
+    const approvals = await listMyApprovals(orgId, deptHeadId);
+    expect(approvals.find((a) => a.stageId === cisoStageId)).toBeUndefined();
+
+    await prisma.accessRoleAssignment.update({
+      where: { id: existingCiso.id },
+      data: { backupUserId: null, primaryUnavailable: false },
+    });
+    await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: afterFirst.id } });
+    await prisma.accessRequestVersion.deleteMany({ where: { id: afterFirst.id } });
+    await prisma.accessRequest.deleteMany({ where: { id: afterFirst.requestId } });
   });
 
   it("listDepartmentReducibleAccess renvoie les accès actifs des employés du département", async () => {

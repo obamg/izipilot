@@ -18,7 +18,12 @@ export default async function ApprovalsPage() {
   if (!canApprove) redirect("/dashboard");
 
   const pending = await listMyApprovals(orgId, session.user.id);
-  const serialized = pending.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }));
+  const serialized = pending.map((p) => ({
+    ...p,
+    createdAt: p.createdAt.toISOString(),
+    periodStart: p.periodStart.toISOString(),
+    periodEnd: p.periodEnd ? p.periodEnd.toISOString() : null,
+  }));
 
   return (
     <div>
