@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { splitBatchSelection } from "@/lib/access/batch-selection";
 
 interface PendingItem {
   stageId: string;
@@ -64,7 +65,15 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
     }
   }
 
-  const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([id]) => id);
+  // Une étape avec escalade cochée n'entre jamais dans le lot (voir
+  // splitBatchSelection) : sa case de sélection est désactivée et, par
+  // défense en profondeur, elle est de toute façon retirée ici.
+  const { approvable: selectedIds } = splitBatchSelection(selected, escalateById);
+
+  function toggleEscalate(stageId: string, checked: boolean) {
+    setEscalateById((s) => ({ ...s, [stageId]: checked }));
+    if (checked) setSelected((s) => ({ ...s, [stageId]: false }));
+  }
 
   async function decideBatchApprove() {
     setError(null);
@@ -118,15 +127,22 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
           {batchResults.filter((r) => r.ok).length} approuvée(s), {batchResults.filter((r) => !r.ok).length} en erreur.
         </p>
       )}
-      {items.map((item) => (
+      {items.map((item) => {
+        const isEscalating = escalateById[item.stageId] ?? false;
+        return (
         <div key={item.stageId} className="rounded-[10px] border border-border-soft bg-white p-4">
           <div className="flex items-start gap-2">
             <input
               type="checkbox"
-              checked={selected[item.stageId] ?? false}
+              checked={!isEscalating && (selected[item.stageId] ?? false)}
+              disabled={isEscalating}
               onChange={(e) => setSelected((s) => ({ ...s, [item.stageId]: e.target.checked }))}
-              className="mt-1 accent-[color:var(--teal)]"
-              aria-label={`Sélectionner la demande de ${item.beneficiaryName}`}
+              className="mt-1 accent-[color:var(--teal)] disabled:opacity-40"
+              aria-label={
+                isEscalating
+                  ? `Sélection indisponible pour ${item.beneficiaryName} : escalade requise, à traiter individuellement`
+                  : `Sélectionner la demande de ${item.beneficiaryName}`
+              }
             />
             <div className="flex-1">
               <p className="text-[13px] text-dark mb-1">
@@ -146,13 +162,18 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
                 <label className="flex items-center gap-1 text-[11px] text-izi-gray mb-2">
                   <input
                     type="checkbox"
-                    checked={escalateById[item.stageId] ?? false}
-                    onChange={(e) => setEscalateById((s) => ({ ...s, [item.stageId]: e.target.checked }))}
+                    checked={isEscalating}
+                    onChange={(e) => toggleEscalate(item.stageId, e.target.checked)}
                     aria-label={`Escalader vers COO après approbation pour ${item.beneficiaryName}`}
                     className="accent-[color:var(--teal)]"
                   />
                   Escalader vers COO après approbation
                 </label>
+              )}
+              {isEscalating && (
+                <p className="text-[11px] text-dark-md mb-2">
+                  Escalade requise — à traiter individuellement (exclue de l&apos;approbation en lot).
+                </p>
               )}
               <div className="flex gap-2 flex-wrap">
                 <button
@@ -191,7 +212,8 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
