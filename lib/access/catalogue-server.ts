@@ -104,9 +104,11 @@ async function verifyOwnersBelongToOrg(
   ownerId: string | null | undefined,
   backupOwnerId: string | null | undefined
 ): Promise<void> {
-  const idsToVerify = [ownerId, backupOwnerId].filter(
-    (id): id is string => typeof id === "string" && id.length > 0
-  );
+  const idsToVerify = [...new Set(
+    [ownerId, backupOwnerId].filter(
+      (id): id is string => typeof id === "string" && id.length > 0
+    )
+  )];
   if (idsToVerify.length === 0) return;
 
   const memberCount = await prisma.user.count({
