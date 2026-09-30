@@ -9,6 +9,14 @@ import {
   decideBatch,
   RequestError,
 } from "@/lib/access/requests-server";
+import {
+  approvedSelfRequest,
+  cleanupFulfilmentFixture,
+  createFulfilmentFixture,
+  newEmployee,
+  taskForVersion,
+  type FulfilmentFixture,
+} from "./fulfilment-fixtures";
 
 describe("requests-server — soumission", () => {
   let orgId: string;
@@ -124,6 +132,8 @@ describe("requests-server — soumission", () => {
     expect(version.stages).toHaveLength(0);
     expect(version.exceptionReason).toBe("COO_SELF_REQUEST");
     expect(version.state).toBe("READY_FOR_FULFILMENT");
+    // Phase 3b : la tâche d'exécution est libérée dans la même transaction.
+    expect(await prisma.accessFulfilmentTask.count({ where: { requestVersionId: version.id, state: "READY" } })).toBe(1);
 
     await prisma.accessTaskEvent.deleteMany({ where: { task: { requestVersionId: version.id } } });
     await prisma.accessFulfilmentTask.deleteMany({ where: { requestVersionId: version.id } });
@@ -292,6 +302,7 @@ describe("requests-server — décision d'étape", () => {
     let updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "APPROVE", null);
     updated = await decideStage(orgId, cisoId, updated.stages[1].id, "APPROVE", null);
     expect(updated.state).toBe("READY_FOR_FULFILMENT");
+    expect(await prisma.accessFulfilmentTask.count({ where: { requestVersionId: updated.id, state: "READY" } })).toBe(1);
     await cleanup(updated);
   });
 
@@ -328,15 +339,19 @@ describe("requests-server — décision d'étape", () => {
     await cleanup(afterFirst);
   });
 
-  it("REJECT à n'importe quelle étape termine la demande, AccessRequest supprimé", async () => {
+  // Phase 3b (D-4) : ce test vérifiait la SUPPRESSION de la demande au rejet
+  // (cascade qui effaçait versions et étapes, contraire à FP:92/352). La
+  // demande est désormais fermée (`closedAt`) et son historique conservé.
+  it("REJECT à n'importe quelle étape termine la demande : fermée, historique conservé", async () => {
     const v = await freshRequest();
     const updated = await decideStage(orgId, deptHeadId, v.stages[0].id, "REJECT", "motif de rejet");
     expect(updated.state).toBe("REJECTED");
-    const requestStillExists = await prisma.accessRequest.findUnique({ where: { id: v.requestId } });
-    expect(requestStillExists).toBeNull();
-    // La version reste en base pour l'historique même si AccessRequest est supprimé —
-    // mais la contrainte de cascade sur AccessRequestVersion.requestId la supprime aussi.
-    // Rien à nettoyer de plus ici.
+    const request = await prisma.accessRequest.findUniqueOrThrow({ where: { id: v.requestId } });
+    expect(request.closedAt).not.toBeNull();
+    const kept = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: v.id }, include: { stages: true } });
+    expect(kept.state).toBe("REJECTED");
+    expect(kept.stages.find((s) => s.sequence === 1)?.reason).toBe("motif de rejet");
+    await cleanup(updated);
   });
 
   it("CLARIFY laisse l'étape courante, la version passe à CLARIFICATION_REQUIRED", async () => {
@@ -581,13 +596,19 @@ describe("requests-server — clarification, révision, annulation", () => {
     await cleanup(v.requestId);
   });
 
-  it("l'initiateur peut annuler tant que la demande n'est pas terminale", async () => {
+  // Phase 3b (D-4, D-19) : ce test vérifiait la suppression de la demande à
+  // l'annulation. Elle est désormais fermée, la version reste CANCELLED.
+  it("l'initiateur peut annuler tant que la demande n'est pas terminale : fermée, historique conservé", async () => {
     const v = await submitRequest(orgId, employeeId, {
       beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "à annuler",
     });
-    await cancelRequest(orgId, employeeId, v.requestId);
-    const stillExists = await prisma.accessRequest.findUnique({ where: { id: v.requestId } });
-    expect(stillExists).toBeNull();
+    expect(await cancelRequest(orgId, employeeId, v.requestId)).toBe("CANCELLED");
+    const request = await prisma.accessRequest.findUniqueOrThrow({ where: { id: v.requestId } });
+    expect(request.closedAt).not.toBeNull();
+    const kept = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: v.id } });
+    expect(kept.state).toBe("CANCELLED");
+    await expect(cancelRequest(orgId, employeeId, v.requestId)).rejects.toThrow(/déjà clôturée/);
+    await cleanup(v.requestId);
   });
 
   it("seul l'initiateur peut annuler", async () => {
@@ -962,5 +983,109 @@ describe("requests-server — correctifs revue finale (révision, périmètre de
     expect(decided.stages[0].actorId).toBe(headAId);
     const stageRow = await prisma.accessApprovalStage.findUniqueOrThrow({ where: { id: v.stages[0].id } });
     expect(stageRow.actedAsPrimary).toBe(false);
+  });
+});
+
+describe("requests-server — passage à l'exécution (phase 3b : libération, fermeture, annulation)", () => {
+  let fx: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("req3b");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  it("dernière approbation (decideStage) : tâche READY libérée dans la même transaction, audit TASK_RELEASED par l'approbateur", async () => {
+    const emp = await newEmployee(fx, "Rel1");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    expect(final.state).toBe("READY_FOR_FULFILMENT");
+    const task = await taskForVersion(final.id);
+    expect(task).toMatchObject({ state: "READY", action: "GRANT", idempotencyKey: `REQ:${final.id}`, expectedAssignmentVersion: 0 });
+    const audit = await prisma.accessAuditEvent.findFirstOrThrow({ where: { orgId: fx.orgId, eventType: "TASK_RELEASED", objectId: task.id } });
+    expect(audit.actorId).toBe(fx.users.ciso);
+  });
+
+  it("exception COO à la soumission : tâche libérée ; aucune tâche tant que la demande est en attente", async () => {
+    const pending = await submitRequest(fx.orgId, fx.users.employee, {
+      beneficiaryId: fx.users.employee, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "attente",
+    });
+    expect(await prisma.accessFulfilmentTask.count({ where: { requestVersionId: pending.id } })).toBe(0);
+    await cancelRequest(fx.orgId, fx.users.employee, pending.requestId);
+
+    const coo = await submitRequest(fx.orgId, fx.users.coo, {
+      beneficiaryId: fx.users.coo, assetId: fx.assetId, targetLevelId: fx.levels.editor, justification: "COO",
+    });
+    expect((await taskForVersion(coo.id)).state).toBe("READY");
+  });
+
+  it("révision sans étape (l'initiateur est devenu COO titulaire) : tâche libérée", async () => {
+    const emp = await newEmployee(fx, "Rel3");
+    const v = await submitRequest(fx.orgId, emp, {
+      beneficiaryId: emp, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "initial",
+    });
+    const returned = await decideStage(fx.orgId, fx.users.deptHead, v.stages[0].id, "RETURN", "revoir");
+    await prisma.accessRoleAssignment.updateMany({ where: { orgId: fx.orgId, role: "COO" }, data: { userId: emp } });
+    const revised = await reviseRequest(fx.orgId, emp, returned.id, { justification: "révisée" });
+    await prisma.accessRoleAssignment.updateMany({ where: { orgId: fx.orgId, role: "COO" }, data: { userId: fx.users.coo } });
+    expect(revised.state).toBe("READY_FOR_FULFILMENT");
+    expect(revised.stages).toHaveLength(0);
+    expect((await taskForVersion(revised.id)).state).toBe("READY");
+  });
+
+  it("début futur : AUTHORIZED_WAITING_START, AUCUNE tâche (le processeur la libérera)", async () => {
+    const emp = await newEmployee(fx, "Rel4");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader, { periodStart: new Date(Date.now() + 7 * 86_400_000) });
+    expect(final.state).toBe("AUTHORIZED_WAITING_START");
+    expect(await prisma.accessFulfilmentTask.count({ where: { requestVersionId: final.id } })).toBe(0);
+  });
+
+  it("annulation AVANT réclamation (READY) : version CANCELLED, tâche CANCELLED, demande fermée", async () => {
+    const emp = await newEmployee(fx, "Cancel1");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    expect(await cancelRequest(fx.orgId, emp, final.requestId)).toBe("CANCELLED");
+    const task = await taskForVersion(final.id);
+    expect(task.state).toBe("CANCELLED");
+    expect(task.outcome).toBe("NOT_PERFORMED");
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("CANCELLED");
+    expect((await prisma.accessRequest.findUniqueOrThrow({ where: { id: final.requestId } })).closedAt).not.toBeNull();
+  });
+
+  it("annulation APRÈS réclamation (IN_PROGRESS) : seulement « annulation demandée », tâche intacte, demande ouverte", async () => {
+    const emp = await newEmployee(fx, "Cancel2");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const task = await taskForVersion(final.id);
+    // Réclamation simulée (claimTask arrive en Tâche 6) : même effet en base.
+    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { state: "IN_PROGRESS" } });
+    await prisma.accessFulfilmentTask.update({
+      where: { id: task.id },
+      data: { state: "CLAIMED", claimantId: fx.users.owner, claimedAt: new Date(), revision: 2 },
+    });
+
+    expect(await cancelRequest(fx.orgId, emp, final.requestId)).toBe("CANCEL_REQUESTED");
+    const version = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } });
+    expect(version.state).toBe("IN_PROGRESS");
+    expect(version.cancelRequestedAt).not.toBeNull();
+    expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: task.id } })).state).toBe("CLAIMED");
+    expect((await prisma.accessRequest.findUniqueOrThrow({ where: { id: final.requestId } })).closedAt).toBeNull();
+    expect(
+      await prisma.accessAuditEvent.count({ where: { orgId: fx.orgId, eventType: "REQUEST_CANCEL_REQUESTED", objectId: final.id } })
+    ).toBe(1);
+    await expect(cancelRequest(fx.orgId, emp, final.requestId)).rejects.toThrow(/déjà été demandée/);
+  });
+
+  it("historique conservé après rejet ; le couple employé/actif est libre pour une nouvelle demande", async () => {
+    const emp = await newEmployee(fx, "Hist");
+    const v = await submitRequest(fx.orgId, emp, {
+      beneficiaryId: emp, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "première",
+    });
+    await decideStage(fx.orgId, fx.users.deptHead, v.stages[0].id, "REJECT", "non");
+    const again = await submitRequest(fx.orgId, emp, {
+      beneficiaryId: emp, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "seconde",
+    });
+    expect(again.requestId).not.toBe(v.requestId);
+    const all = await prisma.accessRequest.findMany({ where: { orgId: fx.orgId, beneficiaryId: emp }, include: { versions: true } });
+    expect(all).toHaveLength(2);
+    expect(all.find((r) => r.id === v.requestId)?.versions[0].state).toBe("REJECTED");
   });
 });

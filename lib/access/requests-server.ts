@@ -2,6 +2,7 @@
 import type { Prisma, AccessRequestState, AccessRequestKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAuditInTx } from "./audit-server";
+import { cancelReadyTaskForVersionInTx, releaseTaskInTx } from "./fulfilment-server";
 import { getEffectiveRoleHolders } from "./roles-server";
 import { canInitiateDepartmentReduction } from "./requests-read-server";
 import { isStageDecidable, type StageDecidabilityReason } from "./stage-decidability";
@@ -333,6 +334,12 @@ export async function submitRequest(
         include: { stages: true, request: true },
       });
 
+      // Exception COO (aucune étape) : autorisée dès la soumission → la tâche
+      // d'exécution est libérée dans la même transaction (phase 3b, D-2).
+      if (initialState === "READY_FOR_FULFILMENT") {
+        await releaseTaskInTx(tx, { orgId, actorId, version, request });
+      }
+
       await recordAuditInTx(tx, {
         orgId,
         actorId,
@@ -384,15 +391,6 @@ function isUniqueConstraintError(err: unknown): boolean {
     err !== null &&
     "code" in err &&
     (err as { code: string }).code === "P2002"
-  );
-}
-
-function isRecordNotFoundError(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "P2025"
   );
 }
 
@@ -583,6 +581,13 @@ export async function decideStage(
       throw new RequestError("Cette version n'est plus en attente d'approbation — décision refusée");
     }
 
+    // Dernière approbation : la tâche d'exécution est libérée dans la même
+    // transaction (phase 3b, D-2). AUTHORIZED_WAITING_START n'a pas de tâche :
+    // le processeur 5 minutes la libère à `periodStart`.
+    if (newState === "READY_FOR_FULFILMENT") {
+      await releaseTaskInTx(tx, { orgId, actorId, version, request });
+    }
+
     await recordAuditInTx(tx, {
       orgId,
       actorId,
@@ -602,23 +607,18 @@ export async function decideStage(
       correlationId: null,
     });
 
-    // ⚠️ Capturer le DTO final AVANT un éventuel REJECT : supprimer
-    // `AccessRequest` cascade-supprime immédiatement `AccessRequestVersion`
-    // (onDelete: Cascade dans le schéma) et, en cascade, ses
-    // `AccessApprovalStage` — dans la MÊME transaction, pas seulement au
-    // commit. Un `findUnique` sur la version APRÈS ce delete renverrait donc
-    // `null`. On lit le résultat pendant qu'il existe encore, puis on
-    // supprime la demande si nécessaire.
-    const finalVersion = await tx.accessRequestVersion.findUnique({
+    // Phase 3b (D-4) : un rejet FERME la demande (`closedAt`), il ne la
+    // supprime plus — versions et étapes restent l'historique (FP:92/352) et
+    // l'index partiel `one_open_request_per_pair` libère le couple
+    // employé/actif pour une nouvelle demande.
+    if (decision === "REJECT") {
+      await tx.accessRequest.update({ where: { id: request.id }, data: { closedAt: new Date() } });
+    }
+
+    return tx.accessRequestVersion.findUnique({
       where: { id: version.id },
       include: { stages: true, request: true },
     });
-
-    if (decision === "REJECT") {
-      await tx.accessRequest.delete({ where: { id: request.id } });
-    }
-
-    return finalVersion;
   });
 
   return toVersionDTO(updated as VersionWithStages);
@@ -798,6 +798,12 @@ export async function reviseRequest(
         include: { stages: true, request: true },
       });
 
+      // Route recalculée sans étape (ex. l'initiateur est devenu COO
+      // titulaire) : libération immédiate de la tâche (phase 3b, D-2).
+      if (initialState === "READY_FOR_FULFILMENT") {
+        await releaseTaskInTx(tx, { orgId, actorId, version: newVersion, request: oldVersion.request });
+      }
+
       await recordAuditInTx(tx, {
         orgId,
         actorId,
@@ -829,29 +835,35 @@ export async function reviseRequest(
   }
 }
 
+const PRE_CLAIM_STATES: AccessRequestState[] = [
+  "PENDING_APPROVAL",
+  "CLARIFICATION_REQUIRED",
+  "REVISION_REQUIRED",
+  "AUTHORIZED_WAITING_START",
+  "READY_FOR_FULFILMENT",
+];
+const IN_FULFILMENT_STATES: AccessRequestState[] = ["IN_PROGRESS", "BLOCKED"];
+
+export type CancelOutcome = "CANCELLED" | "CANCEL_REQUESTED";
+
 /**
- * Annulation par l'initiateur, tant que la demande n'est pas terminale.
- * REJECT/CANCELLED suppriment déjà `AccessRequest` (cascade sur les
- * versions/étapes) — annuler une demande déjà terminale échoue donc
- * naturellement au `findFirst` initial ("Demande introuvable").
+ * Annulation par l'initiateur, sensible à l'exécution (phase 3b, D-19,
+ * FP:170) :
+ * - avant réclamation (PENDING_APPROVAL … READY_FOR_FULFILMENT) : annulation
+ *   effective — version CANCELLED, tâche READY éventuelle CANCELLED, demande
+ *   FERMÉE (`closedAt`), jamais supprimée (D-4) ;
+ * - après réclamation (IN_PROGRESS, BLOCKED) : seulement
+ *   `cancelRequestedAt` + audit REQUEST_CANCEL_REQUESTED. Le propriétaire
+ *   réconcilie (« aucune modification effectuée ») ou confirme factuellement.
  *
- * ⚠️ Même discipline que `decideStage`/`respondToClarification`/
- * `reviseRequest` : lecture de la demande/version courante et vérification
- * de l'initiateur DANS la transaction (`tx`), pas sur `prisma` avant.
- * L'écriture de l'état de la version courante est un `updateMany`
- * conditionnel (prédicat sur l'état lu dans cette même transaction) : si une
- * décision concurrente (ex. REJECT via `decideStage`) a déjà fait avancer
- * cette version, le compte à 0 fait échouer proprement l'annulation plutôt
- * que d'écraser silencieusement un état déjà changé.
- *
- * La suppression de `AccessRequest` elle-même peut échouer avec `P2025` si
- * une autre transaction concurrente (double annulation, ou décision
- * terminale) l'a déjà supprimée entre notre lecture et cette écriture —
- * traduit ici en `RequestError` plutôt que de laisser fuiter l'erreur Prisma
- * brute.
+ * ⚠️ Même discipline que `decideStage` : lectures et écritures dans la
+ * transaction, `updateMany` conditionnel sur l'état lu. La version est
+ * verrouillée AVANT la tâche (même ordre que `claimTask`) : une annulation
+ * et une réclamation concurrentes se sérialisent sur la ligne de version,
+ * une seule gagne, sans interblocage.
  */
-export async function cancelRequest(orgId: string, actorId: string, requestId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+export async function cancelRequest(orgId: string, actorId: string, requestId: string): Promise<CancelOutcome> {
+  return prisma.$transaction(async (tx) => {
     const request = await tx.accessRequest.findFirst({
       where: { id: requestId, orgId },
       include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
@@ -861,23 +873,63 @@ export async function cancelRequest(orgId: string, actorId: string, requestId: s
     if (!currentVersion || currentVersion.initiatorId !== actorId) {
       throw new RequestError("Seul l'initiateur peut annuler cette demande");
     }
+    if (request.closedAt !== null) {
+      throw new RequestError("Cette demande est déjà clôturée");
+    }
+
+    if (IN_FULFILMENT_STATES.includes(currentVersion.state)) {
+      if (currentVersion.cancelRequestedAt !== null) {
+        throw new RequestError("L'annulation a déjà été demandée");
+      }
+      const flagged = await tx.accessRequestVersion.updateMany({
+        where: { id: currentVersion.id, state: { in: IN_FULFILMENT_STATES }, cancelRequestedAt: null },
+        data: { cancelRequestedAt: new Date(), revision: { increment: 1 } },
+      });
+      if (flagged.count === 0) {
+        throw new RequestError("Cette demande a été modifiée entre-temps — annulation refusée");
+      }
+      await recordAuditInTx(tx, {
+        orgId,
+        actorId,
+        actorRole: null,
+        primaryCoveredId: request.beneficiaryId,
+        scopeType: "ACCESS_REQUEST",
+        scopeId: requestId,
+        eventType: "REQUEST_CANCEL_REQUESTED",
+        objectType: "AccessRequestVersion",
+        objectId: currentVersion.id,
+        objectVersion: currentVersion.versionNumber,
+        beneficiaryId: request.beneficiaryId,
+        before: { state: currentVersion.state },
+        after: { state: currentVersion.state, cancelRequested: true },
+        reason: null,
+        outcome: "SUCCESS",
+        correlationId: null,
+      });
+      return "CANCEL_REQUESTED";
+    }
+
+    if (!PRE_CLAIM_STATES.includes(currentVersion.state)) {
+      throw new RequestError("Cette demande est déjà terminée");
+    }
 
     const versionUpdateResult = await tx.accessRequestVersion.updateMany({
       where: { id: currentVersion.id, state: currentVersion.state },
-      data: { state: "CANCELLED" },
+      data: { state: "CANCELLED", revision: { increment: 1 } },
     });
     if (versionUpdateResult.count === 0) {
       throw new RequestError("Cette demande a été modifiée entre-temps — annulation refusée");
     }
-
-    try {
-      await tx.accessRequest.delete({ where: { id: requestId } });
-    } catch (err) {
-      if (isRecordNotFoundError(err)) {
-        throw new RequestError("Cette demande a déjà été annulée ou traitée");
-      }
-      throw err;
+    if (currentVersion.state === "READY_FOR_FULFILMENT") {
+      await cancelReadyTaskForVersionInTx(tx, {
+        orgId,
+        actorId,
+        versionId: currentVersion.id,
+        reason: "Demande annulée par l'initiateur",
+        outcome: "NOT_PERFORMED",
+      });
     }
+    await tx.accessRequest.update({ where: { id: requestId }, data: { closedAt: new Date() } });
 
     await recordAuditInTx(tx, {
       orgId,
@@ -897,6 +949,7 @@ export async function cancelRequest(orgId: string, actorId: string, requestId: s
       outcome: "SUCCESS",
       correlationId: null,
     });
+    return "CANCELLED";
   });
 }
 
