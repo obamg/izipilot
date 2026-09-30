@@ -28,6 +28,7 @@ interface DashboardShellProps {
   canApproveRequests: boolean;
   canViewDepartmentAccess: boolean;
   canViewOwnedAssetsAccess: boolean;
+  canViewFulfilment: boolean;
 }
 
 export function DashboardShell({
@@ -46,6 +47,7 @@ export function DashboardShell({
   canApproveRequests,
   canViewDepartmentAccess,
   canViewOwnedAssetsAccess,
+  canViewFulfilment,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -71,6 +73,7 @@ export function DashboardShell({
           canApproveRequests={canApproveRequests}
           canViewDepartmentAccess={canViewDepartmentAccess}
           canViewOwnedAssetsAccess={canViewOwnedAssetsAccess}
+          canViewFulfilment={canViewFulfilment}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
