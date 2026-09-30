@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FulfilmentTaskDTO } from "@/lib/access/fulfilment-read-server";
+import { shortTaskReference } from "@/lib/access/fulfilment";
 import { FulfilmentTaskCard, nowForDateTimeInput } from "./FulfilmentTaskCard";
 
 interface BatchItemResult {
@@ -48,7 +49,7 @@ export function FulfilmentTaskList({ rows, readOnly, selectable, emptyMessage }:
   const chosen = rows.filter((r) => selected[r.id]);
   const claimable = chosen.filter((r) => r.viewerCan.claim);
   const completable = chosen.filter((r) => r.viewerCan.complete);
-  const referenceOf = (taskId: string) => rows.find((r) => r.id === taskId)?.reference ?? taskId;
+  const referenceOf = (taskId: string) => rows.find((r) => r.id === taskId)?.reference ?? shortTaskReference(taskId);
   const evidenceOf = (taskId: string) => evidence[taskId] ?? EMPTY_EVIDENCE;
   const setEvidenceOf = (taskId: string, patch: Partial<Evidence>) =>
     setEvidence((all) => ({ ...all, [taskId]: { ...(all[taskId] ?? EMPTY_EVIDENCE), ...patch } }));

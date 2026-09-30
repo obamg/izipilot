@@ -102,7 +102,7 @@ async function toSummaries(versions: VersionForSummary[]): Promise<RequestSummar
             requestVersionId: true,
             state: true,
             blockedReason: true,
-            events: { where: { type: "CANCELLED" }, orderBy: { occurredAt: "desc" }, take: 1, select: { reason: true } },
+            events: { where: { type: { in: ["CANCELLED", "RECONCILED"] } }, orderBy: { occurredAt: "desc" }, take: 1, select: { reason: true } },
           },
         })
       : Promise.resolve([]),

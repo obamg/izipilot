@@ -68,6 +68,7 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
   const [mode, setMode] = useState<Mode>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [completedAtLocal, setCompletedAtLocal] = useState("");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
@@ -91,6 +92,7 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
     if (busy) return;
     setBusy(true);
     setError(null);
+    setConflict(false);
     try {
       const res = await fetch(`/api/access/tasks/${task.id}/${path}`, {
         method: "POST",
@@ -98,6 +100,7 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
         body: JSON.stringify({ ...body, expectedRevision: task.revision }),
       });
       if (!res.ok) {
+        if (res.status === 409) setConflict(true);
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload.error || "Échec de l'opération");
       }
@@ -219,9 +222,14 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
           </details>
 
           {error && (
-            <p role="alert" className="mt-2 text-[13px] text-red">
-              {error}
-            </p>
+            <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-red">
+              <span>{error}</span>
+              {conflict && (
+                <button type="button" onClick={() => router.refresh()} className={secondaryButton}>
+                  Recharger
+                </button>
+              )}
+            </div>
           )}
 
           {can && mode === null && (

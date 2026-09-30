@@ -480,4 +480,23 @@ describe("requests-read-server — historique et suivi d'exécution (phase 3b)",
       closed: false,
     });
   });
+
+  it("demande fermée par réconciliation : le motif de l'événement RECONCILED est exposé, jamais les faits", async () => {
+    const emp = await newEmployee(fx, "Reconciled");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const task = await taskForVersion(final.id);
+    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { state: "CANCELLED", outcome: "NOT_PERFORMED" } });
+    await prisma.accessRequest.update({ where: { id: final.requestId }, data: { closedAt: new Date() } });
+    await prisma.accessFulfilmentTask.update({ where: { id: task.id }, data: { state: "CANCELLED", outcome: "NOT_PERFORMED" } });
+    await prisma.accessTaskEvent.create({
+      data: {
+        orgId: fx.orgId, taskId: task.id, type: "RECONCILED", reason: "Niveau cible supprimé du catalogue",
+        facts: { note: "jeton interne xyz" },
+      },
+    });
+
+    const [row] = await listMyRequests(fx.orgId, emp);
+    expect(row).toMatchObject({ taskState: "CANCELLED", taskReason: "Niveau cible supprimé du catalogue", closed: true });
+    expect(JSON.stringify(row)).not.toContain("jeton interne xyz");
+  });
 });
