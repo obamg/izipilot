@@ -181,4 +181,20 @@ describe("routes /api/access/tasks/** — 401 / 400 / 404 / 409", () => {
     expect(done.status).toBe(200);
     expect((await done.json()).data.results).toEqual([{ taskId: a, ok: true, error: null, code: null }]);
   });
+
+  it("I2 — lot de confirmation : `partialRemovalOnly` refusé (400 VALIDATION, tâche inchangée) ; plus de 100 éléments → 400", async () => {
+    as(fx.users.owner);
+    const taskId = await readyTaskId("LotPartiel");
+    const claimed = await postBatch(claimBatch, { items: [{ taskId, expectedRevision: 1 }] });
+    expect(claimed.status).toBe(200);
+    const res = await postBatch(completeBatch, {
+      items: [{ taskId, ...evidence(), partialRemovalOnly: true, expectedRevision: 2 }],
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION");
+    const after = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } });
+    expect(after).toMatchObject({ state: "CLAIMED", revision: 2 });
+    const many = Array.from({ length: 101 }, (_, i) => ({ taskId: `t${i}`, ...evidence(), expectedRevision: 1 }));
+    expect((await postBatch(completeBatch, { items: many })).status).toBe(400);
+  });
 });

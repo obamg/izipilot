@@ -141,6 +141,8 @@ export const completeBatchSchema = z.object({
     .array(
       completionFields
         .extend({ taskId: z.string().min(1).max(64) })
+        // Strict : `partialRemovalOnly` (ou toute clé inconnue) doit être refusé, pas ignoré en silence.
+        .strict()
         .refine(hasEvidence, { message: EVIDENCE_REQUIRED, path: ["reference"] })
     )
     .min(1)
