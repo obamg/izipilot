@@ -4,11 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { cancelRequest, submitRequest } from "@/lib/access/requests-server";
 import {
   FulfilmentError,
+  blockTask,
   cancelReadyTaskForVersionInTx,
   claimTask,
   getFulfilmentAssetIds,
   handoverTask,
+  reconcileTask,
   releaseTaskInTx,
+  resumeTask,
 } from "@/lib/access/fulfilment-server";
 import {
   approvedSelfRequest,
@@ -250,6 +253,84 @@ describe("fulfilment-server — réclamer et passer la main", () => {
       expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: task.id } })).claimantId).toBe(newOwner);
     } finally {
       await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { ownerId: fx.users.owner } });
+    }
+  });
+});
+
+describe("fulfilment-server — bloquer, reprendre, réconcilier", () => {
+  let fx: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("block");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  async function claimedTask(label: string) {
+    const emp = await newEmployee(fx, label);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const task = await taskForVersion(final.id);
+    await claimTask(fx.orgId, fx.users.owner, task.id, 1);
+    return { emp, final, taskId: task.id };
+  }
+
+  it("blocage par le détenteur : tâche et version BLOCKED, motif et faits enregistrés, affectation intacte", async () => {
+    const { emp, final, taskId } = await claimedTask("Block1");
+    await expectCode(blockTask(fx.orgId, fx.users.backup, taskId, { reason: "pas moi", facts: null, expectedRevision: 2 }), "INVALID_TRANSITION");
+    const res = await blockTask(fx.orgId, fx.users.owner, taskId, {
+      reason: "Compte fournisseur verrouillé",
+      facts: "tentative à 10h, erreur 403",
+      expectedRevision: 2,
+    });
+    expect(res).toEqual({ taskId, state: "BLOCKED", revision: 3 });
+    const task = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } });
+    expect(task.blockedReason).toBe("Compte fournisseur verrouillé");
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("BLOCKED");
+    const event = await prisma.accessTaskEvent.findFirstOrThrow({ where: { taskId, type: "BLOCKED" } });
+    expect(event.facts).toEqual({ note: "tentative à 10h, erreur 403" });
+    expect(await prisma.accessAssignment.count({ where: { orgId: fx.orgId, userId: emp } })).toBe(0);
+  });
+
+  it("reprise par le suppléant : il devient détenteur, version IN_PROGRESS, motif effacé", async () => {
+    const { final, taskId } = await claimedTask("Resume1");
+    await blockTask(fx.orgId, fx.users.owner, taskId, { reason: "attente fournisseur", facts: null, expectedRevision: 2 });
+    await expectCode(resumeTask(fx.orgId, fx.users.backup, taskId, 2), "STALE");
+    const res = await resumeTask(fx.orgId, fx.users.backup, taskId, 3);
+    expect(res).toEqual({ taskId, state: "CLAIMED", revision: 4 });
+    const task = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } });
+    expect(task).toMatchObject({ claimantId: fx.users.backup, blockedReason: null });
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("IN_PROGRESS");
+    await expectCode(resumeTask(fx.orgId, fx.users.backup, taskId, 4), "INVALID_TRANSITION");
+  });
+
+  it("réconciliation refusée sans demande d'annulation ni revérification en échec", async () => {
+    const { taskId } = await claimedTask("Recon0");
+    await expectCode(reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "rien fait", expectedRevision: 2 }), "INVALID_TRANSITION");
+  });
+
+  it("D-19 : annulation demandée après réclamation → le détenteur réconcilie « aucune modification » → CANCELLED, demande fermée", async () => {
+    const { emp, final, taskId } = await claimedTask("Recon1");
+    expect(await cancelRequest(fx.orgId, emp, final.requestId)).toBe("CANCEL_REQUESTED");
+    await expectCode(reconcileTask(fx.orgId, fx.users.backup, taskId, { reason: "pas détenteur", expectedRevision: 2 }), "INVALID_TRANSITION");
+    const res = await reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "Aucune modification effectuée", expectedRevision: 2 });
+    expect(res).toEqual({ taskId, state: "CANCELLED", revision: 3 });
+    const task = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } });
+    expect(task.outcome).toBe("NOT_PERFORMED");
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("CANCELLED");
+    expect((await prisma.accessRequest.findUniqueOrThrow({ where: { id: final.requestId } })).closedAt).not.toBeNull();
+    expect(await prisma.accessTaskEvent.count({ where: { taskId, type: "RECONCILED" } })).toBe(1);
+  });
+
+  it("réconciliation autorisée quand la tâche est périmée (niveau cible archivé), y compris depuis BLOCKED", async () => {
+    const { taskId } = await claimedTask("Recon2");
+    await blockTask(fx.orgId, fx.users.owner, taskId, { reason: "niveau supprimé chez l'éditeur", facts: null, expectedRevision: 2 });
+    await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: new Date() } });
+    try {
+      const res = await reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "Aucune modification effectuée", expectedRevision: 3 });
+      expect(res.state).toBe("CANCELLED");
+    } finally {
+      await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: null } });
     }
   });
 });

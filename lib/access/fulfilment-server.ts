@@ -17,6 +17,7 @@ import { isAvailable } from "./roles";
 import {
   ASSIGNMENT_CHANGED_REASON,
   ownerRoleFor,
+  readOldRemovedAt,
   taskActionForKind,
   type OwnerRole,
   type TaskOutcome,
@@ -499,5 +500,167 @@ export async function handoverTask(
       correlationId: opts.correlationId ?? null,
     });
     return { taskId: task.id, state: task.state, revision: input.expectedRevision + 1 };
+  });
+}
+
+// ── Bloquer / reprendre / réconcilier ────────────────────────────────────
+
+function assertClaimant(task: { claimantId: string | null }, actorId: string, message: string): void {
+  if (task.claimantId !== actorId) throw new FulfilmentError("INVALID_TRANSITION", message);
+}
+
+/**
+ * Signaler un blocage (FP:285) : faits et motif enregistrés, AUCUNE écriture
+ * d'affectation — y compris quand l'owner a fait un changement externe
+ * malgré un état contradictoire (D-9, FP:245).
+ */
+export async function blockTask(
+  orgId: string,
+  actorId: string,
+  taskId: string,
+  input: { reason: string; facts: string | null; expectedRevision: number },
+  opts: TaskMutationOptions = {}
+): Promise<TaskStateDTO> {
+  return runTaskTx(async (tx) => {
+    const { task, actor } = await loadTaskForActor(tx, orgId, actorId, taskId);
+    if (task.state !== "CLAIMED") throw new FulfilmentError("INVALID_TRANSITION", "Seule une tâche en cours peut être bloquée");
+    assertClaimant(task, actorId, "Seul le détenteur de la tâche peut signaler un blocage");
+    assertRevision(task, input.expectedRevision);
+
+    await moveVersionInTx(tx, task.requestVersionId, ["IN_PROGRESS"], { state: "BLOCKED" });
+    const { count } = await tx.accessFulfilmentTask.updateMany({
+      where: { id: task.id, state: "CLAIMED", claimantId: actorId, revision: input.expectedRevision },
+      data: { state: "BLOCKED", blockedReason: input.reason, revision: { increment: 1 } },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+
+    await tx.accessTaskEvent.create({
+      data: {
+        orgId,
+        taskId: task.id,
+        type: "BLOCKED",
+        actorId,
+        actingAs: actor.actingAs,
+        reason: input.reason,
+        ...(input.facts ? { facts: { note: input.facts } } : {}),
+      },
+    });
+    await auditTaskInTx(tx, {
+      orgId,
+      actorId,
+      actor,
+      task,
+      eventType: "TASK_BLOCKED",
+      objectVersion: input.expectedRevision + 1,
+      before: { state: "CLAIMED" },
+      after: { state: "BLOCKED", facts: input.facts },
+      reason: input.reason,
+      correlationId: opts.correlationId ?? null,
+    });
+    return { taskId: task.id, state: "BLOCKED", revision: input.expectedRevision + 1 };
+  });
+}
+
+/** Reprise (FP:285) par tout owner autorisé : il devient le détenteur. */
+export async function resumeTask(
+  orgId: string,
+  actorId: string,
+  taskId: string,
+  expectedRevision: number,
+  opts: TaskMutationOptions = {}
+): Promise<TaskStateDTO> {
+  return runTaskTx(async (tx) => {
+    const { task, actor } = await loadTaskForActor(tx, orgId, actorId, taskId);
+    if (task.state !== "BLOCKED") throw new FulfilmentError("INVALID_TRANSITION", "Seule une tâche bloquée peut être reprise");
+    assertRevision(task, expectedRevision);
+
+    await moveVersionInTx(tx, task.requestVersionId, ["BLOCKED"], { state: "IN_PROGRESS" });
+    const { count } = await tx.accessFulfilmentTask.updateMany({
+      where: { id: task.id, state: "BLOCKED", revision: expectedRevision },
+      data: { state: "CLAIMED", claimantId: actorId, blockedReason: null, revision: { increment: 1 } },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+
+    await tx.accessTaskEvent.create({
+      data: { orgId, taskId: task.id, type: "RESUMED", actorId, actingAs: actor.actingAs },
+    });
+    await auditTaskInTx(tx, {
+      orgId,
+      actorId,
+      actor,
+      task,
+      eventType: "TASK_RESUMED",
+      objectVersion: expectedRevision + 1,
+      before: { state: "BLOCKED", claimantId: task.claimantId },
+      after: { state: "CLAIMED", claimantId: actorId },
+      reason: null,
+      correlationId: opts.correlationId ?? null,
+    });
+    return { taskId: task.id, state: "CLAIMED", revision: expectedRevision + 1 };
+  });
+}
+
+/**
+ * Réconciliation « aucune modification effectuée » (spec 3b §5) : CLAIMED ou
+ * BLOCKED → CANCELLED, seulement si l'annulation a été demandée (D-19) ou si
+ * la revérification échoue. Jamais après un retrait partiel déjà enregistré
+ * (un fait d'exécution ne s'efface pas).
+ */
+export async function reconcileTask(
+  orgId: string,
+  actorId: string,
+  taskId: string,
+  input: { reason: string; expectedRevision: number },
+  opts: TaskMutationOptions = {}
+): Promise<TaskStateDTO> {
+  const now = opts.now ?? new Date();
+  return runTaskTx(async (tx) => {
+    const { task, actor } = await loadTaskForActor(tx, orgId, actorId, taskId);
+    if (task.state !== "CLAIMED" && task.state !== "BLOCKED") {
+      throw new FulfilmentError("INVALID_TRANSITION", "Seule une tâche réclamée ou bloquée peut être réconciliée");
+    }
+    assertClaimant(task, actorId, "Seul le détenteur de la tâche peut la réconcilier");
+    assertRevision(task, input.expectedRevision);
+    if (readOldRemovedAt(task.progress) !== null) {
+      throw new FulfilmentError(
+        "INVALID_TRANSITION",
+        "L'ancien niveau a déjà été retiré — confirmez l'octroi ou signalez un blocage"
+      );
+    }
+    const cancelRequested = task.requestVersion?.cancelRequestedAt != null;
+    const stale = await revalidateTask(tx, task, now);
+    if (!cancelRequested && !stale) {
+      throw new FulfilmentError(
+        "INVALID_TRANSITION",
+        "Réconciliation possible seulement après une demande d'annulation ou si la tâche est périmée"
+      );
+    }
+
+    await moveVersionInTx(tx, task.requestVersionId, ["IN_PROGRESS", "BLOCKED"], { state: "CANCELLED" });
+    if (task.requestVersion) {
+      await tx.accessRequest.update({ where: { id: task.requestVersion.requestId }, data: { closedAt: now } });
+    }
+    const { count } = await tx.accessFulfilmentTask.updateMany({
+      where: { id: task.id, state: task.state, claimantId: actorId, revision: input.expectedRevision },
+      data: { state: "CANCELLED", outcome: "NOT_PERFORMED", revision: { increment: 1 } },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+
+    await tx.accessTaskEvent.create({
+      data: { orgId, taskId: task.id, type: "RECONCILED", actorId, actingAs: actor.actingAs, reason: input.reason },
+    });
+    await auditTaskInTx(tx, {
+      orgId,
+      actorId,
+      actor,
+      task,
+      eventType: "TASK_RECONCILED",
+      objectVersion: input.expectedRevision + 1,
+      before: { state: task.state },
+      after: { state: "CANCELLED", outcome: "NOT_PERFORMED", cancelRequested, staleReason: stale },
+      reason: input.reason,
+      correlationId: opts.correlationId ?? null,
+    });
+    return { taskId: task.id, state: "CANCELLED", revision: input.expectedRevision + 1 };
   });
 }
