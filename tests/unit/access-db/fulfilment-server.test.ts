@@ -480,6 +480,11 @@ describe("fulfilment-server — confirmer (D-9, D-10, D-23, A16–A18)", () => {
       completeTask(fx.orgId, fx.users.backup, expiry.id, { ...facts(), expectedRevision: 2 }),
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    // Le perdant échoue toujours en STALE : soit la tâche d'expiration est déjà
+    // réclamée (supplantation refusée), soit la version d'affectation a bougé.
+    const loser = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(loser.reason).toBeInstanceOf(FulfilmentError);
+    expect((loser.reason as FulfilmentError).code).toBe("STALE");
     const a = await prisma.accessAssignment.findUniqueOrThrow({ where: { id: assignment.id } });
     expect(a).toMatchObject({ status: "REVOKED", levelId: null, version: assignment.version + 1 });
     expect(await prisma.accessAssignmentEvent.count({ where: { assignmentId: assignment.id } })).toBe(1);
@@ -831,5 +836,78 @@ describe("fulfilment-server — F3a : un retrait confirmé supplante l'expiratio
       code: "STALE", message: "Un retrait est en cours — à réconcilier",
     });
     expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } })).state).toBe("CLAIMED");
+  });
+});
+
+describe("fulfilment-server — garde-fous F5", () => {
+  let fx: FulfilmentFixture;
+  let other: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("guard");
+    other = await createFulfilmentFixture("guardother");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+    await cleanupFulfilmentFixture(other.orgId);
+  });
+
+  async function readyTask(label: string) {
+    const emp = await newEmployee(fx, label);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    return taskForVersion(final.id);
+  }
+
+  it("acteur indisponible (compte inactif ou profil OFFBOARDING) → NOT_FOUND à la réclamation", async () => {
+    const task = await readyTask("Unavail");
+    await prisma.user.update({ where: { id: fx.users.owner }, data: { isActive: false } });
+    try {
+      await expectCode(claimTask(fx.orgId, fx.users.owner, task.id, 1), "NOT_FOUND");
+    } finally {
+      await prisma.user.update({ where: { id: fx.users.owner }, data: { isActive: true } });
+    }
+    await prisma.accessProfile.update({ where: { userId: fx.users.owner }, data: { lifecycle: "OFFBOARDING" } });
+    try {
+      await expectCode(claimTask(fx.orgId, fx.users.owner, task.id, 1), "NOT_FOUND");
+    } finally {
+      await prisma.accessProfile.update({ where: { userId: fx.users.owner }, data: { lifecycle: "ACTIVE" } });
+    }
+    expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: task.id } })).state).toBe("READY");
+  });
+
+  it("réclamation d'une tâche périmée (niveau cible archivé) → STALE, la tâche reste READY", async () => {
+    const task = await readyTask("StaleClaim");
+    await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: new Date() } });
+    try {
+      await expect(claimTask(fx.orgId, fx.users.owner, task.id, 1)).rejects.toMatchObject({
+        code: "STALE", message: "Le niveau cible a été archivé",
+      });
+    } finally {
+      await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: null } });
+    }
+    expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: task.id } })).state).toBe("READY");
+  });
+
+  it("détenteur ayant perdu son périmètre (propriétaire changé) → confirmer, bloquer et réconcilier : NOT_FOUND", async () => {
+    const task = await readyTask("LostScope");
+    await claimTask(fx.orgId, fx.users.owner, task.id, 1);
+    const newOwner = await newEmployee(fx, "LostScopeNewOwner");
+    await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { ownerId: newOwner, backupOwnerId: null } });
+    try {
+      await expectCode(
+        completeTask(fx.orgId, fx.users.owner, task.id, { completedAt: new Date(), reference: "X", note: null, expectedRevision: 2 }),
+        "NOT_FOUND"
+      );
+      await expectCode(blockTask(fx.orgId, fx.users.owner, task.id, { reason: "x", facts: null, expectedRevision: 2 }), "NOT_FOUND");
+      await expectCode(reconcileTask(fx.orgId, fx.users.owner, task.id, { reason: "x", expectedRevision: 2 }), "NOT_FOUND");
+    } finally {
+      await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { ownerId: fx.users.owner, backupOwnerId: fx.users.backup } });
+    }
+  });
+
+  it("acteur d'une autre organisation → NOT_FOUND", async () => {
+    const task = await readyTask("CrossOrg");
+    await expectCode(claimTask(other.orgId, other.users.owner, task.id, 1), "NOT_FOUND");
+    await expectCode(claimTask(fx.orgId, other.users.owner, task.id, 1), "NOT_FOUND");
   });
 });
