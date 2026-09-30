@@ -381,10 +381,16 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
 
           {mode === "reconcile" && (
             <div className="mt-3 flex flex-col gap-2 rounded-[8px] bg-gray-lt p-3">
-              <p className="text-[13px] text-dark">
-                Déclare qu&apos;<strong>aucune modification n&apos;a été effectuée</strong> dans l&apos;application. La tâche et la
-                demande seront annulées.
-              </p>
+              {task.oldRemovedAt ? (
+                <p className="text-[13px] text-dark">
+                  L&apos;ancien niveau a été retiré et reste retiré. Le nouveau niveau ne sera pas accordé.
+                </p>
+              ) : (
+                <p className="text-[13px] text-dark">
+                  Déclare qu&apos;<strong>aucune modification n&apos;a été effectuée</strong> dans l&apos;application. La tâche et la
+                  demande seront annulées.
+                </p>
+              )}
               <label className="text-[13px] text-dark">
                 Motif
                 <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} className={inputClass} />
@@ -396,7 +402,7 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
                   onClick={() => send("reconcile", { reason })}
                   className={primaryButton}
                 >
-                  Aucune modification effectuée
+                  {task.oldRemovedAt ? "Clore sans accorder le nouveau niveau" : "Aucune modification effectuée"}
                 </button>
                 <button type="button" disabled={busy} onClick={() => setMode(null)} className={secondaryButton}>
                   Fermer

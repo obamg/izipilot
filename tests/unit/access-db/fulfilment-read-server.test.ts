@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { decideStage, submitRequest } from "@/lib/access/requests-server";
-import { FulfilmentError } from "@/lib/access/fulfilment-server";
+import { FulfilmentError, claimTask, completeTask } from "@/lib/access/fulfilment-server";
 import { getFulfilmentNav, listFulfilmentTasks, type TaskListQuery } from "@/lib/access/fulfilment-read-server";
 import {
   approvedReduction,
@@ -94,6 +94,31 @@ describe("fulfilment-read-server — visibilité des tâches (D-6, D-14, A05)", 
     expect(Object.values(row.viewerCan).every((v) => v === false)).toBe(true);
     await expectNotFound(listFulfilmentTasks({ orgId: fx.orgId, userId: fx.users.owner }, { ...open, view: "oversight" }));
     await expectNotFound(listFulfilmentTasks({ orgId: fx.orgId, userId: fx.users.ciso }, open));
+  });
+
+  it("I1 — après un retrait partiel, `viewerCan.reconcile` reflète la règle serveur (niveau cible archivé → oui ; rien de périmé ni d'annulation → non)", async () => {
+    const emp = await newEmployee(fx, "I1");
+    await giveAccess(fx, emp, fx.levels.reader);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.editor);
+    const task = await taskForVersion(final.id);
+    await claimTask(fx.orgId, fx.users.owner, task.id, 1);
+    await completeTask(fx.orgId, fx.users.owner, task.id, {
+      completedAt: new Date(Date.now() - 1_000), reference: "R1", note: null,
+      method: "REMOVE_THEN_GRANT", partialRemovalOnly: true, expectedRevision: 2,
+    });
+    const find = async () =>
+      (await listFulfilmentTasks({ orgId: fx.orgId, userId: fx.users.owner }, open)).rows.find((r) => r.id === task.id)!;
+    const calm = await find();
+    expect(calm.oldRemovedAt).not.toBeNull();
+    expect(calm.viewerCan.reconcile).toBe(false);
+    await prisma.accessLevel.update({ where: { id: fx.levels.editor }, data: { archivedAt: new Date() } });
+    try {
+      const stale = await find();
+      expect(stale.staleReason).not.toBeNull();
+      expect(stale.viewerCan.reconcile).toBe(true);
+    } finally {
+      await prisma.accessLevel.update({ where: { id: fx.levels.editor }, data: { archivedAt: null } });
+    }
   });
 
   it("Review Focus #3 — une tâche de retrait sur un actif ARCHIVÉ reste visible et réclamable par le propriétaire (FP:110)", async () => {

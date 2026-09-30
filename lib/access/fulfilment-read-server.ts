@@ -222,7 +222,6 @@ export async function listFulfilmentTasks(
             reconcile:
               (t.state === "CLAIMED" || t.state === "BLOCKED") &&
               isClaimant &&
-              oldRemovedAt === null &&
               (cancelRequested || staleReason !== null),
           }
         : NO_ACTIONS;
