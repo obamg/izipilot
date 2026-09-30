@@ -23,6 +23,7 @@ export type TaskOutcome =
   | "REVOKED"
   | "REMOVED"
   | "NOT_PERFORMED"
+  | "OLD_LEVEL_REMOVED"
   | "SUPERSEDED"
   | "EXPIRED_BEFORE_FULFILMENT";
 export type CompletionMethod = "DIRECT" | "REMOVE_THEN_GRANT";

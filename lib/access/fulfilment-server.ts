@@ -613,8 +613,11 @@ export async function resumeTask(
 /**
  * Réconciliation « aucune modification effectuée » (spec 3b §5) : CLAIMED ou
  * BLOCKED → CANCELLED, seulement si l'annulation a été demandée (D-19) ou si
- * la revérification échoue. Jamais après un retrait partiel déjà enregistré
- * (un fait d'exécution ne s'efface pas).
+ * la revérification échoue. Après un retrait partiel déjà enregistré (un fait
+ * d'exécution ne s'efface pas), même condition : la tâche est alors close avec
+ * le résultat « OLD_LEVEL_REMOVED » et l'affectation, déjà révoquée, n'est pas
+ * touchée — sinon l'employé resterait sans accès et sans possibilité de
+ * redemander (index « une demande ouverte par couple »).
  */
 export async function reconcileTask(
   orgId: string,
@@ -631,33 +634,42 @@ export async function reconcileTask(
     }
     assertClaimant(task, actorId, "Seul le détenteur de la tâche peut la réconcilier");
     assertRevision(task, input.expectedRevision);
-    if (readOldRemovedAt(task.progress) !== null) {
-      throw new FulfilmentError(
-        "INVALID_TRANSITION",
-        "L'ancien niveau a déjà été retiré — confirmez l'octroi ou signalez un blocage"
-      );
-    }
+    const oldRemovedAt = readOldRemovedAt(task.progress);
     const cancelRequested = task.requestVersion?.cancelRequestedAt != null;
     const stale = await revalidateTask(tx, task, now);
     if (!cancelRequested && !stale) {
       throw new FulfilmentError(
         "INVALID_TRANSITION",
-        "Réconciliation possible seulement après une demande d'annulation ou si la tâche est périmée"
+        oldRemovedAt !== null
+          ? "L'ancien niveau a déjà été retiré — confirmez l'octroi ou signalez un blocage"
+          : "Réconciliation possible seulement après une demande d'annulation ou si la tâche est périmée"
       );
     }
+    const outcome: TaskOutcome = oldRemovedAt !== null ? "OLD_LEVEL_REMOVED" : "NOT_PERFORMED";
 
-    await moveVersionInTx(tx, task.requestVersionId, ["IN_PROGRESS", "BLOCKED"], { state: "CANCELLED" });
+    await moveVersionInTx(tx, task.requestVersionId, ["IN_PROGRESS", "BLOCKED"], {
+      state: "CANCELLED",
+      ...(oldRemovedAt !== null ? { outcome } : {}),
+    });
     if (task.requestVersion) {
       await tx.accessRequest.update({ where: { id: task.requestVersion.requestId }, data: { closedAt: now } });
     }
     const { count } = await tx.accessFulfilmentTask.updateMany({
       where: { id: task.id, state: task.state, claimantId: actorId, revision: input.expectedRevision },
-      data: { state: "CANCELLED", outcome: "NOT_PERFORMED", revision: { increment: 1 } },
+      data: { state: "CANCELLED", outcome, revision: { increment: 1 } },
     });
     if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
 
     await tx.accessTaskEvent.create({
-      data: { orgId, taskId: task.id, type: "RECONCILED", actorId, actingAs: actor.actingAs, reason: input.reason },
+      data: {
+        orgId,
+        taskId: task.id,
+        type: "RECONCILED",
+        actorId,
+        actingAs: actor.actingAs,
+        reason: input.reason,
+        ...(oldRemovedAt !== null ? { facts: { oldRemovedAt } } : {}),
+      },
     });
     await auditTaskInTx(tx, {
       orgId,
@@ -667,7 +679,7 @@ export async function reconcileTask(
       eventType: "TASK_RECONCILED",
       objectVersion: input.expectedRevision + 1,
       before: { state: task.state },
-      after: { state: "CANCELLED", outcome: "NOT_PERFORMED", cancelRequested, staleReason: stale },
+      after: { state: "CANCELLED", outcome, cancelRequested, staleReason: stale },
       reason: input.reason,
       correlationId: opts.correlationId ?? null,
     });
@@ -882,7 +894,10 @@ export async function completeTask(
       periodEnd: task.periodEnd,
       oldRemoved,
     };
-    const facts = { completedAt: input.completedAt.toISOString(), reference, note, method: input.method ?? null };
+    // Après un retrait partiel, la méthode réellement employée reste vraie
+    // quelle que soit la saisie (F2).
+    const method: CompletionMethod | null = oldRemoved ? "REMOVE_THEN_GRANT" : (input.method ?? null);
+    const facts = { completedAt: input.completedAt.toISOString(), reference, note, method };
 
     // Étape 1 seule d'un REMOVE_THEN_GRANT (D-10, A18) : « aucun accès » et
     // travail bloqué, jamais un faux succès.
@@ -957,7 +972,7 @@ export async function completeTask(
         completedAt: input.completedAt,
         completionReference: reference,
         completionNote: note,
-        completionMethod: input.method ?? null,
+        completionMethod: method,
         completedById: actorId,
         outcome,
         revision: { increment: 1 },

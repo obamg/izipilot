@@ -502,8 +502,7 @@ describe("fulfilment-server — confirmer (D-9, D-10, D-23, A16–A18)", () => {
     expect(task.blockedReason).toBe("Ancien niveau retiré — nouvel accès pas encore accordé");
     expect(task.expectedAssignmentVersion).toBe(before.version + 1);
     expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("BLOCKED");
-    // Un fait d'exécution ne s'efface pas : pas de réconciliation « rien fait ».
-    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { cancelRequestedAt: new Date() } });
+    // Rien de périmé ni d'annulation demandée : la reprise reste la seule issue.
     await expectCode(reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "rien fait", expectedRevision: 3 }), "INVALID_TRANSITION");
 
     await resumeTask(fx.orgId, fx.users.owner, taskId, 3);
@@ -706,5 +705,83 @@ describe("fulfilment-server — lots (D-13, FP:252/254, A17)", () => {
     expect(await prisma.accessAssignmentEvent.count({ where: { orgId: fx.orgId, userId: b.emp } })).toBe(1);
     const completedAudits = await prisma.accessAuditEvent.findMany({ where: { orgId: fx.orgId, eventType: "TASK_COMPLETED" } });
     expect(completedAudits.map((x) => x.correlationId).sort()).toEqual([first.correlationId, retry.correlationId].sort());
+  });
+});
+
+describe("fulfilment-server — correctifs ronde 1 (F1, F2)", () => {
+  let fx: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("fix1");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  async function partiallyRemoved(label: string) {
+    const emp = await newEmployee(fx, label);
+    const before = await giveAccess(fx, emp, fx.levels.reader);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.editor);
+    const task = await taskForVersion(final.id);
+    await claimTask(fx.orgId, fx.users.owner, task.id, 1);
+    await completeTask(fx.orgId, fx.users.owner, task.id, {
+      completedAt: new Date(Date.now() - 1_000), reference: "R1", note: null,
+      method: "REMOVE_THEN_GRANT", partialRemovalOnly: true, expectedRevision: 2,
+    });
+    return { emp, before, final, taskId: task.id };
+  }
+
+  it("F1 — retrait partiel puis niveau cible archivé : réconciliation OLD_LEVEL_REMOVED, demande fermée, affectation intacte, nouvelle demande possible", async () => {
+    const { emp, final, taskId } = await partiallyRemoved("F1a");
+    const assignmentBefore = await currentAssignment(fx, emp);
+    await prisma.accessLevel.update({ where: { id: fx.levels.editor }, data: { archivedAt: new Date() } });
+    try {
+      const res = await reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "Niveau cible supprimé", expectedRevision: 3 });
+      expect(res).toEqual({ taskId, state: "CANCELLED", revision: 4 });
+      const task = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } });
+      expect(task).toMatchObject({ state: "CANCELLED", outcome: "OLD_LEVEL_REMOVED" });
+      const version = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } });
+      expect(version).toMatchObject({ state: "CANCELLED", outcome: "OLD_LEVEL_REMOVED" });
+      expect((await prisma.accessRequest.findUniqueOrThrow({ where: { id: final.requestId } })).closedAt).not.toBeNull();
+      const assignmentAfter = await currentAssignment(fx, emp);
+      expect(assignmentAfter).toMatchObject({ status: "REVOKED", levelId: null, version: assignmentBefore!.version });
+      const event = await prisma.accessTaskEvent.findFirstOrThrow({ where: { taskId, type: "RECONCILED" } });
+      expect(event.reason).toBe("Niveau cible supprimé");
+      expect(event.facts).toMatchObject({ oldRemovedAt: expect.any(String) });
+      const audit = await prisma.accessAuditEvent.findFirstOrThrow({ where: { orgId: fx.orgId, eventType: "TASK_RECONCILED", objectId: taskId } });
+      expect(audit.after).toMatchObject({ outcome: "OLD_LEVEL_REMOVED" });
+      const again = await submitRequest(fx.orgId, emp, {
+        beneficiaryId: emp, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "nouvelle demande",
+      });
+      expect(again.state).toBeDefined();
+    } finally {
+      await prisma.accessLevel.update({ where: { id: fx.levels.editor }, data: { archivedAt: null } });
+    }
+  });
+
+  it("F1 — retrait partiel, annulation demandée : réconciliation autorisée", async () => {
+    const { emp, final, taskId } = await partiallyRemoved("F1c");
+    expect(await cancelRequest(fx.orgId, emp, final.requestId)).toBe("CANCEL_REQUESTED");
+    const res = await reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "annulée", expectedRevision: 3 });
+    expect(res.state).toBe("CANCELLED");
+    expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } })).outcome).toBe("OLD_LEVEL_REMOVED");
+  });
+
+  it("F1 — retrait partiel sans rien de périmé ni annulation : réconciliation toujours refusée", async () => {
+    const { taskId } = await partiallyRemoved("F1b");
+    await expectCode(reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "rien fait", expectedRevision: 3 }), "INVALID_TRANSITION");
+  });
+
+  it("F2 — confirmation finale après retrait partiel, méthode omise ou directe : REMOVE_THEN_GRANT enregistrée (tâche et audit)", async () => {
+    for (const method of [undefined, "DIRECT" as const]) {
+      const { taskId } = await partiallyRemoved(`F2${method ?? "none"}`);
+      await resumeTask(fx.orgId, fx.users.owner, taskId, 3);
+      await completeTask(fx.orgId, fx.users.owner, taskId, {
+        completedAt: new Date(Date.now() - 500), reference: "R2", note: null, ...(method ? { method } : {}), expectedRevision: 4,
+      });
+      expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } })).completionMethod).toBe("REMOVE_THEN_GRANT");
+      const audit = await prisma.accessAuditEvent.findFirstOrThrow({ where: { orgId: fx.orgId, eventType: "TASK_COMPLETED", objectId: taskId } });
+      expect(audit.after).toMatchObject({ method: "REMOVE_THEN_GRANT" });
+    }
   });
 });
