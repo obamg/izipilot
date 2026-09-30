@@ -10,9 +10,9 @@ import { prisma } from "@/lib/prisma";
 import { log } from "@/lib/log";
 import { recordAuditInTx } from "./audit-server";
 import { EXPIRED_BEFORE_FULFILMENT_REASON } from "./fulfilment";
+import { SYSTEM_ACTOR, releaseTaskInTx } from "./fulfilment-server";
 
 const SUPERSEDED_ORPHAN_REASON = "Retrait déjà effectué ou affectation modifiée";
-import { SYSTEM_ACTOR, releaseTaskInTx } from "./fulfilment-server";
 
 const logger = log.child("access-processor");
 
@@ -97,6 +97,14 @@ async function repairMissingTasks(orgId: string, report: ProcessorReport): Promi
   });
   report.repaired += await eachRow(versions, report, "repair", (v) =>
     prisma.$transaction(async (tx) => {
+      // Les candidats ont été lus hors transaction : verrou sans effet gardé sur l'état
+      // (sérialise avec `cancelRequest`, qui verrouille la version en premier ; pas
+      // d'incrément de `revision`). Si la version n'est plus READY, on ne crée rien.
+      const lock = await tx.accessRequestVersion.updateMany({
+        where: { id: v.id, state: "READY_FOR_FULFILMENT" },
+        data: { state: "READY_FOR_FULFILMENT" },
+      });
+      if (lock.count === 0) return false;
       const { created } = await releaseTaskInTx(tx, { orgId, actorId: SYSTEM_ACTOR, version: v, request: v.request });
       return created;
     })

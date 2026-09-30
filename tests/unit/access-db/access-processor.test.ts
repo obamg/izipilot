@@ -1,5 +1,5 @@
 // tests/unit/access-db/access-processor.test.ts
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { reviseRequest, submitRequest, decideStage } from "@/lib/access/requests-server";
 import { claimTask, completeTask } from "@/lib/access/fulfilment-server";
@@ -104,6 +104,33 @@ describe("access-processor — processeur 5 minutes (D-11, FP:229/231, A19)", ()
 
     const revised = await reviseRequest(fx.orgId, emp, final.id, { periodEnd: new Date(Date.now() + 30 * DAY) });
     expect(revised.state).toBe("PENDING_APPROVAL");
+  });
+
+  it("I3 — l'auto-réparation ne crée pas de tâche sur une version qui n'est plus READY (annulation survenue après la lecture des candidats)", async () => {
+    const emp = await newEmployee(fx, "RepairCancelled");
+    const request = await prisma.accessRequest.create({
+      data: { orgId: fx.orgId, beneficiaryId: emp, assetId: fx.assetId, closedAt: new Date() },
+    });
+    const version = await prisma.accessRequestVersion.create({
+      data: {
+        requestId: request.id, versionNumber: 1, kind: "GRANT", initiatorId: emp, targetLevelId: fx.levels.reader,
+        justification: "annulée entre-temps", periodStart: new Date(Date.now() - DAY), departmentSnapshot: fx.departmentId,
+        assignmentVersion: 0, catalogueVersion: 1, state: "CANCELLED",
+      },
+    });
+    // Simule la course : la lecture des candidats (hors transaction) voyait encore la version READY.
+    const original = prisma.accessRequestVersion.findMany.bind(prisma.accessRequestVersion);
+    const spy = vi.spyOn(prisma.accessRequestVersion, "findMany").mockImplementation(((args: { where?: { fulfilmentTasks?: unknown } }) =>
+      args?.where?.fulfilmentTasks
+        ? Promise.resolve([{ ...version, state: "READY_FOR_FULFILMENT", request }])
+        : original(args as never)) as never);
+    try {
+      expect((await run(new Date())).repaired).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await prisma.accessFulfilmentTask.count({ where: { requestVersionId: version.id } })).toBe(0);
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: version.id } })).revision).toBe(version.revision);
   });
 
   it("A19 — accès temporaire expiré puis renouvelé (octroi, D-23) : l'expiration non réclamée est supplantée", async () => {
