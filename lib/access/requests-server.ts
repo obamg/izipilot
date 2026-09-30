@@ -286,6 +286,21 @@ function pickReductionInitiatorRole(
   return "IT_ACCESS_OPERATOR";
 }
 
+const PERIOD_END_ERROR = "La fin de période doit être dans le futur et postérieure au début.";
+
+/**
+ * Famille octroi (GRANT, UPGRADE, RENEW) : une fin de période déjà passée, ou
+ * antérieure au début, ne peut jamais être exécutée — elle serait annulée par
+ * le processeur puis renvoyée en révision en boucle. Réductions et retraits :
+ * non concernés.
+ */
+function assertGrantPeriod(kind: AccessRequestKind, periodStart: Date, periodEnd: Date | null, now = new Date()): void {
+  if (familyOf(kind) !== "GRANT_FAMILY" || periodEnd === null) return;
+  if (periodEnd.getTime() <= now.getTime() || periodEnd.getTime() <= periodStart.getTime()) {
+    throw new RequestError(PERIOD_END_ERROR);
+  }
+}
+
 export async function submitRequest(
   orgId: string,
   actorId: string,
@@ -300,6 +315,7 @@ export async function submitRequest(
   const { kind, stages, exceptionReason } = terms;
 
   const periodStart = input.periodStart ?? new Date();
+  assertGrantPeriod(kind, periodStart, input.periodEnd ?? null);
   const initialState: AccessRequestState =
     stages.length === 0 ? (periodStart > new Date() ? "AUTHORIZED_WAITING_START" : "READY_FOR_FULFILMENT") : "PENDING_APPROVAL";
 
@@ -771,6 +787,8 @@ export async function reviseRequest(
         periodEnd,
         expectedFamily: familyOf(oldVersion.kind),
       });
+
+      assertGrantPeriod(terms.kind, periodStart, periodEnd);
 
       const nextVersionNumber = oldVersion.versionNumber + 1;
       const initialState: AccessRequestState =

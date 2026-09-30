@@ -587,6 +587,36 @@ describe("requests-server — clarification, révision, annulation", () => {
     await cleanup(v.requestId);
   });
 
+  it("I5 — soumission avec une fin de période passée : refusée", async () => {
+    await expect(
+      submitRequest(orgId, employeeId, {
+        beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "temporaire",
+        periodEnd: new Date(Date.now() - 3_600_000),
+      })
+    ).rejects.toThrow("La fin de période doit être dans le futur et postérieure au début.");
+    await expect(
+      submitRequest(orgId, employeeId, {
+        beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "temporaire",
+        periodStart: new Date(Date.now() + 2 * 86_400_000), periodEnd: new Date(Date.now() + 86_400_000),
+      })
+    ).rejects.toThrow(RequestError);
+  });
+
+  it("I5 — révision d'une version renvoyée dont la fin de période est passée : refusée tant que la fin n'est pas corrigée ; avec une nouvelle fin future : acceptée", async () => {
+    const v = await submitRequest(orgId, employeeId, {
+      beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "temporaire",
+      periodEnd: new Date(Date.now() + 3_600_000),
+    });
+    const returned = await decideStage(orgId, deptHeadId, v.stages[0].id, "RETURN", "période à revoir");
+    await prisma.accessRequestVersion.update({ where: { id: returned.id }, data: { periodEnd: new Date(Date.now() - 3_600_000) } });
+    await expect(reviseRequest(orgId, employeeId, returned.id, { justification: "même période" })).rejects.toThrow(RequestError);
+    const newEnd = new Date(Date.now() + 30 * 86_400_000);
+    const revised = await reviseRequest(orgId, employeeId, returned.id, { periodEnd: newEnd });
+    expect(revised.versionNumber).toBe(2);
+    expect(revised.periodEnd?.getTime()).toBe(newEnd.getTime());
+    await cleanup(v.requestId);
+  });
+
   it("seul l'initiateur peut réviser", async () => {
     const v = await submitRequest(orgId, employeeId, {
       beneficiaryId: employeeId, assetId, targetLevelId: levelReaderId, justification: "initial",
