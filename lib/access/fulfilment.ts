@@ -3,6 +3,7 @@
 // Machine à états des tâches, effet d'une confirmation sur l'affectation
 // courante (spec 3b §5), validation des faits d'exécution, rôle d'un
 // propriétaire, drapeaux de navigation et libellés.
+import type { Prisma } from "@prisma/client";
 import type { ReadScope } from "./scope";
 
 export type TaskAction = "GRANT" | "CHANGE_LEVEL" | "RENEW" | "REVOKE" | "EXPIRY_REMOVAL";
@@ -29,6 +30,20 @@ export type TaskOutcome =
 export type CompletionMethod = "DIRECT" | "REMOVE_THEN_GRANT";
 export type OwnerRole = "ASSET_OWNER" | "ASSET_OWNER_BACKUP";
 export type RequestKindForTask = "GRANT" | "UPGRADE" | "RENEW" | "REDUCE" | "REVOKE";
+
+/**
+ * Règle unique « octroi / montée / renouvellement » : ces tâches ajoutent ou
+ * élèvent un accès, donc revérifient l'employé, l'actif et la période. Une
+ * réduction ou un retrait n'est jamais bloqué (FP:110, FP:124).
+ */
+export function isGrantFamilyTask(action: TaskAction, requestKind: string | null | undefined): boolean {
+  return action === "GRANT" || action === "RENEW" || (action === "CHANGE_LEVEL" && requestKind === "UPGRADE");
+}
+
+/** Même règle, sous forme de filtre Prisma (devoir 4 du processeur). */
+export const GRANT_FAMILY_TASK_WHERE: Prisma.AccessFulfilmentTaskWhereInput = {
+  OR: [{ action: { in: ["GRANT", "RENEW"] } }, { action: "CHANGE_LEVEL", requestVersion: { kind: "UPGRADE" } }],
+};
 
 export const OPEN_TASK_STATES = ["READY", "CLAIMED", "BLOCKED"] as const;
 export const CLOSED_TASK_STATES = ["COMPLETED", "CANCELLED"] as const;

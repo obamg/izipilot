@@ -9,7 +9,7 @@
 import { prisma } from "@/lib/prisma";
 import { log } from "@/lib/log";
 import { recordAuditInTx } from "./audit-server";
-import { EXPIRED_BEFORE_FULFILMENT_REASON } from "./fulfilment";
+import { EXPIRED_BEFORE_FULFILMENT_REASON, GRANT_FAMILY_TASK_WHERE } from "./fulfilment";
 import { SYSTEM_ACTOR, releaseTaskInTx } from "./fulfilment-server";
 
 const SUPERSEDED_ORPHAN_REASON = "Retrait déjà effectué ou affectation modifiée";
@@ -224,7 +224,8 @@ async function sendOverdueReadyTasksToRevision(orgId: string, now: Date, report:
       orgId,
       state: "READY",
       requestVersionId: { not: null },
-      action: { in: ["GRANT", "CHANGE_LEVEL", "RENEW"] },
+      // Même règle que `revalidateTask` : une réduction n'est jamais bloquée par une période échue.
+      ...GRANT_FAMILY_TASK_WHERE,
       periodEnd: { lte: now },
     },
     orderBy: { periodEnd: "asc" },

@@ -6,6 +6,7 @@ import { claimTask, completeTask } from "@/lib/access/fulfilment-server";
 import { listFulfilmentTasks } from "@/lib/access/fulfilment-read-server";
 import { runAccessProcessor } from "@/lib/access/access-processor";
 import {
+  approvedReduction,
   approvedSelfRequest,
   cleanupFulfilmentFixture,
   createFulfilmentFixture,
@@ -131,6 +132,20 @@ describe("access-processor — processeur 5 minutes (D-11, FP:229/231, A19)", ()
     }
     expect(await prisma.accessFulfilmentTask.count({ where: { requestVersionId: version.id } })).toBe(0);
     expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: version.id } })).revision).toBe(version.revision);
+  });
+
+  it("I4 — une tâche de réduction READY dont la version a une période échue n'est pas renvoyée en révision et reste réclamable", async () => {
+    const emp = await newEmployee(fx, "ReduceOverdue");
+    await giveAccess(fx, emp, fx.levels.editor);
+    const final = await approvedReduction(fx, emp, fx.levels.reader);
+    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { periodEnd: new Date(Date.now() - HOUR) } });
+    const task = await taskForVersion(final.id);
+    expect(task).toMatchObject({ action: "CHANGE_LEVEL", state: "READY" });
+    await prisma.accessFulfilmentTask.update({ where: { id: task.id }, data: { periodEnd: new Date(Date.now() - HOUR) } });
+    expect((await run(new Date())).revisionRequired).toBe(0);
+    expect((await taskForVersion(final.id)).state).toBe("READY");
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("READY_FOR_FULFILMENT");
+    await expect(claimTask(fx.orgId, fx.users.owner, task.id, 1)).resolves.toBeDefined();
   });
 
   it("A19 — accès temporaire expiré puis renouvelé (octroi, D-23) : l'expiration non réclamée est supplantée", async () => {

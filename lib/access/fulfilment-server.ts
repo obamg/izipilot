@@ -22,6 +22,7 @@ import {
   SUPERSEDED_BY_REMOVAL_REASON,
   SUPERSEDED_REASON,
   assignmentEffect,
+  isGrantFamilyTask,
   outcomeFor,
   ownerRoleFor,
   partialRemovalEffect,
@@ -32,6 +33,7 @@ import {
   type AssignmentWrite,
   type CompletionMethod,
   type OwnerRole,
+  type TaskAction,
   type TaskOutcome,
   type TaskState,
 } from "./fulfilment";
@@ -255,9 +257,7 @@ export async function revalidateTask(client: DbClient, task: RevalidationTarget,
   if (version && version.state !== EXPECTED_VERSION_STATE[task.state]) {
     return "La demande a changé depuis l'approbation";
   }
-  const grantFamily =
-    task.action === "GRANT" || task.action === "RENEW" || (task.action === "CHANGE_LEVEL" && version?.kind === "UPGRADE");
-  if (grantFamily) {
+  if (isGrantFamilyTask(task.action as TaskAction, version?.kind)) {
     const profile = await client.accessProfile.findUnique({
       where: { userId: task.beneficiaryId },
       select: { lifecycle: true },
