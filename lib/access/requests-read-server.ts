@@ -33,6 +33,19 @@ export interface RequestSummaryDTO {
    * - Sinon → null.
    */
   currentStageReason: string | null;
+  /**
+   * Phase 3b — suivi de l'exécution (D-14). `closed` : la demande est
+   * terminée (rejet, annulation, exécution, réconciliation). `taskState` /
+   * `taskReason` : état de la dernière tâche d'exécution de la version et
+   * motif MÉTIER (motif de blocage, ou motif d'annulation d'une tâche) —
+   * jamais les faits internes saisis par le propriétaire.
+   */
+  closed: boolean;
+  outcome: string | null;
+  completedAt: Date | null;
+  cancelRequestedAt: Date | null;
+  taskState: string | null;
+  taskReason: string | null;
 }
 
 interface VersionForSummary {
@@ -46,7 +59,10 @@ interface VersionForSummary {
   justification: string;
   periodStart: Date;
   periodEnd: Date | null;
-  request: { beneficiaryId: string; assetId: string };
+  outcome: string | null;
+  completedAt: Date | null;
+  cancelRequestedAt: Date | null;
+  request: { beneficiaryId: string; assetId: string; closedAt: Date | null };
   // ⚠️ Doit être trié par `sequence` ASC par l'appelant (voir les `orderBy`
   // dans `listMyRequests`/`listMyApprovals` ci-dessous). Une étape CLARIFY'd
   // et une étape future jamais atteinte ont TOUTES DEUX `decision === null` —
@@ -70,49 +86,90 @@ async function toSummaries(versions: VersionForSummary[]): Promise<RequestSummar
   const beneficiaryIds = [...new Set(versions.map((v) => v.request.beneficiaryId))];
   const assetIds = [...new Set(versions.map((v) => v.request.assetId))];
   const levelIds = [...new Set(versions.map((v) => v.targetLevelId).filter((id): id is string => id !== null))];
+  const versionIds = versions.map((v) => v.id);
 
-  const [users, assets, levels] = await Promise.all([
+  const [users, assets, levels, tasks] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: beneficiaryIds } }, select: { id: true, name: true } }),
     prisma.accessAsset.findMany({ where: { id: { in: assetIds } }, select: { id: true, name: true } }),
     levelIds.length
       ? prisma.accessLevel.findMany({ where: { id: { in: levelIds } }, select: { id: true, name: true } })
       : Promise.resolve([]),
+    versionIds.length
+      ? prisma.accessFulfilmentTask.findMany({
+          where: { requestVersionId: { in: versionIds } },
+          orderBy: { releasedAt: "desc" },
+          select: {
+            requestVersionId: true,
+            state: true,
+            blockedReason: true,
+            events: { where: { type: "CANCELLED" }, orderBy: { occurredAt: "desc" }, take: 1, select: { reason: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
   const userNameById = new Map(users.map((u) => [u.id, u.name]));
   const assetNameById = new Map(assets.map((a) => [a.id, a.name]));
   const levelNameById = new Map(levels.map((l) => [l.id, l.name]));
+  // Dernière tâche par version (tri releasedAt desc : la première rencontrée).
+  const taskByVersionId = new Map<string, (typeof tasks)[number]>();
+  for (const t of tasks) {
+    if (t.requestVersionId && !taskByVersionId.has(t.requestVersionId)) taskByVersionId.set(t.requestVersionId, t);
+  }
 
-  return versions.map((v) => ({
-    requestId: v.requestId,
-    versionId: v.id,
-    versionNumber: v.versionNumber,
-    kind: v.kind,
-    beneficiaryId: v.request.beneficiaryId,
-    beneficiaryName: userNameById.get(v.request.beneficiaryId) ?? "?",
-    assetId: v.request.assetId,
-    assetName: assetNameById.get(v.request.assetId) ?? "?",
-    targetLevelId: v.targetLevelId,
-    targetLevelName: v.targetLevelId ? levelNameById.get(v.targetLevelId) ?? "?" : null,
-    state: v.state,
-    createdAt: v.createdAt,
-    justification: v.justification,
-    periodStart: v.periodStart,
-    periodEnd: v.periodEnd,
-    pendingClarificationStageId:
-      v.state === "CLARIFICATION_REQUIRED" ? v.stages.find((s) => s.decision === null)?.id ?? null : null,
-    currentStageReason:
-      v.state === "CLARIFICATION_REQUIRED"
-        ? v.stages.find((s) => s.decision === null)?.reason ?? null
-        : v.state === "REVISION_REQUIRED"
-          ? v.stages.find((s) => s.decision === "RETURN")?.reason ?? null
-          : null,
-  }));
+  return versions.map((v) => {
+    const task = taskByVersionId.get(v.id) ?? null;
+    const taskReason =
+      task?.state === "BLOCKED"
+        ? task.blockedReason
+        : task?.state === "CANCELLED"
+          ? task.events[0]?.reason ?? null
+          : null;
+    return {
+      requestId: v.requestId,
+      versionId: v.id,
+      versionNumber: v.versionNumber,
+      kind: v.kind,
+      beneficiaryId: v.request.beneficiaryId,
+      beneficiaryName: userNameById.get(v.request.beneficiaryId) ?? "?",
+      assetId: v.request.assetId,
+      assetName: assetNameById.get(v.request.assetId) ?? "?",
+      targetLevelId: v.targetLevelId,
+      targetLevelName: v.targetLevelId ? levelNameById.get(v.targetLevelId) ?? "?" : null,
+      state: v.state,
+      createdAt: v.createdAt,
+      justification: v.justification,
+      periodStart: v.periodStart,
+      periodEnd: v.periodEnd,
+      pendingClarificationStageId:
+        v.state === "CLARIFICATION_REQUIRED" ? v.stages.find((s) => s.decision === null)?.id ?? null : null,
+      currentStageReason:
+        v.state === "CLARIFICATION_REQUIRED"
+          ? v.stages.find((s) => s.decision === null)?.reason ?? null
+          : v.state === "REVISION_REQUIRED"
+            // Retour d'un approbateur, sinon renvoi en révision par le
+            // processeur (fin de période dépassée avant exécution, D-11.4).
+            ? v.stages.find((s) => s.decision === "RETURN")?.reason ?? taskReason
+            : null,
+      closed: v.request.closedAt !== null,
+      outcome: v.outcome,
+      completedAt: v.completedAt,
+      cancelRequestedAt: v.cancelRequestedAt,
+      taskState: task?.state ?? null,
+      taskReason,
+    };
+  });
 }
 
-/** Les demandes dont l'utilisateur est l'initiateur de la version courante. */
+/**
+ * Les demandes dont l'utilisateur est l'initiateur de la version courante,
+ * historique compris (phase 3b, D-4a : les demandes terminées ne sont plus
+ * supprimées), plus récentes d'abord. Filtre en base par initiateur (dette
+ * 3a : l'organisation entière était chargée puis filtrée en mémoire).
+ */
 export async function listMyRequests(orgId: string, userId: string): Promise<RequestSummaryDTO[]> {
   const requests = await prisma.accessRequest.findMany({
-    where: { orgId },
+    where: { orgId, versions: { some: { initiatorId: userId } } },
+    orderBy: { createdAt: "desc" },
     include: {
       versions: {
         orderBy: { versionNumber: "desc" },

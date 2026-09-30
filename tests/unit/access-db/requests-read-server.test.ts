@@ -3,6 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { submitRequest, decideStage, respondToClarification } from "@/lib/access/requests-server";
 import { setDepartmentHeadBackup } from "@/lib/access/roles-server";
 import { listMyRequests, listMyApprovals, listDepartmentReducibleAccess } from "@/lib/access/requests-read-server";
+import {
+  approvedSelfRequest,
+  cleanupFulfilmentFixture,
+  createFulfilmentFixture,
+  newEmployee,
+  taskForVersion,
+  type FulfilmentFixture,
+} from "./fulfilment-fixtures";
 
 describe("requests-read-server", () => {
   let orgId: string;
@@ -404,5 +412,72 @@ describe("requests-read-server", () => {
     await prisma.department.deleteMany({ where: { id: otherDept.id } });
     await prisma.accessProfile.deleteMany({ where: { userId: otherDeptHead.id } });
     await prisma.user.delete({ where: { id: otherDeptHead.id } });
+  });
+});
+
+
+describe("requests-read-server — historique et suivi d'exécution (phase 3b)", () => {
+  let fx: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("read3b");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  it("listMyRequests montre l'historique (rejetées comprises), plus récentes d'abord, sans les demandes initiées par d'autres", async () => {
+    const emp = await newEmployee(fx, "Hist");
+    const first = await submitRequest(fx.orgId, emp, {
+      beneficiaryId: emp, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "première",
+    });
+    await decideStage(fx.orgId, fx.users.deptHead, first.stages[0].id, "REJECT", "non");
+    const second = await submitRequest(fx.orgId, emp, {
+      beneficiaryId: emp, assetId: fx.assetId, targetLevelId: fx.levels.reader, justification: "seconde",
+    });
+
+    const mine = await listMyRequests(fx.orgId, emp);
+    expect(mine.map((r) => r.versionId)).toEqual([second.id, first.id]);
+    expect(mine[1]).toMatchObject({ state: "REJECTED", closed: true, taskState: null });
+    expect(mine[0]).toMatchObject({ state: "PENDING_APPROVAL", closed: false });
+    // Le chef de département n'a initié aucune de ces demandes.
+    expect(await listMyRequests(fx.orgId, fx.users.deptHead)).toHaveLength(0);
+  });
+
+  it("une demande bloquée expose l'état de la tâche et le motif de blocage, jamais les faits internes", async () => {
+    const emp = await newEmployee(fx, "Blocked");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const task = await taskForVersion(final.id);
+    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { state: "BLOCKED" } });
+    await prisma.accessFulfilmentTask.update({
+      where: { id: task.id },
+      data: { state: "BLOCKED", claimantId: fx.users.owner, blockedReason: "Compte fournisseur verrouillé" },
+    });
+    await prisma.accessTaskEvent.create({
+      data: { orgId: fx.orgId, taskId: task.id, type: "BLOCKED", reason: "Compte fournisseur verrouillé", facts: { note: "mot de passe admin expiré" } },
+    });
+
+    const [row] = await listMyRequests(fx.orgId, emp);
+    expect(row).toMatchObject({ state: "BLOCKED", taskState: "BLOCKED", taskReason: "Compte fournisseur verrouillé", closed: false });
+    expect(JSON.stringify(row)).not.toContain("mot de passe admin expiré");
+  });
+
+  it("renvoi en révision par le processeur : le motif de la tâche annulée sert de motif de révision", async () => {
+    const emp = await newEmployee(fx, "Overdue");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const task = await taskForVersion(final.id);
+    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { state: "REVISION_REQUIRED" } });
+    await prisma.accessFulfilmentTask.update({ where: { id: task.id }, data: { state: "CANCELLED", outcome: "EXPIRED_BEFORE_FULFILMENT" } });
+    await prisma.accessTaskEvent.create({
+      data: { orgId: fx.orgId, taskId: task.id, type: "CANCELLED", reason: "Fin de période dépassée avant exécution", actingAs: "SYSTEM" },
+    });
+
+    const [row] = await listMyRequests(fx.orgId, emp);
+    expect(row).toMatchObject({
+      state: "REVISION_REQUIRED",
+      currentStageReason: "Fin de période dépassée avant exécution",
+      taskState: "CANCELLED",
+      closed: false,
+    });
   });
 });
