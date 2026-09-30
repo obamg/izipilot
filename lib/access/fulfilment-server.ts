@@ -10,11 +10,18 @@
 // d'une transaction concurrente. Ordre de verrouillage IDENTIQUE partout pour
 // éviter les interblocages : version de demande → tâche → tâche d'expiration
 // supplantée → affectation.
-import type { AccessRequest, AccessRequestVersion, Prisma } from "@prisma/client";
+import type { AccessRequest, AccessRequestState, AccessRequestVersion, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAuditInTx } from "./audit-server";
 import { isAvailable } from "./roles";
-import { taskActionForKind, type TaskOutcome } from "./fulfilment";
+import {
+  ASSIGNMENT_CHANGED_REASON,
+  ownerRoleFor,
+  taskActionForKind,
+  type OwnerRole,
+  type TaskOutcome,
+  type TaskState,
+} from "./fulfilment";
 
 export type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -196,4 +203,301 @@ export async function cancelReadyTaskForVersionInTx(
     correlationId: null,
   });
   return true;
+}
+
+// ── Revérification (FP:245, D-9, D-12) ───────────────────────────────────
+
+export interface RevalidationTarget {
+  orgId: string;
+  state: TaskState;
+  action: "GRANT" | "CHANGE_LEVEL" | "RENEW" | "REVOKE" | "EXPIRY_REMOVAL";
+  assetId: string;
+  beneficiaryId: string;
+  toLevelId: string | null;
+  periodEnd: Date | null;
+  expectedAssignmentVersion: number;
+  asset: { archivedAt: Date | null; catalogueVersion: number };
+  requestVersion: { state: AccessRequestState; kind: string; catalogueVersion: number } | null;
+}
+
+const EXPECTED_VERSION_STATE: Record<"READY" | "CLAIMED" | "BLOCKED", AccessRequestState> = {
+  READY: "READY_FOR_FULFILMENT",
+  CLAIMED: "IN_PROGRESS",
+  BLOCKED: "BLOCKED",
+};
+
+/**
+ * Motif actionnable (français) si la tâche ne peut plus être exécutée telle
+ * qu'approuvée, sinon null. Utilisée au claim, à la confirmation, pour
+ * autoriser la réconciliation et pour l'affichage (`staleReason`).
+ * Octroi/montée/renouvellement : bénéficiaire ACTIVE, actif non archivé,
+ * période non échue. Réduction/retrait : aucun de ces trois contrôles
+ * (FP:110, FP:124 — le nettoyage n'est jamais empêché).
+ */
+export async function revalidateTask(client: DbClient, task: RevalidationTarget, now: Date): Promise<string | null> {
+  if (task.state === "COMPLETED" || task.state === "CANCELLED") return null;
+  const version = task.requestVersion;
+  if (version && version.state !== EXPECTED_VERSION_STATE[task.state]) {
+    return "La demande a changé depuis l'approbation";
+  }
+  const grantFamily =
+    task.action === "GRANT" || task.action === "RENEW" || (task.action === "CHANGE_LEVEL" && version?.kind === "UPGRADE");
+  if (grantFamily) {
+    const profile = await client.accessProfile.findUnique({
+      where: { userId: task.beneficiaryId },
+      select: { lifecycle: true },
+    });
+    if (profile?.lifecycle !== "ACTIVE") return "L'employé n'est plus actif";
+    if (task.asset.archivedAt !== null) return "L'application a été archivée";
+    if (task.periodEnd !== null && task.periodEnd.getTime() <= now.getTime()) {
+      return "La période est terminée — la demande doit être révisée";
+    }
+  }
+  if (version && task.asset.catalogueVersion !== version.catalogueVersion) {
+    return "Le catalogue de l'application a changé depuis l'approbation";
+  }
+  if (task.toLevelId) {
+    const level = await client.accessLevel.findFirst({
+      where: { id: task.toLevelId, assetId: task.assetId },
+      select: { archivedAt: true, enabled: true },
+    });
+    if (!level || level.archivedAt !== null || !level.enabled) return "Le niveau cible a été archivé";
+  }
+  const assignment = await client.accessAssignment.findFirst({
+    where: { orgId: task.orgId, userId: task.beneficiaryId, assetId: task.assetId },
+    select: { id: true, version: true },
+  });
+  if ((assignment?.version ?? 0) !== task.expectedAssignmentVersion) return ASSIGNMENT_CHANGED_REASON;
+  if (assignment && (task.action === "GRANT" || task.action === "RENEW")) {
+    const claimedExpiry = await client.accessFulfilmentTask.findFirst({
+      where: { sourceAssignmentId: assignment.id, action: "EXPIRY_REMOVAL", state: { in: ["CLAIMED", "BLOCKED"] } },
+      select: { id: true },
+    });
+    if (claimedExpiry) return "Un retrait est en cours — à réconcilier";
+  }
+  return null;
+}
+
+// ── Contexte d'action d'un propriétaire ─────────────────────────────────
+
+const NOT_FOUND_MESSAGE = "Tâche introuvable";
+const STALE_MESSAGE = "La tâche a changé, rechargez";
+
+const TASK_INCLUDE = {
+  asset: { select: { id: true, ownerId: true, backupOwnerId: true, archivedAt: true, catalogueVersion: true } },
+  requestVersion: { include: { request: true } },
+} satisfies Prisma.AccessFulfilmentTaskInclude;
+
+type LoadedTask = Prisma.AccessFulfilmentTaskGetPayload<{ include: typeof TASK_INCLUDE }>;
+
+interface ActorContext {
+  actingAs: OwnerRole;
+  /** Propriétaire principal couvert quand le suppléant agit (FP:86). */
+  primaryCoveredId: string | null;
+}
+
+/**
+ * Charge la tâche et vérifie le périmètre de l'acteur EN DIRECT (D-5) :
+ * propriétaire ou suppléant courant de l'actif, et disponible. Tâche
+ * inexistante, d'une autre organisation ou hors périmètre → même 404.
+ */
+async function loadTaskForActor(
+  tx: Prisma.TransactionClient,
+  orgId: string,
+  actorId: string,
+  taskId: string
+): Promise<{ task: LoadedTask; actor: ActorContext }> {
+  const task = await tx.accessFulfilmentTask.findFirst({ where: { id: taskId, orgId }, include: TASK_INCLUDE });
+  if (!task) throw new FulfilmentError("NOT_FOUND", NOT_FOUND_MESSAGE);
+  const role = ownerRoleFor(task.asset, actorId);
+  if (!role || !(await isUserAvailable(tx, orgId, actorId))) {
+    throw new FulfilmentError("NOT_FOUND", NOT_FOUND_MESSAGE);
+  }
+  return {
+    task,
+    actor: { actingAs: role, primaryCoveredId: role === "ASSET_OWNER_BACKUP" ? task.asset.ownerId : null },
+  };
+}
+
+async function runTaskTx<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  try {
+    return await prisma.$transaction(fn);
+  } catch (err) {
+    if (err instanceof FulfilmentError) throw err;
+    const code = typeof err === "object" && err !== null && "code" in err ? (err as { code: unknown }).code : null;
+    // P2002 : création concurrente de l'affectation (unique userId+assetId) ;
+    // P2034 : conflit d'écriture/interblocage détecté par Postgres.
+    if (code === "P2002" || code === "P2034") throw new FulfilmentError("STALE", STALE_MESSAGE);
+    throw err;
+  }
+}
+
+async function moveVersionInTx(
+  tx: Prisma.TransactionClient,
+  versionId: string | null,
+  from: AccessRequestState[],
+  data: Prisma.AccessRequestVersionUpdateManyMutationInput
+): Promise<void> {
+  if (!versionId) return;
+  const { count } = await tx.accessRequestVersion.updateMany({
+    where: { id: versionId, state: { in: from } },
+    data: { ...data, revision: { increment: 1 } },
+  });
+  if (count === 0) throw new FulfilmentError("STALE", "La demande a changé, rechargez");
+}
+
+interface TaskAuditInput {
+  orgId: string;
+  actorId: string;
+  actor: ActorContext;
+  task: { id: string; assetId: string; beneficiaryId: string };
+  eventType: string;
+  objectVersion: number;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  reason: string | null;
+  correlationId: string | null;
+}
+
+async function auditTaskInTx(tx: Prisma.TransactionClient, input: TaskAuditInput): Promise<void> {
+  await recordAuditInTx(tx, {
+    orgId: input.orgId,
+    actorId: input.actorId,
+    // Pas de valeur d'énumération « propriétaire d'actif » (D-18) : le rôle
+    // représenté va dans `after.actingAs`.
+    actorRole: null,
+    primaryCoveredId: input.actor.primaryCoveredId,
+    scopeType: "ASSET",
+    scopeId: input.task.assetId,
+    eventType: input.eventType,
+    objectType: "AccessFulfilmentTask",
+    objectId: input.task.id,
+    objectVersion: input.objectVersion,
+    beneficiaryId: input.task.beneficiaryId,
+    before: input.before,
+    after: { ...input.after, actingAs: input.actor.actingAs },
+    reason: input.reason,
+    outcome: "SUCCESS",
+    correlationId: input.correlationId,
+  });
+}
+
+export interface TaskMutationOptions {
+  /** Lot (D-13) : même identifiant pour tous les éléments d'un appel. */
+  correlationId?: string | null;
+  /** Horloge injectable (tests). */
+  now?: Date;
+}
+
+export interface TaskStateDTO {
+  taskId: string;
+  state: TaskState;
+  revision: number;
+}
+
+function assertRevision(task: { revision: number }, expectedRevision: number): void {
+  if (task.revision !== expectedRevision) throw new FulfilmentError("STALE", STALE_MESSAGE);
+}
+
+// ── Réclamer / passer la main ────────────────────────────────────────────
+
+export async function claimTask(
+  orgId: string,
+  actorId: string,
+  taskId: string,
+  expectedRevision: number,
+  opts: TaskMutationOptions = {}
+): Promise<TaskStateDTO> {
+  const now = opts.now ?? new Date();
+  return runTaskTx(async (tx) => {
+    const { task, actor } = await loadTaskForActor(tx, orgId, actorId, taskId);
+    if (task.state !== "READY") throw new FulfilmentError("INVALID_TRANSITION", "Cette tâche n'est plus à réclamer");
+    assertRevision(task, expectedRevision);
+    const stale = await revalidateTask(tx, task, now);
+    if (stale) throw new FulfilmentError("STALE", stale);
+
+    await moveVersionInTx(tx, task.requestVersionId, ["READY_FOR_FULFILMENT"], { state: "IN_PROGRESS" });
+    const { count } = await tx.accessFulfilmentTask.updateMany({
+      where: { id: task.id, state: "READY", revision: expectedRevision },
+      data: { state: "CLAIMED", claimantId: actorId, claimedAt: now, revision: { increment: 1 } },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+
+    await tx.accessTaskEvent.create({
+      data: { orgId, taskId: task.id, type: "CLAIMED", actorId, actingAs: actor.actingAs },
+    });
+    await auditTaskInTx(tx, {
+      orgId,
+      actorId,
+      actor,
+      task,
+      eventType: "TASK_CLAIMED",
+      objectVersion: expectedRevision + 1,
+      before: { state: "READY" },
+      after: { state: "CLAIMED", selfFulfilled: actorId === task.beneficiaryId },
+      reason: null,
+      correlationId: opts.correlationId ?? null,
+    });
+    return { taskId: task.id, state: "CLAIMED", revision: expectedRevision + 1 };
+  });
+}
+
+/**
+ * Passation (D-8) vers l'AUTRE propriétaire/suppléant disponible de l'actif,
+ * motif obligatoire. Faite par le détenteur OU par tout propriétaire/suppléant
+ * courant (le détenteur a pu perdre son périmètre : FP:241, FP:112).
+ */
+export async function handoverTask(
+  orgId: string,
+  actorId: string,
+  taskId: string,
+  input: { toUserId: string; reason: string; expectedRevision: number },
+  opts: TaskMutationOptions = {}
+): Promise<TaskStateDTO> {
+  return runTaskTx(async (tx) => {
+    const { task, actor } = await loadTaskForActor(tx, orgId, actorId, taskId);
+    if (task.state !== "CLAIMED" && task.state !== "BLOCKED") {
+      throw new FulfilmentError("INVALID_TRANSITION", "Seule une tâche réclamée ou bloquée peut être passée");
+    }
+    assertRevision(task, input.expectedRevision);
+    const candidates = [task.asset.ownerId, task.asset.backupOwnerId].filter(
+      (id): id is string => id !== null && id !== task.claimantId
+    );
+    if (!candidates.includes(input.toUserId) || !(await isUserAvailable(tx, orgId, input.toUserId))) {
+      throw new FulfilmentError(
+        "VALIDATION",
+        "Le destinataire doit être l'autre propriétaire ou suppléant disponible de l'application"
+      );
+    }
+    const { count } = await tx.accessFulfilmentTask.updateMany({
+      where: { id: task.id, state: task.state, revision: input.expectedRevision },
+      data: { claimantId: input.toUserId, revision: { increment: 1 } },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+
+    await tx.accessTaskEvent.create({
+      data: {
+        orgId,
+        taskId: task.id,
+        type: "HANDED_OVER",
+        actorId,
+        actingAs: actor.actingAs,
+        toUserId: input.toUserId,
+        reason: input.reason,
+      },
+    });
+    await auditTaskInTx(tx, {
+      orgId,
+      actorId,
+      actor,
+      task,
+      eventType: "TASK_HANDED_OVER",
+      objectVersion: input.expectedRevision + 1,
+      before: { claimantId: task.claimantId },
+      after: { claimantId: input.toUserId },
+      reason: input.reason,
+      correlationId: opts.correlationId ?? null,
+    });
+    return { taskId: task.id, state: task.state, revision: input.expectedRevision + 1 };
+  });
 }
