@@ -20,6 +20,8 @@ interface SidebarProps {
   canManageAccessAssets?: boolean;
   canViewAccessAudit?: boolean;
   canApproveRequests?: boolean;
+  canViewDepartmentAccess?: boolean;
+  canViewOwnedAssetsAccess?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -215,6 +217,8 @@ export function Sidebar({
   canManageAccessAssets,
   canViewAccessAudit,
   canApproveRequests,
+  canViewDepartmentAccess,
+  canViewOwnedAssetsAccess,
   isOpen = false,
   onClose,
 }: SidebarProps) {
@@ -384,15 +388,66 @@ export function Sidebar({
           )}
 
           {/* Gestion des accès — un lien par droit effectif, pas un lien unique
-              pour tout le module (fix wave, Critical C3) : /access/roles est
-              réservé au CEO, /access/assets à l'Administrateur des actifs,
-              /access/audit au Lecteur d'audit — chacun ne doit voir que le(s)
-              lien(s) qu'il peut réellement utiliser. */}
-          {(canManageAccessRoles || canManageAccessAssets || canViewAccessAudit) && (
+              pour tout le module (fix wave, Critical C3). « Mes accès » est
+              ouvert à tous (phase 2b) ; département/actifs suivent les portées
+              de lecture ; /access/roles est réservé au CEO, /access/assets à
+              l'Administrateur des actifs, /access/audit au Lecteur d'audit.
+              Masquer un lien n'est qu'un confort : pages et API refusent de
+              toute façon. */}
+          {
             <>
               <div className="text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px] mt-3">
                 Accès
               </div>
+              <Link
+                href="/access/me"
+                onClick={onClose}
+                className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                  pathname === "/access/me"
+                    ? "bg-teal/[0.18] text-[#7dd8d8]"
+                    : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                </svg>
+                Mes accès
+              </Link>
+              {canViewDepartmentAccess && (
+                <Link
+                  href="/access/department"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                    pathname === "/access/department"
+                      ? "bg-teal/[0.18] text-[#7dd8d8]"
+                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                    <path d="M3 21h18" />
+                    <path d="M5 21V7l7-4 7 4v14" />
+                    <path d="M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" />
+                  </svg>
+                  Accès du département
+                </Link>
+              )}
+              {canViewOwnedAssetsAccess && (
+                <Link
+                  href="/access/owned-assets"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                    pathname === "/access/owned-assets"
+                      ? "bg-teal/[0.18] text-[#7dd8d8]"
+                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <path d="M8 21h8M12 17v4" />
+                  </svg>
+                  Mes actifs
+                </Link>
+              )}
               {canManageAccessRoles && (
                 <Link
                   href="/access/roles"
@@ -448,7 +503,7 @@ export function Sidebar({
                 </Link>
               )}
             </>
-          )}
+          }
         </div>
 
         {/* Admin section — CEO only */}

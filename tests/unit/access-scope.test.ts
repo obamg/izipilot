@@ -35,13 +35,27 @@ describe("resolveReadScopes", () => {
     ]);
   });
 
-  it("un propriétaire d'actif voit les affectations de ses actifs possédés", () => {
+  it("un propriétaire ou suppléant d'actif voit ses actifs, sans aucun rôle du module", () => {
+    expect(resolveReadScopes("u1", [], ["asset-1", "asset-2"])).toEqual([
+      { kind: "SELF", userId: "u1" },
+      { kind: "OWNED_ASSETS", assetIds: ["asset-1", "asset-2"] },
+    ]);
+  });
+
+  it("l'Administrateur des actifs sans actif possédé ne voit que lui-même", () => {
     const roles: EffectiveRole[] = [
       { role: "ASSET_ADMINISTRATOR", actsAsPrimary: true, departmentId: null },
     ];
-    expect(resolveReadScopes("u1", roles, ["asset-1", "asset-2"])).toEqual([
+    expect(resolveReadScopes("u1", roles, [])).toEqual([{ kind: "SELF", userId: "u1" }]);
+  });
+
+  it("l'Administrateur des actifs qui possède un actif le voit comme propriétaire", () => {
+    const roles: EffectiveRole[] = [
+      { role: "ASSET_ADMINISTRATOR", actsAsPrimary: true, departmentId: null },
+    ];
+    expect(resolveReadScopes("u1", roles, ["asset-1"])).toEqual([
       { kind: "SELF", userId: "u1" },
-      { kind: "OWNED_ASSETS", assetIds: ["asset-1", "asset-2"] },
+      { kind: "OWNED_ASSETS", assetIds: ["asset-1"] },
     ]);
   });
 
@@ -55,15 +69,16 @@ describe("resolveReadScopes", () => {
     ]);
   });
 
-  it("cumule plusieurs portées sans doublon", () => {
+  it("cumule plusieurs portées dans un ordre stable", () => {
     const roles: EffectiveRole[] = [
+      { role: "CISO", actsAsPrimary: true, departmentId: null },
       { role: "DEPARTMENT_HEAD", actsAsPrimary: true, departmentId: "d1" },
-      { role: "ASSET_ADMINISTRATOR", actsAsPrimary: true, departmentId: null },
     ];
     expect(resolveReadScopes("u1", roles, ["asset-1"])).toEqual([
       { kind: "SELF", userId: "u1" },
       { kind: "DEPARTMENT", departmentId: "d1" },
       { kind: "OWNED_ASSETS", assetIds: ["asset-1"] },
+      { kind: "ALL" },
     ]);
   });
 });
