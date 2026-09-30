@@ -36,6 +36,7 @@ export const CLOSED_TASK_STATES = ["COMPLETED", "CANCELLED"] as const;
 export const EXPIRY_OWNER_REASON = "Fin de période temporaire";
 export const PARTIAL_REMOVAL_REASON = "Ancien niveau retiré — nouvel accès pas encore accordé";
 export const SUPERSEDED_REASON = "Supplantée par un renouvellement";
+export const SUPERSEDED_BY_REMOVAL_REASON = "Supplantée par un retrait confirmé";
 export const EXPIRED_BEFORE_FULFILMENT_REASON = "Fin de période dépassée avant exécution";
 export const ASSIGNMENT_CHANGED_REASON = "L'affectation a changé depuis l'approbation";
 

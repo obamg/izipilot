@@ -34,10 +34,10 @@ describe("GET /api/cron/access-processor", () => {
   });
 
   it("200 avec le secret : lance le processeur et renvoie son rapport", async () => {
-    runMock.mockResolvedValue({ released: 1, repaired: 0, expired: 2, revisionRequired: 0, errors: 0 });
+    runMock.mockResolvedValue({ released: 1, repaired: 0, expired: 2, revisionRequired: 0, sweptExpiry: 0, errors: 0 });
     const res = await GET(makeRequest(`Bearer ${process.env.CRON_SECRET}`));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, released: 1, repaired: 0, expired: 2, revisionRequired: 0, errors: 0 });
+    expect(await res.json()).toEqual({ ok: true, released: 1, repaired: 0, expired: 2, revisionRequired: 0, sweptExpiry: 0, errors: 0 });
     expect(runMock).toHaveBeenCalledTimes(1);
   });
 

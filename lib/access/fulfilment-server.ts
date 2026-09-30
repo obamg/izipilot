@@ -13,11 +13,13 @@
 import { randomUUID } from "node:crypto";
 import type { AccessRequest, AccessRequestState, AccessRequestVersion, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { log } from "@/lib/log";
 import { recordAuditInTx } from "./audit-server";
 import { isAvailable } from "./roles";
 import {
   ASSIGNMENT_CHANGED_REASON,
   PARTIAL_REMOVAL_REASON,
+  SUPERSEDED_BY_REMOVAL_REASON,
   SUPERSEDED_REASON,
   assignmentEffect,
   outcomeFor,
@@ -33,6 +35,8 @@ import {
   type TaskOutcome,
   type TaskState,
 } from "./fulfilment";
+
+const logger = log.child("access/fulfilment");
 
 export type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -773,13 +777,21 @@ async function writeAssignmentInTx(
 }
 
 /**
- * D-23 / FP:231 : une confirmation d'octroi/renouvellement supplante
+ * D-23 / FP:231 : une confirmation d'octroi/renouvellement (ou de retrait)
+ * supplante
  * atomiquement une tâche d'expiration NON réclamée de la même affectation ;
  * une tâche d'expiration réclamée/bloquée impose une réconciliation.
  */
 async function supersedeExpiryTasksInTx(
   tx: Prisma.TransactionClient,
-  input: { orgId: string; actorId: string; actor: ActorContext; assignmentId: string; correlationId: string | null }
+  input: {
+    orgId: string;
+    actorId: string;
+    actor: ActorContext;
+    assignmentId: string;
+    correlationId: string | null;
+    reason: string;
+  }
 ): Promise<void> {
   const open = await tx.accessFulfilmentTask.findMany({
     where: {
@@ -805,7 +817,7 @@ async function supersedeExpiryTasksInTx(
         type: "CANCELLED",
         actorId: input.actorId,
         actingAs: input.actor.actingAs,
-        reason: SUPERSEDED_REASON,
+        reason: input.reason,
       },
     });
     await auditTaskInTx(tx, {
@@ -817,7 +829,7 @@ async function supersedeExpiryTasksInTx(
       objectVersion: expiry.revision + 1,
       before: { state: "READY" },
       after: { state: "CANCELLED", outcome: "SUPERSEDED" },
-      reason: SUPERSEDED_REASON,
+      reason: input.reason,
       correlationId: input.correlationId,
     });
   }
@@ -980,7 +992,13 @@ export async function completeTask(
     });
     if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
     if (current && (task.action === "GRANT" || task.action === "RENEW")) {
-      await supersedeExpiryTasksInTx(tx, { orgId, actorId, actor, assignmentId: current.id, correlationId });
+      await supersedeExpiryTasksInTx(tx, {
+        orgId, actorId, actor, assignmentId: current.id, correlationId, reason: SUPERSEDED_REASON,
+      });
+    } else if (current && task.action === "REVOKE") {
+      await supersedeExpiryTasksInTx(tx, {
+        orgId, actorId, actor, assignmentId: current.id, correlationId, reason: SUPERSEDED_BY_REMOVAL_REASON,
+      });
     }
     const assignmentVersion = await writeAssignmentInTx(tx, {
       orgId,
@@ -1041,6 +1059,7 @@ export interface BatchResultDTO {
 
 function toBatchFailure(taskId: string, err: unknown): BatchItemResult {
   if (err instanceof FulfilmentError) return { taskId, ok: false, error: err.message, code: err.code };
+  logger.error("élément de lot en erreur inattendue", { taskId }, err);
   return { taskId, ok: false, error: "Erreur inattendue", code: null };
 }
 

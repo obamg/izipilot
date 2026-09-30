@@ -148,4 +148,22 @@ describe("access-processor — processeur 5 minutes (D-11, FP:229/231, A19)", ()
       message: "Un retrait est en cours — à réconcilier",
     });
   });
+
+  it("F3b — balayage : une tâche d'expiration READY orpheline est annulée une seule fois (SYSTEM)", async () => {
+    const emp = await newEmployee(fx, "Orphan");
+    const a = await giveAccess(fx, emp, fx.levels.reader, { periodEnd: new Date(Date.now() - HOUR) });
+    await run(new Date());
+    const expiry = await prisma.accessFulfilmentTask.findFirstOrThrow({ where: { sourceAssignmentId: a.id, action: "EXPIRY_REMOVAL" } });
+    // L'affectation a été retirée par un autre chemin : la tâche est orpheline.
+    await prisma.accessAssignment.update({ where: { id: a.id }, data: { status: "REVOKED", levelId: null, version: { increment: 1 } } });
+    const first = await run(new Date());
+    const second = await run(new Date());
+    expect(first.sweptExpiry).toBe(1);
+    expect(second.sweptExpiry).toBe(0);
+    expect(await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: expiry.id } })).toMatchObject({ state: "CANCELLED", outcome: "SUPERSEDED" });
+    expect(await prisma.accessTaskEvent.findFirst({ where: { taskId: expiry.id, type: "CANCELLED" } })).toMatchObject({ actorId: null, actingAs: "SYSTEM" });
+    expect(
+      await prisma.accessAuditEvent.findFirst({ where: { orgId: fx.orgId, eventType: "TASK_CANCELLED", objectId: expiry.id } })
+    ).toMatchObject({ actorId: "SYSTEM" });
+  });
 });

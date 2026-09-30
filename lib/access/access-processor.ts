@@ -1,6 +1,6 @@
 // lib/access/access-processor.ts
 // Processeur 5 minutes de la gestion des accès (phase 3b, D-11, FP:229).
-// Quatre devoirs idempotents, par organisation active, bornés à
+// Cinq devoirs idempotents, par organisation active, bornés à
 // PROCESSOR_BATCH_SIZE lignes par devoir et par passage ; une transaction
 // par ligne (un échec n'arrête pas le reste). Aucun appel externe, aucune
 // notification (A25). Chevauchement de passages : les clés uniques
@@ -10,6 +10,8 @@ import { prisma } from "@/lib/prisma";
 import { log } from "@/lib/log";
 import { recordAuditInTx } from "./audit-server";
 import { EXPIRED_BEFORE_FULFILMENT_REASON } from "./fulfilment";
+
+const SUPERSEDED_ORPHAN_REASON = "Retrait déjà effectué ou affectation modifiée";
 import { SYSTEM_ACTOR, releaseTaskInTx } from "./fulfilment-server";
 
 const logger = log.child("access-processor");
@@ -25,6 +27,8 @@ export interface ProcessorReport {
   expired: number;
   /** 4. Tâches READY dont la période est échue → version REVISION_REQUIRED. */
   revisionRequired: number;
+  /** 5. Tâches d'expiration READY orphelines (affectation retirée/modifiée) → annulées. */
+  sweptExpiry: number;
   errors: number;
 }
 
@@ -265,6 +269,61 @@ async function sendOverdueReadyTasksToRevision(orgId: string, now: Date, report:
 }
 
 /**
+ * Balayage idempotent : une tâche d'expiration READY dont l'affectation n'est
+ * plus en attente de retrait, ou a changé de version, n'a plus d'objet (un
+ * retrait ou un renouvellement est passé par un autre chemin). Annulée, jamais
+ * exécutée. Une tâche réclamée n'est pas touchée (elle se réconcilie).
+ */
+async function sweepOrphanExpiryTasks(orgId: string, report: ProcessorReport): Promise<void> {
+  const tasks = await prisma.accessFulfilmentTask.findMany({
+    where: { orgId, state: "READY", action: "EXPIRY_REMOVAL", sourceAssignmentId: { not: null } },
+    orderBy: { createdAt: "asc" },
+    take: PROCESSOR_BATCH_SIZE,
+  });
+  if (tasks.length === 0) return;
+  const assignments = await prisma.accessAssignment.findMany({
+    where: { id: { in: tasks.map((t) => t.sourceAssignmentId as string) } },
+    select: { id: true, status: true, version: true },
+  });
+  const byId = new Map(assignments.map((a) => [a.id, a]));
+  const orphans = tasks.filter((t) => {
+    const a = byId.get(t.sourceAssignmentId as string);
+    return !a || a.status !== "EXPIRED_REMOVAL_PENDING" || a.version !== t.sourceAssignmentVersion;
+  });
+  report.sweptExpiry += await eachRow(orphans, report, "sweep-expiry", (t) =>
+    prisma.$transaction(async (tx) => {
+      const { count } = await tx.accessFulfilmentTask.updateMany({
+        where: { id: t.id, state: "READY" },
+        data: { state: "CANCELLED", outcome: "SUPERSEDED", revision: { increment: 1 } },
+      });
+      if (count === 0) return false;
+      await tx.accessTaskEvent.create({
+        data: { orgId, taskId: t.id, type: "CANCELLED", actorId: null, actingAs: "SYSTEM", reason: SUPERSEDED_ORPHAN_REASON },
+      });
+      await recordAuditInTx(tx, {
+        orgId,
+        actorId: SYSTEM_ACTOR,
+        actorRole: null,
+        primaryCoveredId: null,
+        scopeType: "ASSET",
+        scopeId: t.assetId,
+        eventType: "TASK_CANCELLED",
+        objectType: "AccessFulfilmentTask",
+        objectId: t.id,
+        objectVersion: t.revision + 1,
+        beneficiaryId: t.beneficiaryId,
+        before: { state: "READY" },
+        after: { state: "CANCELLED", outcome: "SUPERSEDED" },
+        reason: SUPERSEDED_ORPHAN_REASON,
+        outcome: "SUCCESS",
+        correlationId: null,
+      });
+      return true;
+    })
+  );
+}
+
+/**
  * `options.orgIds` restreint le passage à certaines organisations (tests :
  * les fichiers de test tournent en parallèle sur la même base). La route
  * cron l'appelle sans option.
@@ -277,12 +336,13 @@ export async function runAccessProcessor(
     where: { isActive: true, ...(options.orgIds ? { id: { in: options.orgIds } } : {}) },
     select: { id: true },
   });
-  const report: ProcessorReport = { released: 0, repaired: 0, expired: 0, revisionRequired: 0, errors: 0 };
+  const report: ProcessorReport = { released: 0, repaired: 0, expired: 0, revisionRequired: 0, sweptExpiry: 0, errors: 0 };
   for (const org of orgs) {
     await releaseWaitingVersions(org.id, now, report);
     await repairMissingTasks(org.id, report);
     await expireTemporaryAssignments(org.id, now, report);
     await sendOverdueReadyTasksToRevision(org.id, now, report);
+    await sweepOrphanExpiryTasks(org.id, report);
   }
   return report;
 }

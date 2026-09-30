@@ -785,3 +785,51 @@ describe("fulfilment-server — correctifs ronde 1 (F1, F2)", () => {
     }
   });
 });
+
+describe("fulfilment-server — F3a : un retrait confirmé supplante l'expiration non réclamée", () => {
+  let fx: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("fix3a");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  async function revokeWithExpiry(label: string) {
+    const emp = await newEmployee(fx, label);
+    const assignment = await giveAccess(fx, emp, fx.levels.reader, { periodEnd: new Date(Date.now() - 86_400_000) });
+    const final = await approvedReduction(fx, emp, null);
+    await prisma.accessAssignment.update({ where: { id: assignment.id }, data: { status: "EXPIRED_REMOVAL_PENDING" } });
+    const expiry = await prisma.accessFulfilmentTask.create({
+      data: {
+        orgId: fx.orgId, assetId: fx.assetId, beneficiaryId: emp, action: "EXPIRY_REMOVAL",
+        sourceAssignmentId: assignment.id, sourceAssignmentVersion: assignment.version, fromLevelId: fx.levels.reader,
+        expectedAssignmentVersion: assignment.version, idempotencyKey: `EXP:${assignment.id}:${assignment.version}`,
+      },
+    });
+    const task = await taskForVersion(final.id);
+    await claimTask(fx.orgId, fx.users.owner, task.id, 1);
+    return { expiry, taskId: task.id };
+  }
+  const facts = () => ({ completedAt: new Date(), reference: "T", note: null, expectedRevision: 2 });
+
+  it("expiration READY : annulée (SUPERSEDED) avec le motif du retrait confirmé", async () => {
+    const { expiry, taskId } = await revokeWithExpiry("F3aReady");
+    const res = await completeTask(fx.orgId, fx.users.owner, taskId, facts());
+    expect(res.outcome).toBe("REVOKED");
+    expect(await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: expiry.id } })).toMatchObject({ state: "CANCELLED", outcome: "SUPERSEDED" });
+    expect(await prisma.accessTaskEvent.findFirstOrThrow({ where: { taskId: expiry.id, type: "CANCELLED" } })).toMatchObject({
+      reason: "Supplantée par un retrait confirmé",
+    });
+  });
+
+  it("expiration réclamée : STALE « à réconcilier », rien n'est écrit", async () => {
+    const { expiry, taskId } = await revokeWithExpiry("F3aClaimed");
+    await claimTask(fx.orgId, fx.users.backup, expiry.id, 1);
+    await expect(completeTask(fx.orgId, fx.users.owner, taskId, facts())).rejects.toMatchObject({
+      code: "STALE", message: "Un retrait est en cours — à réconcilier",
+    });
+    expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } })).state).toBe("CLAIMED");
+  });
+});
