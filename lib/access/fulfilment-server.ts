@@ -10,6 +10,7 @@
 // d'une transaction concurrente. Ordre de verrouillage IDENTIQUE partout pour
 // éviter les interblocages : version de demande → tâche → tâche d'expiration
 // supplantée → affectation.
+import { randomUUID } from "node:crypto";
 import type { AccessRequest, AccessRequestState, AccessRequestVersion, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordAuditInTx } from "./audit-server";
@@ -1007,4 +1008,64 @@ export async function completeTask(
       replayed: false,
     };
   });
+}
+
+// ── Lots (D-13) ──────────────────────────────────────────────────────────
+
+export interface BatchItemResult {
+  taskId: string;
+  ok: boolean;
+  error: string | null;
+  code: FulfilmentErrorCode | null;
+}
+
+export interface BatchResultDTO {
+  correlationId: string;
+  results: BatchItemResult[];
+}
+
+function toBatchFailure(taskId: string, err: unknown): BatchItemResult {
+  if (err instanceof FulfilmentError) return { taskId, ok: false, error: err.message, code: err.code };
+  return { taskId, ok: false, error: "Erreur inattendue", code: null };
+}
+
+/**
+ * Chaque élément est indépendant (FP:252) : une transaction par élément, un
+ * échec n'affecte aucun autre élément. Un `correlationId` commun à l'appel
+ * est écrit dans l'audit de chaque élément (FP:348).
+ */
+export async function claimTasksBatch(
+  orgId: string,
+  actorId: string,
+  items: { taskId: string; expectedRevision: number }[]
+): Promise<BatchResultDTO> {
+  const correlationId = randomUUID();
+  const results: BatchItemResult[] = [];
+  for (const item of items) {
+    try {
+      await claimTask(orgId, actorId, item.taskId, item.expectedRevision, { correlationId });
+      results.push({ taskId: item.taskId, ok: true, error: null, code: null });
+    } catch (err) {
+      results.push(toBatchFailure(item.taskId, err));
+    }
+  }
+  return { correlationId, results };
+}
+
+export async function completeTasksBatch(
+  orgId: string,
+  actorId: string,
+  items: (Omit<CompleteTaskInput, "partialRemovalOnly"> & { taskId: string })[]
+): Promise<BatchResultDTO> {
+  const correlationId = randomUUID();
+  const results: BatchItemResult[] = [];
+  for (const { taskId, ...input } of items) {
+    try {
+      await completeTask(orgId, actorId, taskId, input, { correlationId });
+      results.push({ taskId, ok: true, error: null, code: null });
+    } catch (err) {
+      results.push(toBatchFailure(taskId, err));
+    }
+  }
+  return { correlationId, results };
 }

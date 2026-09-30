@@ -7,7 +7,9 @@ import {
   blockTask,
   cancelReadyTaskForVersionInTx,
   claimTask,
+  claimTasksBatch,
   completeTask,
+  completeTasksBatch,
   getFulfilmentAssetIds,
   handoverTask,
   reconcileTask,
@@ -645,5 +647,64 @@ describe("fulfilment-server — confirmer (D-9, D-10, D-23, A16–A18)", () => {
     } finally {
       await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { archivedAt: null } });
     }
+  });
+});
+
+describe("fulfilment-server — lots (D-13, FP:252/254, A17)", () => {
+  let fx: FulfilmentFixture;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("batch");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  async function readyTaskId(label: string) {
+    const emp = await newEmployee(fx, label);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    return { emp, taskId: (await taskForVersion(final.id)).id };
+  }
+
+  it("réclamer en lot : résultat par élément, un élément hors périmètre n'empêche pas les autres, correlationId commun dans l'audit", async () => {
+    const a = await readyTaskId("BatchA");
+    const b = await readyTaskId("BatchB");
+    const res = await claimTasksBatch(fx.orgId, fx.users.owner, [
+      { taskId: a.taskId, expectedRevision: 1 },
+      { taskId: "id-inexistant", expectedRevision: 1 },
+      { taskId: b.taskId, expectedRevision: 1 },
+    ]);
+    expect(res.results).toEqual([
+      { taskId: a.taskId, ok: true, error: null, code: null },
+      { taskId: "id-inexistant", ok: false, error: "Tâche introuvable", code: "NOT_FOUND" },
+      { taskId: b.taskId, ok: true, error: null, code: null },
+    ]);
+    const audits = await prisma.accessAuditEvent.findMany({ where: { orgId: fx.orgId, eventType: "TASK_CLAIMED" } });
+    expect(audits.map((x) => x.correlationId)).toEqual([res.correlationId, res.correlationId]);
+  });
+
+  it("confirmer en lot : chaque élément porte sa propre preuve ; un échec n'annule pas les succès ; un nouvel essai ne duplique rien", async () => {
+    const a = await readyTaskId("DoneA");
+    const b = await readyTaskId("DoneB");
+    await claimTasksBatch(fx.orgId, fx.users.owner, [
+      { taskId: a.taskId, expectedRevision: 1 },
+      { taskId: b.taskId, expectedRevision: 1 },
+    ]);
+    const completedAt = new Date(Date.now() - 1_000);
+    const items = [
+      { taskId: a.taskId, completedAt, reference: "REF-A", note: null, expectedRevision: 2 },
+      { taskId: b.taskId, completedAt, reference: "REF-B", note: null, expectedRevision: 99 },
+    ];
+    const first = await completeTasksBatch(fx.orgId, fx.users.owner, items);
+    expect(first.results.map((r) => [r.ok, r.code])).toEqual([[true, null], [false, "STALE"]]);
+    expect((await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: a.taskId } })).completionReference).toBe("REF-A");
+
+    // Nouvel essai de tout le lot, B corrigé : A est rejouée sans écriture, B aboutit.
+    const retry = await completeTasksBatch(fx.orgId, fx.users.owner, [items[0], { ...items[1], expectedRevision: 2 }]);
+    expect(retry.results.every((r) => r.ok)).toBe(true);
+    expect(await prisma.accessAssignmentEvent.count({ where: { orgId: fx.orgId, userId: a.emp } })).toBe(1);
+    expect(await prisma.accessAssignmentEvent.count({ where: { orgId: fx.orgId, userId: b.emp } })).toBe(1);
+    const completedAudits = await prisma.accessAuditEvent.findMany({ where: { orgId: fx.orgId, eventType: "TASK_COMPLETED" } });
+    expect(completedAudits.map((x) => x.correlationId).sort()).toEqual([first.correlationId, retry.correlationId].sort());
   });
 });
