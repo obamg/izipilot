@@ -7,6 +7,7 @@ import {
   blockTask,
   cancelReadyTaskForVersionInTx,
   claimTask,
+  completeTask,
   getFulfilmentAssetIds,
   handoverTask,
   reconcileTask,
@@ -14,9 +15,11 @@ import {
   resumeTask,
 } from "@/lib/access/fulfilment-server";
 import {
+  approvedReduction,
   approvedSelfRequest,
   cleanupFulfilmentFixture,
   createFulfilmentFixture,
+  currentAssignment,
   giveAccess,
   newEmployee,
   taskForVersion,
@@ -331,6 +334,316 @@ describe("fulfilment-server — bloquer, reprendre, réconcilier", () => {
       expect(res.state).toBe("CANCELLED");
     } finally {
       await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: null } });
+    }
+  });
+});
+
+describe("fulfilment-server — confirmer (D-9, D-10, D-23, A16–A18)", () => {
+  let fx: FulfilmentFixture;
+  const DAY = 86_400_000;
+
+  beforeAll(async () => {
+    fx = await createFulfilmentFixture("complete");
+  });
+  afterAll(async () => {
+    await cleanupFulfilmentFixture(fx.orgId);
+  });
+
+  function facts(over: Partial<{ reference: string | null; note: string | null; method: "DIRECT" | "REMOVE_THEN_GRANT"; completedAt: Date; partialRemovalOnly: boolean }> = {}) {
+    return { completedAt: new Date(), reference: "TICKET-1", note: null, ...over };
+  }
+
+  async function claimed(finalId: string, actor = fx.users.owner) {
+    const task = await taskForVersion(finalId);
+    await claimTask(fx.orgId, actor, task.id, 1);
+    return task.id;
+  }
+
+  it("GRANT : affectation créée ACTIVE (source REQUEST, OWNER_CONFIRMED), événement, version COMPLETED, demande fermée", async () => {
+    const emp = await newEmployee(fx, "Grant");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const taskId = await claimed(final.id);
+    const completedAt = new Date(Date.now() - 60_000);
+    const res = await completeTask(fx.orgId, fx.users.owner, taskId, { ...facts({ completedAt }), expectedRevision: 2 });
+    expect(res).toEqual({ taskId, state: "COMPLETED", revision: 3, outcome: "PROVISIONED", assignmentVersion: 1, replayed: false });
+
+    const a = await currentAssignment(fx, emp);
+    expect(a).toMatchObject({ status: "ACTIVE", levelId: fx.levels.reader, source: "REQUEST", verification: "OWNER_CONFIRMED", version: 1 });
+    expect(a?.grantedAt?.getTime()).toBe(completedAt.getTime());
+    const events = await prisma.accessAssignmentEvent.findMany({ where: { assignmentId: a!.id } });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ sourceType: "FULFILMENT", sourceId: taskId, beforeLevelId: null, afterLevelId: fx.levels.reader, outcome: "PROVISIONED", actorId: fx.users.owner });
+    const version = await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } });
+    expect(version).toMatchObject({ state: "COMPLETED", outcome: "PROVISIONED" });
+    expect(version.completedAt?.getTime()).toBe(completedAt.getTime());
+    expect((await prisma.accessRequest.findUniqueOrThrow({ where: { id: final.requestId } })).closedAt).not.toBeNull();
+    const audit = await prisma.accessAuditEvent.findFirstOrThrow({ where: { orgId: fx.orgId, eventType: "TASK_COMPLETED", objectId: taskId } });
+    expect(audit.after).toMatchObject({ outcome: "PROVISIONED", selfFulfilled: false, actingAs: "ASSET_OWNER", reference: "TICKET-1" });
+  });
+
+  it("CHANGE_LEVEL (montée, méthode directe) : niveau remplacé, version +1, ancien niveau dans l'historique", async () => {
+    const emp = await newEmployee(fx, "Upgrade");
+    const before = await giveAccess(fx, emp, fx.levels.reader);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.editor);
+    expect(final.kind).toBe("UPGRADE");
+    const taskId = await claimed(final.id);
+    await expectCode(completeTask(fx.orgId, fx.users.owner, taskId, { ...facts(), expectedRevision: 2 }), "VALIDATION");
+    const res = await completeTask(fx.orgId, fx.users.owner, taskId, { ...facts({ method: "DIRECT" }), expectedRevision: 2 });
+    expect(res.outcome).toBe("CHANGED");
+    const a = await currentAssignment(fx, emp);
+    expect(a).toMatchObject({ levelId: fx.levels.editor, status: "ACTIVE", version: before.version + 1 });
+    const event = await prisma.accessAssignmentEvent.findFirstOrThrow({ where: { assignmentId: before.id } });
+    expect(event).toMatchObject({ beforeLevelId: fx.levels.reader, afterLevelId: fx.levels.editor });
+  });
+
+  it("RENEW : nouvelle fin de période, niveau et date d'octroi inchangés", async () => {
+    const emp = await newEmployee(fx, "Renew");
+    const before = await giveAccess(fx, emp, fx.levels.reader, { periodEnd: new Date(Date.now() + 10 * DAY) });
+    const newEnd = new Date(Date.now() + 90 * DAY);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader, { periodEnd: newEnd });
+    expect(final.kind).toBe("RENEW");
+    const taskId = await claimed(final.id);
+    await completeTask(fx.orgId, fx.users.owner, taskId, { ...facts(), expectedRevision: 2 });
+    const a = await currentAssignment(fx, emp);
+    expect(a?.levelId).toBe(fx.levels.reader);
+    expect(a?.periodEnd?.getTime()).toBe(newEnd.getTime());
+    expect(a?.grantedAt).toEqual(before.grantedAt);
+    expect(a?.version).toBe(before.version + 1);
+  });
+
+  it("REVOKE : REVOKED, niveau nul, date de retrait ; possible même pour un employé parti (FP:124)", async () => {
+    const emp = await newEmployee(fx, "Revoke");
+    await giveAccess(fx, emp, fx.levels.reader);
+    const final = await approvedReduction(fx, emp, null);
+    const taskId = await claimed(final.id);
+    await prisma.accessProfile.update({ where: { userId: emp }, data: { lifecycle: "DEPARTED" } });
+    const completedAt = new Date(Date.now() - 5_000);
+    const res = await completeTask(fx.orgId, fx.users.owner, taskId, { ...facts({ completedAt }), expectedRevision: 2 });
+    expect(res.outcome).toBe("REVOKED");
+    const a = await currentAssignment(fx, emp);
+    expect(a).toMatchObject({ status: "REVOKED", levelId: null, source: "LEGACY_IMPORT" });
+    expect(a?.revokedAt?.getTime()).toBe(completedAt.getTime());
+  });
+
+  it("A17 — confirmation rejouée à l'identique : même résultat, aucune nouvelle écriture ; faits différents → refus", async () => {
+    const emp = await newEmployee(fx, "Replay");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const taskId = await claimed(final.id);
+    const input = { ...facts({ completedAt: new Date(Date.now() - 1_000) }), expectedRevision: 2 };
+    const first = await completeTask(fx.orgId, fx.users.owner, taskId, input);
+    const second = await completeTask(fx.orgId, fx.users.owner, taskId, input);
+    expect(second).toEqual({ ...first, replayed: true });
+    const a = await currentAssignment(fx, emp);
+    expect(a?.version).toBe(1);
+    expect(await prisma.accessAssignmentEvent.count({ where: { assignmentId: a!.id } })).toBe(1);
+    expect(await prisma.accessTaskEvent.count({ where: { taskId, type: "COMPLETED" } })).toBe(1);
+    await expectCode(completeTask(fx.orgId, fx.users.owner, taskId, { ...input, reference: "AUTRE" }), "INVALID_TRANSITION");
+  });
+
+  it("A16 — double confirmation concurrente de la même tâche : un seul niveau courant, une seule écriture", async () => {
+    const emp = await newEmployee(fx, "Double");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const taskId = await claimed(final.id);
+    const input = { ...facts({ completedAt: new Date(Date.now() - 1_000) }), expectedRevision: 2 };
+    const results = await Promise.allSettled([
+      completeTask(fx.orgId, fx.users.owner, taskId, input),
+      completeTask(fx.orgId, fx.users.owner, taskId, input),
+    ]);
+    const writes = results.filter((r) => r.status === "fulfilled" && r.value.replayed === false);
+    expect(writes).toHaveLength(1);
+    for (const r of results) {
+      if (r.status === "rejected") expect((r.reason as FulfilmentError).code).toBe("STALE");
+    }
+    expect(await prisma.accessAssignment.count({ where: { orgId: fx.orgId, userId: emp } })).toBe(1);
+    expect(await prisma.accessAssignmentEvent.count({ where: { orgId: fx.orgId, userId: emp } })).toBe(1);
+  });
+
+  it("A16 — retrait demandé et retrait d'expiration confirmés en même temps : un seul gagne (compare-and-swap sur la version)", async () => {
+    const emp = await newEmployee(fx, "TwoRemovals");
+    const assignment = await giveAccess(fx, emp, fx.levels.reader, { periodEnd: new Date(Date.now() - DAY) });
+    const final = await approvedReduction(fx, emp, null);
+    // Expiration telle que le processeur la posera (Tâche 11) : statut, tâche, version inchangée.
+    await prisma.accessAssignment.update({ where: { id: assignment.id }, data: { status: "EXPIRED_REMOVAL_PENDING" } });
+    const expiry = await prisma.accessFulfilmentTask.create({
+      data: {
+        orgId: fx.orgId, assetId: fx.assetId, beneficiaryId: emp, action: "EXPIRY_REMOVAL",
+        sourceAssignmentId: assignment.id, sourceAssignmentVersion: assignment.version, fromLevelId: fx.levels.reader,
+        expectedAssignmentVersion: assignment.version, idempotencyKey: `EXP:${assignment.id}:${assignment.version}`,
+      },
+    });
+    const revokeTaskId = await claimed(final.id, fx.users.owner);
+    await claimTask(fx.orgId, fx.users.backup, expiry.id, 1);
+    const results = await Promise.allSettled([
+      completeTask(fx.orgId, fx.users.owner, revokeTaskId, { ...facts(), expectedRevision: 2 }),
+      completeTask(fx.orgId, fx.users.backup, expiry.id, { ...facts(), expectedRevision: 2 }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const a = await prisma.accessAssignment.findUniqueOrThrow({ where: { id: assignment.id } });
+    expect(a).toMatchObject({ status: "REVOKED", levelId: null, version: assignment.version + 1 });
+    expect(await prisma.accessAssignmentEvent.count({ where: { assignmentId: assignment.id } })).toBe(1);
+  });
+
+  it("A18 — remplacement par retrait puis octroi : l'étape 1 seule enregistre « aucun accès » et un travail bloqué, puis la reprise accorde", async () => {
+    const emp = await newEmployee(fx, "Partial");
+    const before = await giveAccess(fx, emp, fx.levels.reader);
+    const final = await approvedSelfRequest(fx, emp, fx.levels.editor);
+    const taskId = await claimed(final.id);
+    const step1 = await completeTask(fx.orgId, fx.users.owner, taskId, {
+      ...facts({ method: "REMOVE_THEN_GRANT", partialRemovalOnly: true, note: "ancien rôle retiré" }),
+      expectedRevision: 2,
+    });
+    expect(step1).toMatchObject({ state: "BLOCKED", outcome: null, assignmentVersion: before.version + 1 });
+    const mid = await currentAssignment(fx, emp);
+    expect(mid).toMatchObject({ status: "REVOKED", levelId: null });
+    const task = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: taskId } });
+    expect(task.state).toBe("BLOCKED");
+    expect(task.blockedReason).toBe("Ancien niveau retiré — nouvel accès pas encore accordé");
+    expect(task.expectedAssignmentVersion).toBe(before.version + 1);
+    expect((await prisma.accessRequestVersion.findUniqueOrThrow({ where: { id: final.id } })).state).toBe("BLOCKED");
+    // Un fait d'exécution ne s'efface pas : pas de réconciliation « rien fait ».
+    await prisma.accessRequestVersion.update({ where: { id: final.id }, data: { cancelRequestedAt: new Date() } });
+    await expectCode(reconcileTask(fx.orgId, fx.users.owner, taskId, { reason: "rien fait", expectedRevision: 3 }), "INVALID_TRANSITION");
+
+    await resumeTask(fx.orgId, fx.users.owner, taskId, 3);
+    const done = await completeTask(fx.orgId, fx.users.owner, taskId, { ...facts({ method: "REMOVE_THEN_GRANT" }), expectedRevision: 4 });
+    expect(done).toMatchObject({ state: "COMPLETED", outcome: "CHANGED", assignmentVersion: before.version + 2 });
+    expect(await currentAssignment(fx, emp)).toMatchObject({ status: "ACTIVE", levelId: fx.levels.editor });
+    const history = await prisma.accessAssignmentEvent.findMany({ where: { assignmentId: before.id }, orderBy: { occurredAt: "asc" } });
+    expect(history.map((e) => [e.beforeLevelId, e.afterLevelId])).toEqual([[fx.levels.reader, null], [null, fx.levels.editor]]);
+  });
+
+  it("« seul l'ancien niveau retiré » refusé hors changement de niveau par retrait puis octroi", async () => {
+    const emp = await newEmployee(fx, "PartialBad");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const taskId = await claimed(final.id);
+    await expectCode(
+      completeTask(fx.orgId, fx.users.owner, taskId, { ...facts({ method: "REMOVE_THEN_GRANT", partialRemovalOnly: true }), expectedRevision: 2 }),
+      "VALIDATION"
+    );
+  });
+
+  it("confirmer une tâche non réclamée, ou réclamée par un autre → INVALID_TRANSITION", async () => {
+    const emp = await newEmployee(fx, "NotClaimed");
+    const final = await approvedSelfRequest(fx, emp, fx.levels.reader);
+    const task = await taskForVersion(final.id);
+    await expectCode(completeTask(fx.orgId, fx.users.owner, task.id, { ...facts(), expectedRevision: 1 }), "INVALID_TRANSITION");
+    await claimTask(fx.orgId, fx.users.owner, task.id, 1);
+    await expectCode(completeTask(fx.orgId, fx.users.backup, task.id, { ...facts(), expectedRevision: 2 }), "INVALID_TRANSITION");
+  });
+
+  describe("revérifications à la confirmation → STALE avec un motif actionnable", () => {
+    async function claimedGrant(label: string, opts: { periodEnd?: Date } = {}) {
+      const emp = await newEmployee(fx, label);
+      const final = await approvedSelfRequest(fx, emp, fx.levels.reader, opts);
+      return { emp, taskId: await claimed(final.id) };
+    }
+    async function expectStale(taskId: string, message: string, now?: Date) {
+      const p = completeTask(fx.orgId, fx.users.owner, taskId, { ...facts(), expectedRevision: 2 }, now ? { now } : {});
+      await expect(p).rejects.toMatchObject({ code: "STALE", message });
+    }
+
+    it("niveau cible archivé", async () => {
+      const { taskId } = await claimedGrant("StaleLevel");
+      await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: new Date() } });
+      try {
+        await expectStale(taskId, "Le niveau cible a été archivé");
+      } finally {
+        await prisma.accessLevel.update({ where: { id: fx.levels.reader }, data: { archivedAt: null } });
+      }
+    });
+
+    it("catalogueVersion modifiée", async () => {
+      const { taskId } = await claimedGrant("StaleCatalogue");
+      await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { catalogueVersion: { increment: 1 } } });
+      try {
+        await expectStale(taskId, "Le catalogue de l'application a changé depuis l'approbation");
+      } finally {
+        await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { catalogueVersion: { decrement: 1 } } });
+      }
+    });
+
+    it("affectation modifiée depuis l'approbation (assignment.version)", async () => {
+      const { emp, taskId } = await claimedGrant("StaleAssignment");
+      await prisma.accessAssignment.create({
+        data: { orgId: fx.orgId, userId: emp, assetId: fx.assetId, levelId: null, status: "REVOKED" },
+      });
+      await expectStale(taskId, "L'affectation a changé depuis l'approbation");
+    });
+
+    it("bénéficiaire parti (octroi)", async () => {
+      const { emp, taskId } = await claimedGrant("StaleDeparted");
+      await prisma.accessProfile.update({ where: { userId: emp }, data: { lifecycle: "DEPARTED" } });
+      await expectStale(taskId, "L'employé n'est plus actif");
+    });
+
+    it("période temporaire échue avant la confirmation", async () => {
+      const { taskId } = await claimedGrant("StalePeriod", { periodEnd: new Date(Date.now() + 3_600_000) });
+      await expectStale(taskId, "La période est terminée — la demande doit être révisée", new Date(Date.now() + 2 * 3_600_000));
+    });
+  });
+
+  it("D-23 — un renouvellement confirmé supplante la tâche d'expiration NON réclamée ; réclamée → refus « à réconcilier »", async () => {
+    for (const expiryClaimed of [false, true]) {
+      const emp = await newEmployee(fx, expiryClaimed ? "RenewBlocked" : "RenewWins");
+      const assignment = await giveAccess(fx, emp, fx.levels.reader, { periodEnd: new Date(Date.now() + DAY) });
+      const newEnd = new Date(Date.now() + 60 * DAY);
+      const final = await approvedSelfRequest(fx, emp, fx.levels.reader, { periodEnd: newEnd });
+      const renewTaskId = await claimed(final.id);
+      await prisma.accessAssignment.update({ where: { id: assignment.id }, data: { status: "EXPIRED_REMOVAL_PENDING" } });
+      const expiry = await prisma.accessFulfilmentTask.create({
+        data: {
+          orgId: fx.orgId, assetId: fx.assetId, beneficiaryId: emp, action: "EXPIRY_REMOVAL",
+          sourceAssignmentId: assignment.id, sourceAssignmentVersion: assignment.version, fromLevelId: fx.levels.reader,
+          expectedAssignmentVersion: assignment.version, idempotencyKey: `EXP:${assignment.id}:${assignment.version}`,
+        },
+      });
+      if (expiryClaimed) {
+        await claimTask(fx.orgId, fx.users.backup, expiry.id, 1);
+        await expect(
+          completeTask(fx.orgId, fx.users.owner, renewTaskId, { ...facts(), expectedRevision: 2 })
+        ).rejects.toMatchObject({ code: "STALE", message: "Un retrait est en cours — à réconcilier" });
+        continue;
+      }
+      await completeTask(fx.orgId, fx.users.owner, renewTaskId, { ...facts(), expectedRevision: 2 });
+      const a = await prisma.accessAssignment.findUniqueOrThrow({ where: { id: assignment.id } });
+      expect(a).toMatchObject({ status: "ACTIVE", levelId: fx.levels.reader, version: assignment.version + 1 });
+      expect(a.periodEnd?.getTime()).toBe(newEnd.getTime());
+      const superseded = await prisma.accessFulfilmentTask.findUniqueOrThrow({ where: { id: expiry.id } });
+      expect(superseded).toMatchObject({ state: "CANCELLED", outcome: "SUPERSEDED" });
+      expect(await prisma.accessTaskEvent.findFirst({ where: { taskId: expiry.id, type: "CANCELLED" } })).toMatchObject({
+        reason: "Supplantée par un renouvellement",
+      });
+    }
+  });
+
+  it("Review Focus #2 — le propriétaire exécute sa propre demande : autorisé (D-7), audit selfFulfilled", async () => {
+    await prisma.accessProfile.update({ where: { userId: fx.users.owner }, data: { primaryDepartmentId: fx.departmentId } });
+    const final = await approvedSelfRequest(fx, fx.users.owner, fx.levels.reader);
+    const taskId = await claimed(final.id, fx.users.owner);
+    await completeTask(fx.orgId, fx.users.owner, taskId, { ...facts(), expectedRevision: 2 });
+    const audit = await prisma.accessAuditEvent.findFirstOrThrow({ where: { orgId: fx.orgId, eventType: "TASK_COMPLETED", objectId: taskId } });
+    expect(audit.after).toMatchObject({ selfFulfilled: true });
+    expect((await currentAssignment(fx, fx.users.owner))?.levelId).toBe(fx.levels.reader);
+  });
+
+  it("Review Focus #3 — actif archivé : le retrait reste confirmable, un octroi est refusé", async () => {
+    const empRevoke = await newEmployee(fx, "ArchRevoke");
+    await giveAccess(fx, empRevoke, fx.levels.reader);
+    const revoke = await approvedReduction(fx, empRevoke, null);
+    const revokeTaskId = await claimed(revoke.id);
+    const empGrant = await newEmployee(fx, "ArchGrant");
+    const grant = await approvedSelfRequest(fx, empGrant, fx.levels.reader);
+    const grantTaskId = await claimed(grant.id);
+
+    await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { archivedAt: new Date() } });
+    try {
+      await expect(
+        completeTask(fx.orgId, fx.users.owner, grantTaskId, { ...facts(), expectedRevision: 2 })
+      ).rejects.toMatchObject({ code: "STALE", message: "L'application a été archivée" });
+      const res = await completeTask(fx.orgId, fx.users.owner, revokeTaskId, { ...facts(), expectedRevision: 2 });
+      expect(res.outcome).toBe("REVOKED");
+    } finally {
+      await prisma.accessAsset.update({ where: { id: fx.assetId }, data: { archivedAt: null } });
     }
   });
 });

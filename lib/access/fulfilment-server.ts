@@ -16,9 +16,18 @@ import { recordAuditInTx } from "./audit-server";
 import { isAvailable } from "./roles";
 import {
   ASSIGNMENT_CHANGED_REASON,
+  PARTIAL_REMOVAL_REASON,
+  SUPERSEDED_REASON,
+  assignmentEffect,
+  outcomeFor,
   ownerRoleFor,
+  partialRemovalEffect,
   readOldRemovedAt,
   taskActionForKind,
+  validateCompletionInput,
+  type AssignmentSnapshot,
+  type AssignmentWrite,
+  type CompletionMethod,
   type OwnerRole,
   type TaskOutcome,
   type TaskState,
@@ -662,5 +671,340 @@ export async function reconcileTask(
       correlationId: opts.correlationId ?? null,
     });
     return { taskId: task.id, state: "CANCELLED", revision: input.expectedRevision + 1 };
+  });
+}
+
+// ── Confirmer (D-9, D-10, D-23) ──────────────────────────────────────────
+
+export interface CompleteTaskInput {
+  completedAt: Date;
+  reference: string | null;
+  note: string | null;
+  method?: CompletionMethod;
+  partialRemovalOnly?: boolean;
+  expectedRevision: number;
+}
+
+export interface CompletionResultDTO {
+  taskId: string;
+  state: TaskState;
+  revision: number;
+  outcome: TaskOutcome | null;
+  assignmentVersion: number;
+  /** true = confirmation rejouée à l'identique : aucune écriture (FP:241, A17). */
+  replayed: boolean;
+}
+
+function normalize(text: string | null | undefined): string | null {
+  const t = text?.trim() ?? "";
+  return t ? t : null;
+}
+
+/** Écrit l'affectation courante (compare-and-swap sur `version`) et son événement. */
+async function writeAssignmentInTx(
+  tx: Prisma.TransactionClient,
+  input: {
+    orgId: string;
+    task: { id: string; beneficiaryId: string; assetId: string; expectedAssignmentVersion: number };
+    current: { id: string; levelId: string | null } | null;
+    write: AssignmentWrite;
+    actorId: string;
+    outcome: string;
+    confirmsGrant: boolean;
+  }
+): Promise<number> {
+  const data = {
+    levelId: input.write.levelId,
+    status: input.write.status,
+    periodStart: input.write.periodStart,
+    periodEnd: input.write.periodEnd,
+    revokedAt: input.write.revokedAt,
+    ...(input.write.grantedAt ? { grantedAt: input.write.grantedAt } : {}),
+    ...(input.confirmsGrant ? { source: "REQUEST" as const, verification: "OWNER_CONFIRMED" as const } : {}),
+  };
+  let assignmentId: string;
+  let newVersion: number;
+  if (!input.current) {
+    // Une création concurrente pour le même couple lève P2002 (unique
+    // userId+assetId) → traduit en STALE par runTaskTx.
+    const created = await tx.accessAssignment.create({
+      data: { orgId: input.orgId, userId: input.task.beneficiaryId, assetId: input.task.assetId, ...data, version: 1 },
+    });
+    assignmentId = created.id;
+    newVersion = 1;
+  } else {
+    const { count } = await tx.accessAssignment.updateMany({
+      where: { id: input.current.id, version: input.task.expectedAssignmentVersion },
+      data: { ...data, version: { increment: 1 } },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", ASSIGNMENT_CHANGED_REASON);
+    assignmentId = input.current.id;
+    newVersion = input.task.expectedAssignmentVersion + 1;
+  }
+  await tx.accessAssignmentEvent.create({
+    data: {
+      orgId: input.orgId,
+      assignmentId,
+      userId: input.task.beneficiaryId,
+      assetId: input.task.assetId,
+      beforeLevelId: input.current?.levelId ?? null,
+      afterLevelId: input.write.levelId,
+      actorId: input.actorId,
+      actorRole: null,
+      sourceType: "FULFILMENT",
+      sourceId: input.task.id,
+      outcome: input.outcome,
+    },
+  });
+  return newVersion;
+}
+
+/**
+ * D-23 / FP:231 : une confirmation d'octroi/renouvellement supplante
+ * atomiquement une tâche d'expiration NON réclamée de la même affectation ;
+ * une tâche d'expiration réclamée/bloquée impose une réconciliation.
+ */
+async function supersedeExpiryTasksInTx(
+  tx: Prisma.TransactionClient,
+  input: { orgId: string; actorId: string; actor: ActorContext; assignmentId: string; correlationId: string | null }
+): Promise<void> {
+  const open = await tx.accessFulfilmentTask.findMany({
+    where: {
+      orgId: input.orgId,
+      sourceAssignmentId: input.assignmentId,
+      action: "EXPIRY_REMOVAL",
+      state: { in: ["READY", "CLAIMED", "BLOCKED"] },
+    },
+  });
+  for (const expiry of open) {
+    const { count } =
+      expiry.state === "READY"
+        ? await tx.accessFulfilmentTask.updateMany({
+            where: { id: expiry.id, state: "READY" },
+            data: { state: "CANCELLED", outcome: "SUPERSEDED", revision: { increment: 1 } },
+          })
+        : { count: 0 };
+    if (count === 0) throw new FulfilmentError("STALE", "Un retrait est en cours — à réconcilier");
+    await tx.accessTaskEvent.create({
+      data: {
+        orgId: input.orgId,
+        taskId: expiry.id,
+        type: "CANCELLED",
+        actorId: input.actorId,
+        actingAs: input.actor.actingAs,
+        reason: SUPERSEDED_REASON,
+      },
+    });
+    await auditTaskInTx(tx, {
+      orgId: input.orgId,
+      actorId: input.actorId,
+      actor: input.actor,
+      task: expiry,
+      eventType: "TASK_CANCELLED",
+      objectVersion: expiry.revision + 1,
+      before: { state: "READY" },
+      after: { state: "CANCELLED", outcome: "SUPERSEDED" },
+      reason: SUPERSEDED_REASON,
+      correlationId: input.correlationId,
+    });
+  }
+}
+
+export async function completeTask(
+  orgId: string,
+  actorId: string,
+  taskId: string,
+  input: CompleteTaskInput,
+  opts: TaskMutationOptions = {}
+): Promise<CompletionResultDTO> {
+  const now = opts.now ?? new Date();
+  const reference = normalize(input.reference);
+  const note = normalize(input.note);
+  const correlationId = opts.correlationId ?? null;
+
+  return runTaskTx(async (tx) => {
+    const { task, actor } = await loadTaskForActor(tx, orgId, actorId, taskId);
+
+    // Rejeu (double clic, nouvelle tentative réseau) : même acteur, mêmes
+    // faits → résultat enregistré, aucune écriture (FP:241, A17).
+    if (task.state === "COMPLETED") {
+      const sameFacts =
+        task.completedById === actorId &&
+        task.completedAt?.getTime() === input.completedAt.getTime() &&
+        task.completionReference === reference &&
+        task.completionNote === note;
+      if (!sameFacts) throw new FulfilmentError("INVALID_TRANSITION", "Cette tâche est déjà exécutée");
+      return {
+        taskId: task.id,
+        state: "COMPLETED",
+        revision: task.revision,
+        outcome: task.outcome as TaskOutcome,
+        assignmentVersion: task.expectedAssignmentVersion + 1,
+        replayed: true,
+      };
+    }
+    if (task.state === "READY") throw new FulfilmentError("INVALID_TRANSITION", "Réclamez la tâche avant de la confirmer");
+    if (task.state === "BLOCKED") throw new FulfilmentError("INVALID_TRANSITION", "Reprenez la tâche avant de la confirmer");
+    if (task.state !== "CLAIMED") throw new FulfilmentError("INVALID_TRANSITION", "Cette tâche est annulée");
+    assertClaimant(task, actorId, "Cette tâche est détenue par un autre propriétaire");
+    assertRevision(task, input.expectedRevision);
+
+    const factsError = validateCompletionInput(
+      { completedAt: input.completedAt, reference, note },
+      { now, claimedAt: task.claimedAt }
+    );
+    if (factsError) throw new FulfilmentError("VALIDATION", factsError);
+    const oldRemoved = readOldRemovedAt(task.progress) !== null;
+    if (task.action === "CHANGE_LEVEL" && !oldRemoved && !input.method) {
+      throw new FulfilmentError("VALIDATION", "Indiquez la méthode de remplacement (directe ou retrait puis octroi)");
+    }
+    if (input.partialRemovalOnly && (task.action !== "CHANGE_LEVEL" || input.method !== "REMOVE_THEN_GRANT" || oldRemoved)) {
+      throw new FulfilmentError(
+        "VALIDATION",
+        "« Seul l'ancien niveau a été retiré » ne s'applique qu'à un changement de niveau par retrait puis octroi"
+      );
+    }
+
+    const stale = await revalidateTask(tx, task, now);
+    if (stale) throw new FulfilmentError("STALE", stale);
+
+    const current = await tx.accessAssignment.findFirst({
+      where: { orgId, userId: task.beneficiaryId, assetId: task.assetId },
+    });
+    const snapshot: AssignmentSnapshot | null = current
+      ? { status: current.status, levelId: current.levelId, periodStart: current.periodStart, periodEnd: current.periodEnd }
+      : null;
+    const terms = {
+      fromLevelId: task.fromLevelId,
+      toLevelId: task.toLevelId,
+      periodStart: task.periodStart,
+      periodEnd: task.periodEnd,
+      oldRemoved,
+    };
+    const facts = { completedAt: input.completedAt.toISOString(), reference, note, method: input.method ?? null };
+
+    // Étape 1 seule d'un REMOVE_THEN_GRANT (D-10, A18) : « aucun accès » et
+    // travail bloqué, jamais un faux succès.
+    if (input.partialRemovalOnly) {
+      const effect = partialRemovalEffect(snapshot, terms, input.completedAt);
+      if (!effect.ok || !current) throw new FulfilmentError("STALE", ASSIGNMENT_CHANGED_REASON);
+      const newAssignmentVersion = task.expectedAssignmentVersion + 1;
+      await moveVersionInTx(tx, task.requestVersionId, ["IN_PROGRESS"], { state: "BLOCKED" });
+      const { count } = await tx.accessFulfilmentTask.updateMany({
+        where: { id: task.id, state: "CLAIMED", claimantId: actorId, revision: input.expectedRevision },
+        data: {
+          state: "BLOCKED",
+          blockedReason: PARTIAL_REMOVAL_REASON,
+          progress: { oldRemovedAt: input.completedAt.toISOString() },
+          completionMethod: "REMOVE_THEN_GRANT",
+          expectedAssignmentVersion: newAssignmentVersion,
+          revision: { increment: 1 },
+        },
+      });
+      if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+      await writeAssignmentInTx(tx, {
+        orgId,
+        task,
+        current,
+        write: effect.write,
+        actorId,
+        outcome: "OLD_LEVEL_REMOVED",
+        confirmsGrant: false,
+      });
+      await tx.accessTaskEvent.create({
+        data: { orgId, taskId: task.id, type: "PARTIAL_REMOVAL", actorId, actingAs: actor.actingAs, facts },
+      });
+      await auditTaskInTx(tx, {
+        orgId,
+        actorId,
+        actor,
+        task,
+        eventType: "TASK_PARTIAL_REMOVAL",
+        objectVersion: input.expectedRevision + 1,
+        before: { state: "CLAIMED", levelId: current.levelId, assignmentVersion: task.expectedAssignmentVersion },
+        after: { state: "BLOCKED", levelId: null, assignmentVersion: newAssignmentVersion, ...facts },
+        reason: null,
+        correlationId,
+      });
+      return {
+        taskId: task.id,
+        state: "BLOCKED",
+        revision: input.expectedRevision + 1,
+        outcome: null,
+        assignmentVersion: newAssignmentVersion,
+        replayed: false,
+      };
+    }
+
+    const effect = assignmentEffect(task.action, snapshot, terms, input.completedAt);
+    if (!effect.ok) throw new FulfilmentError("STALE", effect.reason);
+    const outcome = outcomeFor(task.action);
+
+    // Ordre de verrouillage : version → tâche → expiration supplantée → affectation.
+    await moveVersionInTx(tx, task.requestVersionId, ["IN_PROGRESS"], {
+      state: "COMPLETED",
+      outcome,
+      completedAt: input.completedAt,
+    });
+    if (task.requestVersion) {
+      await tx.accessRequest.update({ where: { id: task.requestVersion.requestId }, data: { closedAt: now } });
+    }
+    const { count } = await tx.accessFulfilmentTask.updateMany({
+      where: { id: task.id, state: "CLAIMED", claimantId: actorId, revision: input.expectedRevision },
+      data: {
+        state: "COMPLETED",
+        completedAt: input.completedAt,
+        completionReference: reference,
+        completionNote: note,
+        completionMethod: input.method ?? null,
+        completedById: actorId,
+        outcome,
+        revision: { increment: 1 },
+      },
+    });
+    if (count === 0) throw new FulfilmentError("STALE", STALE_MESSAGE);
+    if (current && (task.action === "GRANT" || task.action === "RENEW")) {
+      await supersedeExpiryTasksInTx(tx, { orgId, actorId, actor, assignmentId: current.id, correlationId });
+    }
+    const assignmentVersion = await writeAssignmentInTx(tx, {
+      orgId,
+      task,
+      current,
+      write: effect.write,
+      actorId,
+      outcome,
+      confirmsGrant: task.action === "GRANT" || task.action === "CHANGE_LEVEL" || task.action === "RENEW",
+    });
+
+    await tx.accessTaskEvent.create({
+      data: { orgId, taskId: task.id, type: "COMPLETED", actorId, actingAs: actor.actingAs, facts },
+    });
+    await auditTaskInTx(tx, {
+      orgId,
+      actorId,
+      actor,
+      task,
+      eventType: "TASK_COMPLETED",
+      objectVersion: input.expectedRevision + 1,
+      before: { state: "CLAIMED", levelId: current?.levelId ?? null, assignmentVersion: current?.version ?? 0 },
+      after: {
+        state: "COMPLETED",
+        outcome,
+        levelId: effect.write.levelId,
+        assignmentVersion,
+        selfFulfilled: actorId === task.beneficiaryId,
+        ...facts,
+      },
+      reason: null,
+      correlationId,
+    });
+    return {
+      taskId: task.id,
+      state: "COMPLETED",
+      revision: input.expectedRevision + 1,
+      outcome,
+      assignmentVersion,
+      replayed: false,
+    };
   });
 }
