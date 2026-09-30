@@ -241,6 +241,9 @@ enum AccessRequestState {
   READY_FOR_FULFILMENT
   REJECTED
   CANCELLED
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
 }
 
 enum ApprovalStageRole {
@@ -254,6 +257,34 @@ enum ApprovalDecision {
   REJECT
   CLARIFY
   RETURN
+}
+
+enum AccessTaskAction {
+  GRANT
+  CHANGE_LEVEL
+  RENEW
+  REVOKE
+  EXPIRY_REMOVAL
+}
+
+enum AccessTaskState {
+  READY
+  CLAIMED
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+enum AccessTaskEventType {
+  RELEASED
+  CLAIMED
+  HANDED_OVER
+  BLOCKED
+  RESUMED
+  PARTIAL_REMOVAL
+  COMPLETED
+  RECONCILED
+  CANCELLED
 }
 
 enum ImportMode {
@@ -318,6 +349,7 @@ model Organization {
   accessAssignmentEvents AccessAssignmentEvent[]
   accessAuditEvents      AccessAuditEvent[]
   accessRequests         AccessRequest[]
+  accessFulfilmentTasks  AccessFulfilmentTask[]
   importBatches          ImportBatch[]
 
   @@map("organizations")
@@ -1643,11 +1675,12 @@ model AccessAsset {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner       User?              @relation("AccessAssetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  backupOwner User?              @relation("AccessAssetBackupOwner", fields: [backupOwnerId], references: [id], onDelete: SetNull)
-  levels      AccessLevel[]
-  assignments AccessAssignment[]
+  org             Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner           User?                  @relation("AccessAssetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  backupOwner     User?                  @relation("AccessAssetBackupOwner", fields: [backupOwnerId], references: [id], onDelete: SetNull)
+  levels          AccessLevel[]
+  assignments     AccessAssignment[]
+  fulfilmentTasks AccessFulfilmentTask[]
 
   @@unique([orgId, name])
   @@map("access_assets")
@@ -1796,29 +1829,34 @@ model ImportRow {
 // ============================================================================
 
 model AccessRequest {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   orgId         String
   beneficiaryId String
   assetId       String
-  createdAt     DateTime @default(now())
+  // Phase 3b : une demande n'est plus jamais supprimée. `closedAt` est posé au
+  // rejet, à l'annulation, à l'exécution et à la réconciliation. L'unicité
+  // « une demande ouverte par employé/actif » est l'index unique PARTIEL
+  // `one_open_request_per_pair` (WHERE "closedAt" IS NULL), créé en SQL brut
+  // dans la migration 20260930090100 — Prisma ne sait pas l'exprimer ici.
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
 
   org      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   versions AccessRequestVersion[]
 
-  @@unique([orgId, beneficiaryId, assetId], map: "one_nonterminal_request_enforced_in_service")
   @@index([orgId, beneficiaryId])
   @@index([orgId, assetId])
   @@map("access_requests")
 }
 
 model AccessRequestVersion {
-  id                 String              @id @default(cuid())
+  id                 String             @id @default(cuid())
   requestId          String
   versionNumber      Int
   kind               AccessRequestKind
   initiatorId        String
   targetLevelId      String?
-  justification      String              @db.Text
+  justification      String             @db.Text
   periodStart        DateTime
   periodEnd          DateTime?
   departmentSnapshot String
@@ -1826,12 +1864,16 @@ model AccessRequestVersion {
   catalogueVersion   Int
   state              AccessRequestState
   exceptionReason    String?
-  revision           Int                 @default(1)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  outcome            String?
+  completedAt        DateTime?
+  cancelRequestedAt  DateTime?
+  revision           Int                @default(1)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  request AccessRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  stages  AccessApprovalStage[]
+  request         AccessRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  stages          AccessApprovalStage[]
+  fulfilmentTasks AccessFulfilmentTask[]
 
   @@unique([requestId, versionNumber])
   @@index([requestId])
@@ -1839,7 +1881,7 @@ model AccessRequestVersion {
 }
 
 model AccessApprovalStage {
-  id                    String             @id @default(cuid())
+  id                    String            @id @default(cuid())
   requestVersionId      String
   sequence              Int
   role                  ApprovalStageRole
@@ -1847,7 +1889,7 @@ model AccessApprovalStage {
   actedAsPrimary        Boolean?
   decision              ApprovalDecision?
   reason                String?
-  clarificationResponse String?            @db.Text
+  clarificationResponse String?           @db.Text
   decidedAt             DateTime?
 
   requestVersion AccessRequestVersion @relation(fields: [requestVersionId], references: [id], onDelete: Cascade)
@@ -1855,4 +1897,69 @@ model AccessApprovalStage {
   @@unique([requestVersionId, sequence])
   @@index([requestVersionId])
   @@map("access_approval_stages")
+}
+
+// ============================================================================
+// GESTION DES ACCÈS — Phase 3b (exécution des demandes)
+// ============================================================================
+
+model AccessFulfilmentTask {
+  id                        String           @id @default(cuid())
+  orgId                     String
+  assetId                   String
+  beneficiaryId             String
+  action                    AccessTaskAction
+  state                     AccessTaskState  @default(READY)
+  requestVersionId          String?
+  sourceAssignmentId        String?
+  sourceAssignmentVersion   Int?
+  fromLevelId               String?
+  toLevelId                 String?
+  periodStart               DateTime?
+  periodEnd                 DateTime?
+  expectedAssignmentVersion Int
+  claimantId                String?
+  claimedAt                 DateTime?
+  blockedReason             String?          @db.Text
+  progress                  Json?
+  completedAt               DateTime?
+  completionReference       String?
+  completionNote            String?          @db.Text
+  completionMethod          String?
+  completedById             String?
+  outcome                   String?
+  idempotencyKey            String           @unique
+  revision                  Int              @default(1)
+  releasedAt                DateTime         @default(now())
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  org            Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  asset          AccessAsset           @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  requestVersion AccessRequestVersion? @relation(fields: [requestVersionId], references: [id], onDelete: Restrict)
+  events         AccessTaskEvent[]
+
+  @@index([orgId, state])
+  @@index([orgId, assetId, state])
+  @@index([requestVersionId])
+  @@index([sourceAssignmentId])
+  @@map("access_fulfilment_tasks")
+}
+
+model AccessTaskEvent {
+  id         String              @id @default(cuid())
+  orgId      String
+  taskId     String
+  type       AccessTaskEventType
+  actorId    String?
+  actingAs   String?
+  toUserId   String?
+  reason     String?             @db.Text
+  facts      Json?
+  occurredAt DateTime            @default(now())
+
+  task AccessFulfilmentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, occurredAt])
+  @@map("access_task_events")
 }

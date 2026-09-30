@@ -47,6 +47,8 @@ describe("requests-read-server", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
     await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });

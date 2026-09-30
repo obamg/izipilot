@@ -25,6 +25,8 @@ describe("import-server — catalogue seed", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.importBatch.deleteMany({ where: { orgId } });
     await prisma.accessLevel.deleteMany({ where: { asset: { orgId } } });
     await prisma.accessAsset.deleteMany({ where: { orgId } });
@@ -177,6 +179,8 @@ describe("import-server — baseline assignments", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.importBatch.deleteMany({ where: { orgId } });
     await prisma.accessAssignmentEvent.deleteMany({ where: { orgId } });
     await prisma.accessAssignment.deleteMany({ where: { orgId } });

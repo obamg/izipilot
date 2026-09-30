@@ -68,6 +68,8 @@ describe("requests-server — soumission", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
     await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
@@ -123,6 +125,8 @@ describe("requests-server — soumission", () => {
     expect(version.exceptionReason).toBe("COO_SELF_REQUEST");
     expect(version.state).toBe("READY_FOR_FULFILMENT");
 
+    await prisma.accessTaskEvent.deleteMany({ where: { task: { requestVersionId: version.id } } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { requestVersionId: version.id } });
     await prisma.accessRequestVersion.delete({ where: { id: version.id } });
     await prisma.accessRequest.delete({ where: { id: version.requestId } });
   });
@@ -240,6 +244,8 @@ describe("requests-server — décision d'étape", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
     await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
@@ -263,6 +269,9 @@ describe("requests-server — décision d'étape", () => {
   }
 
   async function cleanup(version: { id: string; requestId: string }) {
+    // Phase 3b : une version READY_FOR_FULFILMENT porte une tâche (FK Restrict).
+    await prisma.accessTaskEvent.deleteMany({ where: { task: { requestVersionId: version.id } } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { requestVersionId: version.id } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersionId: version.id } });
     await prisma.accessRequestVersion.deleteMany({ where: { id: version.id } });
     await prisma.accessRequest.deleteMany({ where: { id: version.requestId } });
@@ -488,6 +497,8 @@ describe("requests-server — clarification, révision, annulation", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
     await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
@@ -502,6 +513,8 @@ describe("requests-server — clarification, révision, annulation", () => {
   });
 
   async function cleanup(requestId: string) {
+    await prisma.accessTaskEvent.deleteMany({ where: { task: { requestVersion: { requestId } } } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { requestVersion: { requestId } } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { requestId } } });
     await prisma.accessRequestVersion.deleteMany({ where: { requestId } });
     await prisma.accessRequest.deleteMany({ where: { id: requestId } });
@@ -635,6 +648,8 @@ describe("requests-server — décisions en lot", () => {
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessApprovalStage.deleteMany({ where: { requestVersion: { request: { orgId } } } });
     await prisma.accessRequestVersion.deleteMany({ where: { request: { orgId } } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
@@ -781,6 +796,8 @@ describe("requests-server — correctifs revue finale (révision, périmètre de
   });
 
   afterEach(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     // AccessRequest → versions → étapes : suppression en cascade.
     await prisma.accessRequest.deleteMany({ where: { orgId } });
     await prisma.accessAssignment.deleteMany({ where: { orgId } });
@@ -789,6 +806,8 @@ describe("requests-server — correctifs revue finale (révision, périmètre de
   });
 
   afterAll(async () => {
+    await prisma.accessTaskEvent.deleteMany({ where: { orgId } });
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
     await prisma.accessAssignment.deleteMany({ where: { orgId } });
     await prisma.accessRoleAssignment.deleteMany({ where: { orgId } });
@@ -895,6 +914,7 @@ describe("requests-server — correctifs revue finale (révision, périmètre de
       beneficiaryId: empBId, assetId, targetLevelId: null, justification: "CISO",
     });
     expect(byCiso.stages.map((s) => s.role)).toEqual(["COO"]);
+    await prisma.accessFulfilmentTask.deleteMany({ where: { orgId } });
     await prisma.accessRequest.deleteMany({ where: { orgId } });
 
     const byIt = await submitRequest(orgId, itOpId, {
