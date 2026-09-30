@@ -22,6 +22,7 @@ interface SidebarProps {
   canApproveRequests?: boolean;
   canViewDepartmentAccess?: boolean;
   canViewOwnedAssetsAccess?: boolean;
+  canViewFulfilment?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -219,6 +220,7 @@ export function Sidebar({
   canApproveRequests,
   canViewDepartmentAccess,
   canViewOwnedAssetsAccess,
+  canViewFulfilment,
   isOpen = false,
   onClose,
 }: SidebarProps) {
@@ -446,6 +448,23 @@ export function Sidebar({
                     <path d="M8 21h8M12 17v4" />
                   </svg>
                   Mes actifs
+                </Link>
+              )}
+              {canViewFulfilment && (
+                <Link
+                  href="/access/fulfilment"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
+                    pathname === "/access/fulfilment"
+                      ? "bg-teal/[0.18] text-[#7dd8d8]"
+                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                    <path d="M9 11l3 3L22 4" />
+                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                  </svg>
+                  Exécution
                 </Link>
               )}
               {canManageAccessRoles && (

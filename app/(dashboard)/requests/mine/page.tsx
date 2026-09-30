@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listMyRequests } from "@/lib/access/requests-read-server";
 import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
+import { REQUEST_KIND_LABELS, requestStateLabel } from "@/lib/access/request-labels";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SubmitRequestForm } from "@/components/access/SubmitRequestForm";
 import { MyRequestActions } from "@/components/access/MyRequestActions";
@@ -33,6 +34,8 @@ export default async function MyRequestsPage() {
     createdAt: r.createdAt.toISOString(),
     periodStart: r.periodStart.toISOString(),
     periodEnd: r.periodEnd ? r.periodEnd.toISOString() : null,
+    completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+    cancelRequestedAt: r.cancelRequestedAt ? r.cancelRequestedAt.toISOString() : null,
   }));
 
   const headedDepartmentIds = effectiveRoles
@@ -71,9 +74,15 @@ export default async function MyRequestsPage() {
                     <p className="text-[11px] text-izi-gray mt-0.5">{r.justification}</p>
                   </td>
                   <td className="py-1">{r.targetLevelName ?? "—"}</td>
-                  <td className="py-1">{r.kind}</td>
+                  <td className="py-1">{REQUEST_KIND_LABELS[r.kind] ?? r.kind}</td>
                   <td className="py-1">
-                    {r.state}
+                    {requestStateLabel({
+                      state: r.state,
+                      periodStart: r.periodStart,
+                      completedAt: r.completedAt,
+                      taskReason: r.taskReason,
+                      cancelRequested: r.cancelRequestedAt !== null,
+                    })}
                     {r.currentStageReason && (
                       <p className="text-[11px] text-dark-md mt-0.5 rounded-[6px] bg-gold-lt px-1.5 py-0.5">
                         {r.currentStageReason}
@@ -86,6 +95,7 @@ export default async function MyRequestsPage() {
                         requestId: r.requestId,
                         versionId: r.versionId,
                         state: r.state,
+                        cancelRequested: r.cancelRequestedAt !== null,
                         stageIdIfClarification: r.pendingClarificationStageId,
                         assetId: r.assetId,
                         targetLevelId: r.targetLevelId,

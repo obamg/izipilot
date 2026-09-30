@@ -55,6 +55,8 @@ describe("GET /api/access/assignments", () => {
 
   afterAll(async () => {
     for (const id of [orgId, otherOrgId]) {
+      await prisma.accessTaskEvent.deleteMany({ where: { orgId: id } });
+      await prisma.accessFulfilmentTask.deleteMany({ where: { orgId: id } });
       await prisma.accessAssignment.deleteMany({ where: { orgId: id } });
       await prisma.accessAsset.deleteMany({ where: { orgId: id } });
       await prisma.accessRoleAssignment.deleteMany({ where: { orgId: id } });

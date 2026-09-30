@@ -3,11 +3,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { cancelActionFor } from "@/lib/access/request-labels";
 
 interface RequestRow {
   requestId: string;
   versionId: string;
   state: string;
+  cancelRequested: boolean;
   stageIdIfClarification: string | null;
   assetId: string;
   targetLevelId: string | null;
@@ -19,14 +21,6 @@ interface AssetOption {
   name: string;
   levels: { id: string; name: string }[];
 }
-
-const CANCELLABLE_STATES = [
-  "PENDING_APPROVAL",
-  "CLARIFICATION_REQUIRED",
-  "REVISION_REQUIRED",
-  "AUTHORIZED_WAITING_START",
-  "READY_FOR_FULFILMENT",
-];
 
 export function MyRequestActions({ row, assets }: { row: RequestRow; assets: AssetOption[] }) {
   const router = useRouter();
@@ -111,7 +105,9 @@ export function MyRequestActions({ row, assets }: { row: RequestRow; assets: Ass
     }
   }
 
-  const canCancel = CANCELLABLE_STATES.includes(row.state);
+  // Phase 3b (D-19) : annulation effective avant réclamation, simple demande
+  // d'annulation une fois la tâche réclamée par le propriétaire.
+  const cancelAction = cancelActionFor(row.state, row.cancelRequested);
   const canRevise = row.state === "REVISION_REQUIRED";
 
   return (
@@ -168,15 +164,21 @@ export function MyRequestActions({ row, assets }: { row: RequestRow; assets: Ass
           </button>
         </div>
       )}
-      {canCancel && (
+      {cancelAction && (
         <button
           type="button"
           disabled={busy}
           onClick={cancel}
           className="text-[10px] text-red underline text-left"
         >
-          Annuler la demande
+          {cancelAction === "CANCEL" ? "Annuler la demande" : "Demander l'annulation"}
         </button>
+      )}
+      {row.cancelRequested && (row.state === "IN_PROGRESS" || row.state === "BLOCKED") && (
+        <p className="text-[10px] text-izi-gray">
+          Demande d&apos;annulation enregistrée — la demande n&apos;est pas annulée tant que le propriétaire n&apos;a pas
+          réconcilié ou confirmé ce qui a été fait.
+        </p>
       )}
     </div>
   );
