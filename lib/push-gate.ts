@@ -29,6 +29,7 @@ export type PushGateState =
 export const EXEMPT_REASONS = {
   NO_SUPPORT: "Navigateur sans Web Push",
   IOS_NOT_INSTALLED: "iPhone/iPad — application non ajoutée à l'écran d'accueil",
+  PUSH_SERVICE_ERROR: "Service push du navigateur injoignable (ex. Brave)",
 } as const;
 
 export type ExemptReason = keyof typeof EXEMPT_REASONS;

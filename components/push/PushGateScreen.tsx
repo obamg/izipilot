@@ -23,7 +23,13 @@ type Situation =
   /** iPhone/iPad hors écran d'accueil → le push n'existe pas encore. */
   | "IOS_NOT_INSTALLED"
   /** Navigateur sans Web Push du tout. */
-  | "NO_SUPPORT";
+  | "NO_SUPPORT"
+  /**
+   * API présente mais service push injoignable (`subscribe` → AbortError).
+   * Cas typique : Brave, qui coupe la messagerie push Google par défaut.
+   * Constaté à l'usage, jamais détectable d'avance.
+   */
+  | "PUSH_SERVICE_ERROR";
 
 function urlBase64ToUint8Array(b64: string): Uint8Array {
   const padding = "=".repeat((4 - (b64.length % 4)) % 4);
@@ -88,6 +94,8 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pushServiceDown, setPushServiceDown] = useState(false);
+  const shown: Situation = pushServiceDown ? "PUSH_SERVICE_ERROR" : situation;
 
   async function enable() {
     setBusy(true);
@@ -123,6 +131,10 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
       router.replace("/dashboard");
       router.refresh();
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setPushServiceDown(true);
+        return;
+      }
       setError(e instanceof Error ? e.message : "Erreur");
     } finally {
       setBusy(false);
@@ -164,11 +176,11 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
           L&apos;activation est requise pour accéder à l&apos;application.
         </p>
 
-        {situation === "CHECKING" && (
+        {shown === "CHECKING" && (
           <p className="text-[13px] text-izi-gray py-4">Vérification…</p>
         )}
 
-        {situation === "CAN_ASK" && (
+        {shown === "CAN_ASK" && (
           <>
             <p className="text-[12px] text-dark mb-3">
               Votre navigateur va demander l&apos;autorisation. Choisissez{" "}
@@ -186,7 +198,7 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
           </>
         )}
 
-        {situation === "DENIED" && (
+        {shown === "DENIED" && (
           <Instructions
             title="Les notifications sont bloquées pour ce site"
             intro="Une application ne peut pas rouvrir la demande une fois refusée. Il faut la réautoriser dans votre navigateur, puis recharger cette page."
@@ -207,7 +219,7 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
           />
         )}
 
-        {situation === "IOS_NOT_INSTALLED" && (
+        {shown === "IOS_NOT_INSTALLED" && (
           <Instructions
             title="Ajoutez IziPilot à votre écran d'accueil"
             intro="Sur iPhone et iPad, les notifications n'existent que si l'application est installée. C'est une règle d'Apple, pas un réglage d'IziPilot."
@@ -229,7 +241,7 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
           />
         )}
 
-        {situation === "NO_SUPPORT" && (
+        {shown === "NO_SUPPORT" && (
           <Instructions
             title="Ce navigateur ne gère pas les notifications"
             intro="Rien à régler de votre côté : cette version ne propose pas le Web Push. Vous pouvez continuer, mais vous ne recevrez aucun rappel — le management verra que vous êtes dans ce cas."
@@ -246,6 +258,37 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
               >
                 Continuer sans notifications
               </button>
+            }
+          />
+        )}
+
+        {shown === "PUSH_SERVICE_ERROR" && (
+          <Instructions
+            title="Le service de notifications du navigateur ne répond pas"
+            intro="L'autorisation est bien donnée, mais votre navigateur n'arrive pas à joindre son service de notifications. C'est presque toujours Brave, qui le désactive par défaut."
+            steps={[
+              "Brave : ouvrez brave://settings/privacy et activez « Utiliser les services Google pour la messagerie push ».",
+              "Fermez complètement Brave et rouvrez-le, puis revenez sur cette page.",
+              "Sinon, ouvrez IziPilot dans Chrome, Edge ou Firefox.",
+            ]}
+            action={
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="rounded-[7px] bg-teal px-4 py-2 text-[13px] font-medium text-white hover:bg-teal-dk"
+                >
+                  J&apos;ai activé le réglage — réessayer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exempt("PUSH_SERVICE_ERROR")}
+                  disabled={busy}
+                  className="rounded-[7px] border border-border-soft bg-white px-4 py-2 text-[12px] font-medium text-izi-gray hover:bg-gray-lt disabled:opacity-50"
+                >
+                  Impossible de régler — continuer sans notifications
+                </button>
+              </div>
             }
           />
         )}
