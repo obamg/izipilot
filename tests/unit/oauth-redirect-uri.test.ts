@@ -5,13 +5,17 @@ const register = (uri: string) =>
   dcrRequestSchema.safeParse({ redirect_uris: [uri] }).success;
 
 describe("DCR redirect_uris", () => {
-  it("accepts https and loopback http", () => {
+  it("accepts Claude callbacks and loopback http", () => {
     expect(register("https://claude.ai/api/mcp/auth_callback")).toBe(true);
+    expect(register("https://claude.com/api/mcp/auth_callback")).toBe(true);
     expect(register("http://localhost:33418/callback")).toBe(true);
     expect(register("http://127.0.0.1:5000/cb")).toBe(true);
   });
 
-  it("rejects javascript:, data: and non-loopback http", () => {
+  it("rejects other https hosts, look-alikes, javascript:, data:, plain http", () => {
+    expect(register("https://evil.example/cb")).toBe(false);
+    expect(register("https://claude.ai.evil.example/cb")).toBe(false);
+    expect(register("http://claude.ai/api/mcp/auth_callback")).toBe(false);
     expect(register("javascript:alert(1)")).toBe(false);
     expect(register("data:text/html,hi")).toBe(false);
     expect(register("http://evil.example/cb")).toBe(false);

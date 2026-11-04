@@ -37,14 +37,13 @@ declare module "@auth/core/jwt" {
 // JWT-revalidation callback that hits the database.
 export default {
   trustHost: true,
-  // 30-day rolling session: the JWT lives for 30 days, and `updateAge` causes
-  // NextAuth to re-issue it (extending the expiry) once per day on any
-  // authenticated request. An active user effectively stays signed in
-  // indefinitely; an idle one is logged out after 30 days.
+  // 4-hour rolling session (CLAUDE.md § Sécurité): the JWT lives 4h and
+  // `updateAge` re-issues it (extending the expiry) at most every 15 min on
+  // any authenticated request. Idle for 4h → logged out.
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
-    updateAge: 24 * 60 * 60,
+    maxAge: 4 * 60 * 60,
+    updateAge: 15 * 60,
   },
   pages: { signIn: "/login" },
   providers: [],

@@ -1,12 +1,17 @@
 import { z } from "zod";
 
-// Registration is unauthenticated: only https, or http on loopback (Claude
-// Desktop / Claude Code callbacks). Blocks javascript:, data:, plain http.
+// Registration is unauthenticated, so only Claude may register: claude.ai /
+// claude.com over https, or loopback http (Claude Desktop / Claude Code).
+// Blocks phishing via a look-alike client pointing at an attacker's site.
+const CLAUDE_HOSTS = new Set(["claude.ai", "claude.com"]);
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 export const redirectUri = z.string().url().refine((u) => {
   const { protocol, hostname } = new URL(u);
-  return protocol === "https:" || (protocol === "http:" && LOOPBACK.has(hostname));
-}, "redirect_uri must be https (or http on localhost)");
+  return (
+    (protocol === "https:" && CLAUDE_HOSTS.has(hostname)) ||
+    (protocol === "http:" && LOOPBACK.has(hostname))
+  );
+}, "redirect_uri must be a Claude callback (claude.ai, claude.com or localhost)");
 
 // RFC 7591 §2 — Dynamic Client Registration request. We accept a subset
 // because claude.ai sends predictable values; unknown fields are ignored
