@@ -30,10 +30,16 @@ export async function POST(request: Request, { params }: Params) {
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { passwordHash, mustChangePassword: true },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: true, passwordChangedAt: new Date() },
+    }),
+    prisma.oAuthRefreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
 
   return Response.json({ data: { success: true } });
 }

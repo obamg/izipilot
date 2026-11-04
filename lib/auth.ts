@@ -38,6 +38,15 @@ const OTP_COOKIE = "izipilot_otp_challenge";
 // 30-day session expired. 60s caps that drift to a minute.
 const REVALIDATE_MS = 60 * 1000;
 
+async function passwordChangedAtMs(userId: string | undefined): Promise<number> {
+  if (!userId) return 0;
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordChangedAt: true },
+  });
+  return u?.passwordChangedAt?.getTime() ?? 0;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
@@ -146,6 +155,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.orgId = user.orgId;
         token.mustChangePassword = user.mustChangePassword ?? false;
         token.lastValidated = Date.now();
+        token.pwdAt = await passwordChangedAtMs(user.id);
         return token;
       }
 
@@ -158,12 +168,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const fresh = await prisma.user.findUnique({
         where: { id: token.sub },
-        select: { role: true, orgId: true, isActive: true, mustChangePassword: true },
+        select: {
+          role: true,
+          orgId: true,
+          isActive: true,
+          mustChangePassword: true,
+          passwordChangedAt: true,
+        },
       });
       // User deleted or deactivated since the JWT was issued → revoke the
       // session. Returning null forces NextAuth to treat the request as
       // unauthenticated, which the middleware redirects to /login.
       if (!fresh || !fresh.isActive) return null;
+      // Password changed after this session was issued → revoke it. pwdAt is
+      // only ever set at sign-in, never on trigger "update" (callable by any
+      // cookie holder), so a stolen session can't refresh its way past this.
+      if ((fresh.passwordChangedAt?.getTime() ?? 0) > (token.pwdAt ?? 0)) return null;
 
       token.role = fresh.role;
       token.orgId = fresh.orgId;

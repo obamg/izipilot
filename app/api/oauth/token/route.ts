@@ -146,14 +146,7 @@ async function handleAuthorizationCodeGrant(
     // Per OAuth 2.1 §4.1.3, replay of a consumed code revokes any tokens
     // we issued for it. Defensive: kill the refresh tokens for this
     // (client, user) pair.
-    await prisma.oAuthRefreshToken.updateMany({
-      where: {
-        clientId: stored.clientId,
-        userId: stored.userId,
-        revokedAt: null,
-      },
-      data: { revokedAt: new Date() },
-    });
+    await revokeFamily(stored.clientId, stored.userId);
     return oauthError("invalid_grant", "code already used");
   }
   if (stored.expiresAt.getTime() < Date.now()) {
@@ -180,18 +173,22 @@ async function handleAuthorizationCodeGrant(
     return oauthError("invalid_grant", "user no longer authorized", 403);
   }
 
+  // Single-use code: claim it atomically before issuing anything. If two
+  // requests race, only one update matches consumedAt=null; the loser is a
+  // replay and gets the same treatment as the consumedAt branch above.
+  const claimed = await prisma.oAuthAuthCode.updateMany({
+    where: { codeHash: stored.codeHash, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
+  if (claimed.count === 0) {
+    await revokeFamily(stored.clientId, stored.userId);
+    return oauthError("invalid_grant", "code already used");
+  }
+
   const accessToken = await mintMcpAccessToken({
     userId: user.id,
     orgId: user.orgId,
     role: user.role,
-  });
-
-  // Single-use code: mark consumed atomically with the read above by
-  // using a unique-index-protected update. If two requests race, the
-  // second one will see consumedAt!=null and trigger the replay path.
-  await prisma.oAuthAuthCode.update({
-    where: { codeHash: stored.codeHash },
-    data: { consumedAt: new Date() },
   });
 
   const rawRefresh = randomBytes(48).toString("base64url");
@@ -233,6 +230,9 @@ async function handleRefreshTokenGrant(
     return oauthError("invalid_grant", "refresh_token not found");
   }
   if (stored.revokedAt) {
+    // Reuse of a rotated token = it leaked (OAuth 2.1 §4.3.1): revoke every
+    // live token of this client/user so neither copy keeps working.
+    await revokeFamily(stored.clientId, stored.userId);
     return oauthError("invalid_grant", "refresh_token revoked");
   }
   if (stored.expiresAt.getTime() < Date.now()) {
@@ -254,12 +254,14 @@ async function handleRefreshTokenGrant(
   // one alongside the new access token. OAuth 2.1 mandates rotation for
   // public clients and recommends it for confidential ones.
   const newRefresh = randomBytes(48).toString("base64url");
-  await prisma.$transaction([
-    prisma.oAuthRefreshToken.update({
-      where: { tokenHash },
+  const rotated = await prisma.$transaction(async (tx) => {
+    // Conditional revoke: only one of two concurrent refreshes can win.
+    const won = await tx.oAuthRefreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },
-    }),
-    prisma.oAuthRefreshToken.create({
+    });
+    if (won.count === 0) return false;
+    await tx.oAuthRefreshToken.create({
       data: {
         tokenHash: sha256(newRefresh),
         clientId,
@@ -268,8 +270,13 @@ async function handleRefreshTokenGrant(
         scope: stored.scope,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
       },
-    }),
-  ]);
+    });
+    return true;
+  });
+  if (!rotated) {
+    await revokeFamily(stored.clientId, stored.userId);
+    return oauthError("invalid_grant", "refresh_token revoked");
+  }
 
   const accessToken = await mintMcpAccessToken({
     userId: user.id,
@@ -287,4 +294,12 @@ async function handleRefreshTokenGrant(
     },
     { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } }
   );
+}
+
+/** Revoke every live refresh token of one client/user pair (replay/reuse). */
+async function revokeFamily(clientId: string, userId: string) {
+  await prisma.oAuthRefreshToken.updateMany({
+    where: { clientId, userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 }

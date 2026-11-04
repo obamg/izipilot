@@ -369,6 +369,8 @@ model User {
   role               UserRole  @default(VIEWER)
   isActive           Boolean   @default(true)
   mustChangePassword Boolean   @default(false)
+  // Set on every password change; sessions issued before it are revoked.
+  passwordChangedAt  DateTime?
   lastLoginAt        DateTime?
 
   // Dérogation à l'obligation d'activer les notifications. Renseignée seulement

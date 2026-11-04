@@ -26,6 +26,8 @@ declare module "@auth/core/jwt" {
     orgId: string;
     mustChangePassword?: boolean;
     lastValidated?: number;
+    /** User.passwordChangedAt (ms) when this session was issued; 0 if never. */
+    pwdAt?: number;
   }
 }
 

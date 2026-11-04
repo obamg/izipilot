@@ -79,13 +79,19 @@ export async function POST(request: Request) {
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash, mustChangePassword: false },
+      data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
     }),
     prisma.passwordResetToken.update({
       where: { id: record.id },
       data: { usedAt: new Date() },
     }),
     prisma.session.deleteMany({ where: { userId: user.id } }),
+    // JWT sessions are revoked via passwordChangedAt (lib/auth.ts); MCP
+    // connectors lose their refresh tokens here.
+    prisma.oAuthRefreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
   ]);
 
   logger.info("password reset completed", { userId: user.id });

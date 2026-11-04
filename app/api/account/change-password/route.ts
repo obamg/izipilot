@@ -50,10 +50,18 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { passwordHash, mustChangePassword: false },
-  });
+  // Revokes every session (this one too — the page signs out after success)
+  // and every MCP refresh token.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
+    }),
+    prisma.oAuthRefreshToken.updateMany({
+      where: { userId: session.user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
 
   return Response.json({ data: { success: true } });
 }

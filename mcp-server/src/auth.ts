@@ -1,5 +1,6 @@
 import { jwtVerify } from "jose";
 import type { CallerContext, UserRole } from "./context.js";
+import { prisma } from "./prisma.js";
 
 const ROLES: ReadonlySet<UserRole> = new Set([
   "CEO",
@@ -46,5 +47,16 @@ export async function verifyBearer(authHeader: string | undefined): Promise<Call
     throw new Error("Invalid JWT claims");
   }
 
-  return { userId, orgId, role };
+  // Tokens live up to 1h: re-check the account on every request so a
+  // deactivated user (or one moved to another org) loses access at once,
+  // and a role change applies immediately (the DB role wins over the claim).
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isActive: true, orgId: true, role: true },
+  });
+  if (!user || !user.isActive || user.orgId !== orgId) {
+    throw new Error("User no longer authorized");
+  }
+
+  return { userId, orgId, role: user.role as UserRole };
 }

@@ -135,23 +135,26 @@ export async function consumeOtp(
   if (otp.expiresAt < new Date()) throw new ConsumeOtpError("expired");
   if (otp.attempts >= MAX_ATTEMPTS) throw new ConsumeOtpError("too_many_attempts");
 
+  // Reserve one attempt atomically BEFORE comparing: parallel guesses each
+  // need their own slot, so at most MAX_ATTEMPTS codes are ever checked.
+  const reserved = await prisma.loginOtp.updateMany({
+    where: { id: otp.id, consumedAt: null, attempts: { lt: MAX_ATTEMPTS } },
+    data: { attempts: { increment: 1 } },
+  });
+  if (reserved.count === 0) throw new ConsumeOtpError("too_many_attempts");
+
   const matches = await bcrypt.compare(code, otp.codeHash);
   if (!matches) {
-    // Use a conditional update so two concurrent wrong guesses don't both
-    // increment from the same value and let an attacker get an extra try.
-    await prisma.loginOtp.update({
-      where: { id: otp.id },
-      data: { attempts: { increment: 1 } },
-    });
-    const next = otp.attempts + 1;
-    if (next >= MAX_ATTEMPTS) throw new ConsumeOtpError("too_many_attempts");
+    if (otp.attempts + 1 >= MAX_ATTEMPTS) throw new ConsumeOtpError("too_many_attempts");
     throw new ConsumeOtpError("wrong_code");
   }
 
-  await prisma.loginOtp.update({
-    where: { id: otp.id },
+  // Single use, even if two correct submissions race.
+  const consumed = await prisma.loginOtp.updateMany({
+    where: { id: otp.id, consumedAt: null },
     data: { consumedAt: new Date() },
   });
+  if (consumed.count === 0) throw new ConsumeOtpError("invalid_token");
 
   return { userId };
 }

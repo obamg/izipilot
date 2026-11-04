@@ -32,16 +32,32 @@ const publicPaths = [
   "/oauth/authorize",
 ];
 
-// Brute-force protection on the credentials sign-in endpoint. Behind
-// nginx/Cloudflare so the real client IP arrives via x-forwarded-for —
-// take the first entry in the list (the original client).
+// Brute-force protection on the credentials sign-in endpoint. Key on
+// X-Real-IP: nginx overwrites it with $remote_addr, which its real_ip module
+// resolves to the visitor behind Cloudflare. X-Forwarded-For is NOT used —
+// its first entry is whatever the client sent, so it can be spoofed.
 const AUTH_RATE_LIMIT = 10; // attempts
 const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000; // per 5 minutes
 
 function getClientIp(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
   return req.headers.get("x-real-ip") ?? "unknown";
+}
+
+// Applied to every response, public paths and redirects included (the
+// OAuth consent page and /login need anti-framing as much as the app).
+function withSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains"
+  );
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; frame-ancestors 'none'"
+  );
+  return response;
 }
 
 export default auth((req) => {
@@ -78,7 +94,7 @@ export default auth((req) => {
 
   // Allow public paths (cron routes have their own CRON_SECRET auth)
   if (publicPaths.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+    return withSecurityHeaders(NextResponse.next());
   }
 
   // Redirect unauthenticated users to login
@@ -88,7 +104,7 @@ export default auth((req) => {
     if (pathname.startsWith("/")) {
       loginUrl.searchParams.set("callbackUrl", pathname);
     }
-    return NextResponse.redirect(loginUrl);
+    return withSecurityHeaders(NextResponse.redirect(loginUrl));
   }
 
   // Force first-login password change. The flag is set on seeded accounts,
@@ -103,28 +119,14 @@ export default auth((req) => {
     !pathname.startsWith("/api/auth") &&
     !pathname.startsWith("/api/account/change-password")
   ) {
-    return NextResponse.redirect(new URL("/change-password", req.url));
+    return withSecurityHeaders(NextResponse.redirect(new URL("/change-password", req.url)));
   }
 
   // PO submission-day redirect is handled inside app/(dashboard)/dashboard/page.tsx
   // (needs DB access to check whether the PO has already submitted — middleware
   // runs in the edge runtime and cannot query Prisma).
 
-  // Add security headers
-  const response = NextResponse.next();
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Strict-Transport-Security",
-    "max-age=31536000; includeSubDomains"
-  );
-  response.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cloudflareinsights.com"
-  );
-
-  return response;
+  return withSecurityHeaders(NextResponse.next());
 });
 
 export const config = {
