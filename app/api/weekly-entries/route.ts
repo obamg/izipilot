@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent } from "@/lib/score";
+import { krVisibilityWhere } from "@/lib/visibility";
 import {
   upsertWeeklyEntry,
   fireWeeklyEntrySideEffects,
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
       ...(year && { year: parseInt(year) }),
       ...(krId && { krId }),
       ...(submittedBy && { submittedBy }),
+      keyResult: krVisibilityWhere(session.user.role),
     },
     include: {
       submitter: { select: { name: true } },

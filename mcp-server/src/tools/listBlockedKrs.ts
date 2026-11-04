@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { prisma } from "../prisma.js";
-import { requireAccess } from "../context.js";
+import { krVisibilityWhere, requireAccess } from "../context.js";
 import { errorResult, jsonResult } from "./index.js";
 
 export function registerListBlockedKrs(server: McpServer) {
@@ -20,6 +20,7 @@ export function registerListBlockedKrs(server: McpServer) {
             isActive: true,
             deletedAt: null,
             status: "BLOCKED",
+            ...krVisibilityWhere(caller.role),
           },
           select: {
             id: true,

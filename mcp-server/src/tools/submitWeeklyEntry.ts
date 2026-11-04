@@ -44,6 +44,20 @@ export function registerSubmitWeeklyEntry(server: McpServer) {
         // Ownership check — PO can only touch their own KRs.
         requireAccess({ ownerId: kr.ownerId });
 
+        // Deadline lock — mirrors getSubmissionWindow (lib/weekly-entry.ts):
+        // due Sunday 23:59:59.999 UTC, PO locked out after a 24h grace.
+        const nextMondayMs =
+          mondayOfIsoWeek(args.year, args.weekNumber).getTime() + 7 * ONE_DAY_MS;
+        const deadline = nextMondayMs - 1;
+        const graceCutoff = nextMondayMs + ONE_DAY_MS - 1;
+        const nowMs = Date.now();
+        if (caller.role === "PO" && nowMs > graceCutoff) {
+          throw new Error(
+            `La saisie de la semaine ${args.weekNumber} est verrouillée (deadline dépassée).`,
+          );
+        }
+        const isLate = nowMs > deadline;
+
         // Compute delta against the previous week's entry, if any.
         const previous = await prisma.weeklyEntry.findFirst({
           where: { krId: kr.id, orgId: caller.orgId },
@@ -78,6 +92,7 @@ export function registerSubmitWeeklyEntry(server: McpServer) {
             proposedSolution: args.proposedSolution,
             actionNeeded: args.actionNeeded,
             comment: args.comment,
+            isLate,
           },
           update: {
             progress: args.progress,
@@ -88,6 +103,7 @@ export function registerSubmitWeeklyEntry(server: McpServer) {
             proposedSolution: args.proposedSolution,
             actionNeeded: args.actionNeeded,
             comment: args.comment,
+            isLate,
           },
           select: { id: true, scoreAtEntry: true, status: true, delta: true },
         });
@@ -116,6 +132,8 @@ export function registerSubmitWeeklyEntry(server: McpServer) {
     },
   );
 }
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 function mondayOfIsoWeek(year: number, week: number): Date {
   // ISO 8601: week 1 contains January 4. Find that week's Monday, then shift.

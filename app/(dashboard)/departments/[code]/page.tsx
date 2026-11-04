@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { EntityDetailView, type EntityDetailData } from "@/components/entity/EntityDetailView";
+import { departmentVisibilityWhere } from "@/lib/visibility";
 
 export default async function DepartmentDetailPage({
   params,
@@ -15,7 +16,7 @@ export default async function DepartmentDetailPage({
 
   const [department, orgUsers] = await Promise.all([
     prisma.department.findFirst({
-      where: { orgId, code },
+      where: { orgId, code, ...departmentVisibilityWhere(session.user.role) },
       include: {
         objectives: {
           where: { isActive: true },

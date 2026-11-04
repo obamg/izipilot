@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { prisma } from "../prisma.js";
-import { requireAccess } from "../context.js";
+import { krVisibilityWhere, requireAccess } from "../context.js";
 import { errorResult, jsonResult } from "./index.js";
 
 const input = {
@@ -31,6 +31,7 @@ export function registerGetDashboard(server: McpServer) {
               orgId: caller.orgId,
               isActive: true,
               deletedAt: null,
+              ...krVisibilityWhere(caller.role),
             },
             select: {
               id: true,
@@ -50,11 +51,17 @@ export function registerGetDashboard(server: McpServer) {
               orgId: caller.orgId,
               isActive: true,
               deletedAt: null,
+              ...krVisibilityWhere(caller.role),
               status: "BLOCKED",
             },
           }),
           prisma.weeklyEntry.count({
-            where: { orgId: caller.orgId, weekNumber, year },
+            where: {
+              orgId: caller.orgId,
+              weekNumber,
+              year,
+              keyResult: krVisibilityWhere(caller.role),
+            },
           }),
         ]);
 

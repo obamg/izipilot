@@ -52,3 +52,17 @@ export function requireAccess(opts: AccessOptions = {}): CallerContext {
 
   return caller;
 }
+
+/**
+ * Copy of krVisibilityWhere (lib/visibility.ts) — the MCP package can't import
+ * the app. D7 (Management) department-OKRs are visible only to CEO/MANAGEMENT;
+ * spread into any keyResult `where`. Keep both copies in sync.
+ */
+export function krVisibilityWhere(role: UserRole) {
+  if (role === "CEO" || role === "MANAGEMENT") return {};
+  return {
+    objective: {
+      OR: [{ departmentId: null }, { department: { code: { not: "D7" } } }],
+    },
+  };
+}

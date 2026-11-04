@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { prisma } from "../prisma.js";
-import { requireAccess } from "../context.js";
+import { krVisibilityWhere, requireAccess } from "../context.js";
 import { errorResult, jsonResult } from "./index.js";
 
 const input = {
@@ -25,7 +25,7 @@ export function registerGetOkrHistory(server: McpServer) {
         // Confirm the KR is in the caller's org before reading entries.
         // Avoids leaking timing info about KRs in other orgs.
         const kr = await prisma.keyResult.findFirst({
-          where: { id: args.krId, orgId: caller.orgId },
+          where: { id: args.krId, orgId: caller.orgId, ...krVisibilityWhere(caller.role) },
           select: { id: true, title: true, krType: true, target: true, targetUnit: true },
         });
         if (!kr) throw new Error("KR not found");
