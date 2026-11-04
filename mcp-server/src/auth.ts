@@ -64,5 +64,5 @@ export async function verifyBearer(authHeader: string | undefined): Promise<Call
     throw new Error("Token revoked (password changed)");
   }
 
-  return { userId, orgId, role: user.role as UserRole };
+  return { userId, orgId, role: user.role as UserRole, token };
 }

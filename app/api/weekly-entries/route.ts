@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent } from "@/lib/score";
 import { krVisibilityWhere } from "@/lib/visibility";
+import { verifyMcpBearer } from "@/lib/mcp-token";
 import {
   upsertWeeklyEntry,
   fireWeeklyEntrySideEffects,
@@ -74,13 +75,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Web session, or an MCP access token forwarded by the MCP server's
+  // submit_weekly_entry tool (one code path for score, deadline, alerts).
   const session = await auth();
-  if (!session?.user) {
+  const user =
+    session?.user ?? (await verifyMcpBearer(request.headers.get("authorization")));
+  if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Only CEO, MANAGEMENT, PO can create entries
-  if (session.user.role === "VIEWER") {
+  // VIEWER is read-only
+  if (user.role === "VIEWER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -93,11 +98,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const sessionUser = {
-    id: session.user.id,
-    orgId: session.user.orgId,
-    role: session.user.role,
-  };
+  const sessionUser = { id: user.id, orgId: user.orgId, role: user.role };
 
   try {
     const upsertResult = await prisma.$transaction((tx) =>

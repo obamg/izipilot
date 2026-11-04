@@ -92,6 +92,16 @@ export default auth((req) => {
     }
   }
 
+  // MCP server forwarding a weekly entry: no cookie, the route verifies the
+  // Bearer MCP token itself (lib/mcp-token verifyMcpBearer).
+  if (
+    req.method === "POST" &&
+    pathname === "/api/weekly-entries" &&
+    req.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
+  ) {
+    return withSecurityHeaders(NextResponse.next());
+  }
+
   // Allow public paths (cron routes have their own CRON_SECRET auth)
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     return withSecurityHeaders(NextResponse.next());

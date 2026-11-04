@@ -1,4 +1,5 @@
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
+import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 
 // Shared HS256 access-token minter for both the legacy "Connecter Claude"
@@ -38,4 +39,37 @@ export async function mintMcpAccessToken(input: MintMcpTokenInput): Promise<stri
     .setIssuedAt()
     .setExpirationTime(`${ttl}s`)
     .sign(mcpSecretKey());
+}
+
+/**
+ * Verify an MCP access token presented as `Authorization: Bearer …` to an app
+ * route (the MCP server forwards writes here so they run the exact same code
+ * as the web form). Same rules as mcp-server/src/auth.ts: signature, active
+ * account, same org, not issued before the last password change. Returns the
+ * caller with the role read from the DB, or null.
+ */
+export async function verifyMcpBearer(
+  authHeader: string | null
+): Promise<{ id: string; orgId: string; role: UserRole } | null> {
+  if (!authHeader?.toLowerCase().startsWith("bearer ")) return null;
+  try {
+    const { payload } = await jwtVerify(authHeader.slice(7).trim(), mcpSecretKey(), {
+      issuer: MCP_ISSUER,
+      audience: MCP_AUDIENCE,
+      algorithms: ["HS256"],
+    });
+    if (typeof payload.sub !== "string" || typeof payload.org !== "string") return null;
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, orgId: true, role: true, isActive: true, passwordChangedAt: true },
+    });
+    if (!user || !user.isActive || user.orgId !== payload.org) return null;
+    const iat = typeof payload.iat === "number" ? payload.iat : 0;
+    if (user.passwordChangedAt && Math.floor(user.passwordChangedAt.getTime() / 1000) > iat) {
+      return null;
+    }
+    return { id: user.id, orgId: user.orgId, role: user.role };
+  } catch {
+    return null;
+  }
 }

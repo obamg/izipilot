@@ -6,6 +6,8 @@ export interface CallerContext {
   userId: string;
   orgId: string;
   role: UserRole;
+  /** Raw bearer token, forwarded to the app for writes that must run its code. */
+  token: string;
 }
 
 const storage = new AsyncLocalStorage<CallerContext>();
