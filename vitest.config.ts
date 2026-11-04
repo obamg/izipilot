@@ -1,4 +1,6 @@
 import { defineConfig } from 'vitest/config'
+// Prisma 7 no longer reads .env itself; DB tests need DATABASE_URL.
+import 'dotenv/config'
 import path from 'path'
 
 export default defineConfig({

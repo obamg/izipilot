@@ -1,5 +1,7 @@
 import type { KrType, KrStatus } from "@prisma/client";
-import { Decimal } from "@prisma/client/runtime/library";
+import type { Prisma } from "@prisma/client";
+
+type Decimal = Prisma.Decimal;
 
 /**
  * Calculate the score for a Key Result.

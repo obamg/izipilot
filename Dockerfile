@@ -30,13 +30,16 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma schema + client for runtime
+# Prisma schema + config + client for runtime
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Install Prisma CLI for migrate deploy
-RUN npm install --no-save prisma
+# Prisma CLI for `migrate deploy` (docker-entrypoint.sh). Pinned: keep in step
+# with package.json — an unpinned install would pull whatever is latest.
+# dotenv: imported by prisma.config.ts (no .env in the image; vars come from compose).
+RUN npm install --no-save prisma@7.10.1 dotenv@18.0.9
 
 # Entrypoint script for migrations
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./

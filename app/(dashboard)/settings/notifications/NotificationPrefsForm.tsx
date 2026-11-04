@@ -4,7 +4,7 @@ import { useTransition, useState } from "react";
 import {
   NOTIFICATION_EVENTS,
   type NotificationEvent,
-} from "@/lib/notification-prefs";
+} from "@/lib/notification-events";
 import { saveNotificationPrefs } from "./actions";
 
 interface Props {

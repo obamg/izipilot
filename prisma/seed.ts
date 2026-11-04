@@ -1,9 +1,13 @@
 import { PrismaClient, UserRole, EntityType, Quarter, KrType, KrStatus, ProductStatus } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { computeNextRun } from "../lib/recurring-task";
 import { DEFAULT_COLUMNS } from "../lib/board-column";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
 async function main() {
   console.log("🌱 Seeding IziPilot database...");
