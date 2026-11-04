@@ -38,6 +38,7 @@ cookie because the MCP server has no access to the NextAuth JWE.
 | `list_blocked_krs`    | all                      | read            |
 | `get_okr_history`     | all                      | read            |
 | `submit_weekly_entry` | PO (owner) / MANAGEMENT / CEO | write       |
+| `submit_daily_report` | all except VIEWER (own report, today WAT) | write |
 
 All reads are scoped by `orgId` from the JWT. Writes additionally verify
 ownership for PO accounts.

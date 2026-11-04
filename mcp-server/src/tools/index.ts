@@ -3,12 +3,14 @@ import { registerGetDashboard } from "./getDashboard.js";
 import { registerListBlockedKrs } from "./listBlockedKrs.js";
 import { registerGetOkrHistory } from "./getOkrHistory.js";
 import { registerSubmitWeeklyEntry } from "./submitWeeklyEntry.js";
+import { registerSubmitDailyReport } from "./submitDailyReport.js";
 
 export function registerTools(server: McpServer) {
   registerGetDashboard(server);
   registerListBlockedKrs(server);
   registerGetOkrHistory(server);
   registerSubmitWeeklyEntry(server);
+  registerSubmitDailyReport(server);
 }
 
 /** Format a JSON payload as an MCP text content block. */
