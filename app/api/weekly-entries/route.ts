@@ -77,9 +77,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   // Web session, or an MCP access token forwarded by the MCP server's
   // submit_weekly_entry tool (one code path for score, deadline, alerts).
-  const session = await auth();
-  const user =
-    session?.user ?? (await verifyMcpBearer(request.headers.get("authorization")));
+  // A Bearer header means MCP ONLY: the middleware lets Bearer requests skip
+  // its session gates (incl. mustChangePassword), so the cookie must never be
+  // honoured on that path.
+  const authz = request.headers.get("authorization");
+  const user = authz?.toLowerCase().startsWith("bearer ")
+    ? await verifyMcpBearer(authz)
+    : (await auth())?.user;
   if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

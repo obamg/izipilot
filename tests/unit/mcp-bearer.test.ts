@@ -53,6 +53,12 @@ describe("verifyMcpBearer", () => {
     expect(await verifyMcpBearer(header)).toBeNull();
   });
 
+  it("rejects a user who must still change their password", async () => {
+    const { user, header } = await userWithToken();
+    await prisma.user.update({ where: { id: user.id }, data: { mustChangePassword: true } });
+    expect(await verifyMcpBearer(header)).toBeNull();
+  });
+
   it("rejects a token minted before the last password change", async () => {
     const { user, header } = await userWithToken();
     await prisma.user.update({

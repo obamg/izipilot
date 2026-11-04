@@ -61,9 +61,18 @@ export async function verifyMcpBearer(
     if (typeof payload.sub !== "string" || typeof payload.org !== "string") return null;
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, orgId: true, role: true, isActive: true, passwordChangedAt: true },
+      select: {
+        id: true,
+        orgId: true,
+        role: true,
+        isActive: true,
+        passwordChangedAt: true,
+        mustChangePassword: true,
+      },
     });
     if (!user || !user.isActive || user.orgId !== payload.org) return null;
+    // Same rule as the web middleware: no writes while on a default password.
+    if (user.mustChangePassword) return null;
     const iat = typeof payload.iat === "number" ? payload.iat : 0;
     if (user.passwordChangedAt && Math.floor(user.passwordChangedAt.getTime() / 1000) > iat) {
       return null;
