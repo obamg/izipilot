@@ -52,10 +52,16 @@ export async function verifyBearer(authHeader: string | undefined): Promise<Call
   // and a role change applies immediately (the DB role wins over the claim).
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { isActive: true, orgId: true, role: true },
+    select: { isActive: true, orgId: true, role: true, passwordChangedAt: true },
   });
   if (!user || !user.isActive || user.orgId !== orgId) {
     throw new Error("User no longer authorized");
+  }
+  // Password changed after this token was minted → revoked (same rule as web
+  // sessions in lib/auth.ts). Second granularity: iat is in seconds.
+  const iat = typeof payload.iat === "number" ? payload.iat : 0;
+  if (user.passwordChangedAt && Math.floor(user.passwordChangedAt.getTime() / 1000) > iat) {
+    throw new Error("Token revoked (password changed)");
   }
 
   return { userId, orgId, role: user.role as UserRole };
