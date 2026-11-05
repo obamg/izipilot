@@ -13,11 +13,11 @@ const logger = log.child("cron/monthly-eval-reminder");
 
 /**
  * GET /api/cron/monthly-eval-reminder
- * Fires on the 22nd of each month (07:00 WAT / 06:00 UTC). Reminds every
- * evaluator (CEO/MANAGEMENT + department/product owners) to evaluate their
- * team for the CURRENT month — a week+ before it closes, so they have time
- * to finish. Skips evaluators who have already rated everyone. Idempotent per
- * calendar month via the EVAL_REMINDER notification. Secured by CRON_SECRET.
+ * Fires on the 22nd and again on the 23rd of each month (07:00 WAT / 06:00 UTC).
+ * Reminds every evaluator (CEO/MANAGEMENT + department/product owners) to
+ * evaluate their team for the CURRENT month before it closes. Skips evaluators
+ * who have already rated everyone, so the 23rd only nudges the late ones.
+ * Idempotent per day via the EVAL_REMINDER notification. Secured by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -30,9 +30,11 @@ export async function GET(request: NextRequest) {
   const targetYear = now.getUTCFullYear();
   const monthLabel = MONTH_LABELS_FR[targetMonth - 1];
 
-  // Dedup window: any EVAL_REMINDER already sent since the start of the current
-  // calendar month means we've reminded this evaluator this cycle.
-  const cycleStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  // Dedup window: one reminder per evaluator per run day (cron fires the 22nd
+  // and the 23rd; a retry the same day must not double-send).
+  const cycleStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
 
   try {
     const orgs = await prisma.organization.findMany({
