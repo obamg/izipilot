@@ -70,22 +70,23 @@ export function DepartmentHeadBackupPanel({
         configure que son suppléant et sa disponibilité pour le routage des approbations.
       </p>
       {error && <p className="text-[11px] text-red mb-2">{error}</p>}
-      <table className="w-full text-[11px]">
+      <div className="overflow-x-auto">
+      <table className="izi-table">
         <thead>
-          <tr className="text-izi-gray text-left">
-            <th className="py-1 font-medium">Département</th>
-            <th className="py-1 font-medium">Chef</th>
-            <th className="py-1 font-medium">Suppléant</th>
-            <th className="py-1 font-medium">Disponibilité</th>
-            <th className="py-1"></th>
+          <tr>
+            <th>Département</th>
+            <th>Chef</th>
+            <th>Suppléant</th>
+            <th>Disponibilité</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {coverage.map((c) => (
-            <tr key={c.departmentId} className="border-t border-border-soft">
-              <td className="py-1">{c.departmentName}</td>
-              <td className="py-1">{c.ownerName}</td>
-              <td className="py-1">
+            <tr key={c.departmentId}>
+              <td>{c.departmentName}</td>
+              <td>{c.ownerName}</td>
+              <td>
                 {c.backupUserName ? (
                   <span>
                     {c.backupUserName}{" "}
@@ -125,7 +126,7 @@ export function DepartmentHeadBackupPanel({
                   </div>
                 )}
               </td>
-              <td className="py-1">
+              <td>
                 {c.assignmentId ? (
                   <button
                     type="button"
@@ -145,6 +146,7 @@ export function DepartmentHeadBackupPanel({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

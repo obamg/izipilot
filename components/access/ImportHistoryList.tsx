@@ -20,30 +20,32 @@ export function ImportHistoryList({ batches }: { batches: BatchSummary[] }) {
   return (
     <div className="rounded-[10px] border border-border-soft bg-white p-4">
       <h2 className="font-serif text-[16px] text-dark mb-3">Historique des imports</h2>
-      <table className="w-full text-[11px]">
+      <div className="overflow-x-auto">
+      <table className="izi-table">
         <thead>
-          <tr className="text-izi-gray text-left">
-            <th className="py-1 font-medium">Date</th>
-            <th className="py-1 font-medium">Mode</th>
-            <th className="py-1 font-medium">Fichier</th>
-            <th className="py-1 font-medium">Par</th>
-            <th className="py-1 font-medium">Lignes</th>
-            <th className="py-1 font-medium">Statut</th>
+          <tr>
+            <th>Date</th>
+            <th>Mode</th>
+            <th>Fichier</th>
+            <th>Par</th>
+            <th>Lignes</th>
+            <th>Statut</th>
           </tr>
         </thead>
         <tbody>
           {batches.map((b) => (
-            <tr key={b.id} className="border-t border-border-soft">
-              <td className="py-1">{new Date(b.createdAt).toLocaleString("fr-FR")}</td>
-              <td className="py-1">{MODE_LABELS[b.mode] ?? b.mode}</td>
-              <td className="py-1">{b.fileName}</td>
-              <td className="py-1">{b.actorName ?? "—"}</td>
-              <td className="py-1">{b.totalRows}</td>
-              <td className="py-1">{b.committedAt ? "Importé" : "Bloqué / en attente"}</td>
+            <tr key={b.id}>
+              <td>{new Date(b.createdAt).toLocaleString("fr-FR")}</td>
+              <td>{MODE_LABELS[b.mode] ?? b.mode}</td>
+              <td>{b.fileName}</td>
+              <td>{b.actorName ?? "—"}</td>
+              <td>{b.totalRows}</td>
+              <td>{b.committedAt ? "Importé" : "Bloqué / en attente"}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

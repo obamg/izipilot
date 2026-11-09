@@ -73,16 +73,16 @@ export function AssignmentsTable({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[10px] border border-border-soft bg-white overflow-x-auto">
-        <table className="w-full text-[12px]">
+      <div className="izi-table-wrap">
+        <table className="izi-table">
           <thead>
-            <tr className="border-b border-border-soft text-izi-gray text-left">
-              {showEmployee && <th className="px-4 py-2 font-medium">Employé</th>}
-              {showDepartment && <th className="px-4 py-2 font-medium">Département</th>}
-              <th className="px-4 py-2 font-medium">Application</th>
-              <th className="px-4 py-2 font-medium">Niveau</th>
-              <th className="px-4 py-2 font-medium">Période</th>
-              <th className="px-4 py-2 font-medium">Provenance</th>
+            <tr>
+              {showEmployee && <th>Employé</th>}
+              {showDepartment && <th>Département</th>}
+              <th>Application</th>
+              <th>Niveau</th>
+              <th>Période</th>
+              <th>Provenance</th>
             </tr>
           </thead>
           <tbody>
@@ -147,33 +147,33 @@ function AssignmentRow({
   return (
     <>
       {groupHeader !== null && (
-        <tr className="bg-izi-gray-lt">
-          <th colSpan={columnCount} scope="colgroup" className="px-4 py-1.5 text-left text-[11px] font-semibold text-dark">
+        <tr>
+          <th colSpan={columnCount} scope="colgroup">
             {groupHeader}
           </th>
         </tr>
       )}
-      <tr className="border-b border-border-soft last:border-0">
+      <tr>
         {showEmployee && (
-          <td className="px-4 py-2 text-dark">
+          <td className="text-dark">
             {r.userName}
             {r.lifecycle === "OFFBOARDING" && <Badge tone="red">Départ en cours</Badge>}
             {r.lifecycle === "DEPARTED" && <Badge tone="red">Parti</Badge>}
           </td>
         )}
         {showDepartment && (
-          <td className="px-4 py-2 text-izi-gray">{r.departmentName ?? "Sans département"}</td>
+          <td className="text-izi-gray">{r.departmentName ?? "Sans département"}</td>
         )}
-        <td className="px-4 py-2 text-dark">
+        <td className="text-dark">
           {r.assetName}
           {r.assetArchived && <Badge tone="gray">Archivé</Badge>}
         </td>
-        <td className="px-4 py-2 text-dark">
+        <td className="text-dark">
           {r.levelName ?? "—"}
           {r.status === "EXPIRED_REMOVAL_PENDING" && <Badge tone="gold">Retrait en attente</Badge>}
         </td>
-        <td className="px-4 py-2 font-mono text-izi-gray">{formatPeriod(r.periodStart, r.periodEnd)}</td>
-        <td className="px-4 py-2 text-izi-gray">
+        <td className="font-mono text-izi-gray">{formatPeriod(r.periodStart, r.periodEnd)}</td>
+        <td className="text-izi-gray">
           {SOURCE_LABEL[r.source]}
           {r.verification === "IMPORTED_UNREVIEWED" && <Badge tone="gray">Importé — non vérifié</Badge>}
         </td>

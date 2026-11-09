@@ -113,27 +113,27 @@ export function ImportBaselinePanel() {
               .map(([outcome, count]) => `${OUTCOME_LABELS[outcome] ?? outcome} : ${count}`)
               .join(" · ")}
           </p>
-          <div className="max-h-64 overflow-y-auto rounded-[8px] border border-border-soft">
-            <table className="w-full text-[11px]">
+          <div className="izi-table-wrap max-h-64 overflow-y-auto">
+            <table className="izi-table">
               <thead>
-                <tr className="text-izi-gray text-left bg-gray-lt">
-                  <th className="py-1 px-2 font-medium">Ligne</th>
-                  <th className="py-1 px-2 font-medium">Statut</th>
-                  <th className="py-1 px-2 font-medium">Motif</th>
+                <tr>
+                  <th>Ligne</th>
+                  <th>Statut</th>
+                  <th>Motif</th>
                 </tr>
               </thead>
               <tbody>
                 {batch.rows.map((r) => (
-                  <tr key={r.id} className="border-t border-border-soft">
-                    <td className="py-1 px-2">{r.rowIndex + 2}</td>
+                  <tr key={r.id}>
+                    <td>{r.rowIndex + 2}</td>
                     <td
-                      className={`py-1 px-2 ${
+                      className={`${
                         r.outcome === "UNRESOLVED" || r.outcome === "CONFLICT" ? "text-red font-medium" : ""
                       }`}
                     >
                       {OUTCOME_LABELS[r.outcome] ?? r.outcome}
                     </td>
-                    <td className="py-1 px-2">{r.reason ?? "—"}</td>
+                    <td>{r.reason ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
