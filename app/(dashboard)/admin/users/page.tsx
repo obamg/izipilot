@@ -34,7 +34,10 @@ export default async function AdminUsersPage() {
     <div>
       <AdminPageHeader
         title="Utilisateurs"
-        subtitle={`${users.length} utilisateur(s) \u2014 ${users.filter((u) => u.isActive).length} actif(s)`}
+        subtitle={(() => {
+          const active = users.filter((u) => u.isActive).length;
+          return `${active} compte${active > 1 ? "s" : ""} actif${active > 1 ? "s" : ""} sur ${users.length}`;
+        })()}
       />
       <UsersTable users={serialized} currentUserId={session.user.id} />
     </div>

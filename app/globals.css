@@ -17,6 +17,10 @@
   --gray: #5f6e7a;
   --gray-lt: #f2f6f7;
   --border-soft: #deeaea; /* Standard 1px card/divider border */
+  /* Text-safe darks for badges (WCAG AA on their -lt fond / on white). */
+  --gold-dk: #7a5500;
+  --blue: #185fa5;
+  --blue-lt: #e8f0fb;
 
   /* Z-index scale — keep these in lockstep across the app.
      Modals must always be above the sticky nav; the overlay (90) sits
@@ -55,6 +59,9 @@
   --color-izi-gray: var(--gray);
   --color-izi-gray-lt: var(--gray-lt);
   --color-border-soft: var(--border-soft);
+  --color-gold-dk: var(--gold-dk);
+  --color-blue: var(--blue);
+  --color-blue-lt: var(--blue-lt);
 
   /* Bare aliases for the three palette colours that also carry an `izi-`
      name. Components use BOTH conventions across the codebase (e.g.
@@ -101,4 +108,91 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* ── Tables — standard IziPilot ─────────────────────────────────────────
+   One look for every data table. Wrap in .izi-table-wrap (white card,
+   horizontal scroll on small screens), then <table class="izi-table">.
+   - Headers: sentence case, 12px semibold gray — no tracked ALL CAPS.
+   - Rows: 13px, 12px/16px padding, hairline dividers, teal hover tint.
+   - Numbers/dates: tabular figures; add .is-num to right-align a column.
+   - Sortable header: <th aria-sort> + <button class="izi-th-sort">.
+   - Dimmed row (archived, disabled): <tr data-muted>.
+   Utilities placed on cells still override (component layer). */
+@layer components {
+  .izi-table-wrap {
+    background: #fff;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    overflow-x: auto;
+  }
+  .izi-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--dark-md);
+  }
+  .izi-table th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray);
+    padding: 10px 16px;
+    background: color-mix(in srgb, var(--gray-lt) 60%, #fff);
+    border-bottom: 1px solid var(--border-soft);
+    white-space: nowrap;
+  }
+  .izi-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    vertical-align: middle;
+  }
+  .izi-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .izi-table tbody tr {
+    transition: background-color 120ms ease;
+  }
+  .izi-table tbody tr:hover {
+    background: color-mix(in srgb, var(--teal-lt) 55%, #fff);
+  }
+  .izi-table tbody tr[data-muted] td {
+    color: var(--gray);
+  }
+  .izi-table tbody tr[data-muted] td:not(:last-child) > * {
+    opacity: 0.72;
+  }
+  .izi-table .is-num {
+    text-align: right;
+  }
+  .izi-th-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: -4px -6px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font: inherit;
+    color: inherit;
+  }
+  .izi-th-sort:hover {
+    color: var(--dark);
+    background: var(--gray-lt);
+  }
+  .izi-th-sort:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 1px;
+  }
+  .izi-table th[aria-sort="ascending"],
+  .izi-table th[aria-sort="descending"] {
+    color: var(--dark);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .izi-table tbody tr {
+    transition: none;
+  }
 }
