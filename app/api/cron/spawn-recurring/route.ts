@@ -4,6 +4,7 @@ import { log } from "@/lib/log";
 import { verifyCronSecret } from "@/lib/cron";
 import { advancePastNow } from "@/lib/recurring-task";
 import { resolveInitialColumn } from "@/lib/board-column-server";
+import { UNFINISHED_STATUSES } from "@/lib/sprint";
 
 const logger = log.child("cron/spawn-recurring");
 
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
-  const summary = { due: 0, spawned: 0, errors: 0 };
+  const summary = { due: 0, spawned: 0, skipped: 0, errors: 0 };
 
   try {
     const due = await prisma.recurringTask.findMany({
@@ -67,7 +68,27 @@ export async function GET(request: NextRequest) {
           productId: t.productId,
         });
 
-        await prisma.$transaction(async (tx) => {
+        const created = await prisma.$transaction(async (tx) => {
+          // Une seule carte ouverte par modèle : si l'occurrence précédente
+          // n'est pas terminée, on n'en empile pas une nouvelle (un « Rapport
+          // quotidien » oublié une semaine faisait 7 cartes). On avance quand
+          // même nextRunAt pour ne pas re-tenter chaque jour la même échéance.
+          const open = await tx.sprintTask.findFirst({
+            where: {
+              orgId: t.orgId,
+              recurringTaskId: t.id,
+              status: { in: UNFINISHED_STATUSES },
+            },
+            select: { id: true },
+          });
+          if (open) {
+            await tx.recurringTask.update({
+              where: { id: t.id },
+              data: { nextRunAt },
+            });
+            return false;
+          }
+
           const sortOrder = await tx.sprintTask.count({
             where: { orgId: t.orgId, sprintId },
           });
@@ -93,9 +114,11 @@ export async function GET(request: NextRequest) {
             where: { id: t.id },
             data: { nextRunAt, lastRunAt: now },
           });
+          return true;
         });
 
-        summary.spawned++;
+        if (created) summary.spawned++;
+        else summary.skipped++;
       } catch (itemErr) {
         summary.errors++;
         logger.error("spawn failed", { recurringTaskId: t.id }, itemErr);
