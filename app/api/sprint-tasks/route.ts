@@ -107,9 +107,12 @@ export async function POST(request: NextRequest) {
         orgId,
         isActive: true,
         deletedAt: null,
-        ...krVisibilityWhere(session.user.role),
+        // AND, not spread: krVisibilityWhere also sets `objective` (D7 hiding).
         // A lead may only link a KR of the department they create for.
-        ...(isContributor ? { objective: { departmentId: d.departmentId } } : {}),
+        AND: [
+          krVisibilityWhere(session.user.role),
+          isContributor ? { objective: { departmentId: d.departmentId } } : {},
+        ],
       },
       select: { ownerId: true },
     });
