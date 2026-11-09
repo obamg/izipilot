@@ -99,21 +99,21 @@ export function ImportSeedPanel() {
           <p className="text-[12px] text-dark mb-2">
             {batch.totalRows} paire(s) logiciel/niveau — {matched} déjà au catalogue, {draftCreated} à créer.
           </p>
-          <div className="max-h-64 overflow-y-auto rounded-[8px] border border-border-soft">
-            <table className="w-full text-[11px]">
+          <div className="izi-table-wrap max-h-64 overflow-y-auto">
+            <table className="izi-table">
               <thead>
-                <tr className="text-izi-gray text-left bg-gray-lt">
-                  <th className="py-1 px-2 font-medium">Logiciel</th>
-                  <th className="py-1 px-2 font-medium">Niveau</th>
-                  <th className="py-1 px-2 font-medium">Statut</th>
+                <tr>
+                  <th>Logiciel</th>
+                  <th>Niveau</th>
+                  <th>Statut</th>
                 </tr>
               </thead>
               <tbody>
                 {batch.rows.map((r) => (
-                  <tr key={r.id} className="border-t border-border-soft">
-                    <td className="py-1 px-2">{r.sourceFields.logiciel}</td>
-                    <td className="py-1 px-2">{r.sourceFields.niveauAcces}</td>
-                    <td className="py-1 px-2">
+                  <tr key={r.id}>
+                    <td>{r.sourceFields.logiciel}</td>
+                    <td>{r.sourceFields.niveauAcces}</td>
+                    <td>
                       {r.outcome === "MATCHED" ? "Déjà au catalogue" : batch.committedAt ? "Créé" : "Sera créé"}
                     </td>
                   </tr>

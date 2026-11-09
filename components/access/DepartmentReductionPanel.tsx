@@ -65,14 +65,15 @@ export function DepartmentReductionPanel({ departmentId }: { departmentId: strin
     <div className="rounded-[10px] border border-border-soft bg-white p-4 mb-6">
       <h2 className="font-serif text-[16px] text-dark mb-3">Initier une révocation (département)</h2>
       {error && <p className="text-[11px] text-red mb-2">{error}</p>}
-      <table className="w-full text-[11px]">
+      <div className="overflow-x-auto">
+      <table className="izi-table">
         <thead>
-          <tr className="text-izi-gray text-left">
-            <th className="py-1 font-medium">Employé</th>
-            <th className="py-1 font-medium">Actif</th>
-            <th className="py-1 font-medium">Niveau actuel</th>
-            <th className="py-1 font-medium">Justification</th>
-            <th className="py-1"></th>
+          <tr>
+            <th>Employé</th>
+            <th>Actif</th>
+            <th>Niveau actuel</th>
+            <th>Justification</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -80,11 +81,11 @@ export function DepartmentReductionPanel({ departmentId }: { departmentId: strin
             const key = `${item.userId}:${item.assetId}`;
             const busy = busyKey === key;
             return (
-              <tr key={key} className="border-t border-border-soft">
-                <td className="py-1">{item.userName}</td>
-                <td className="py-1">{item.assetName}</td>
-                <td className="py-1">{item.levelName}</td>
-                <td className="py-1">
+              <tr key={key}>
+                <td>{item.userName}</td>
+                <td>{item.assetName}</td>
+                <td>{item.levelName}</td>
+                <td>
                   <input
                     value={justificationByKey[key] ?? ""}
                     onChange={(e) => setJustificationByKey((s) => ({ ...s, [key]: e.target.value }))}
@@ -93,7 +94,7 @@ export function DepartmentReductionPanel({ departmentId }: { departmentId: strin
                     className="izi-form-input rounded-[6px] border border-teal-md px-2 py-1 text-[11px] w-full disabled:opacity-50"
                   />
                 </td>
-                <td className="py-1">
+                <td>
                   <button
                     type="button"
                     disabled={busy}
@@ -108,6 +109,7 @@ export function DepartmentReductionPanel({ departmentId }: { departmentId: strin
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

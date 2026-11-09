@@ -146,20 +146,20 @@ export function CapacityPanel({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-[10px] border border-border-soft bg-white">
-        <table className="w-full text-[12px]">
+      <div className="izi-table-wrap">
+        <table className="izi-table is-compact">
           <thead>
-            <tr className="border-b border-izi-gray-lt bg-izi-gray-lt/30 text-izi-gray">
-              <th className="text-left py-2 px-3 text-[9px] font-semibold uppercase tracking-[0.07em]">
+            <tr>
+              <th>
                 Membre
               </th>
-              <th className="text-center py-2 px-3 text-[9px] font-semibold uppercase tracking-[0.07em] w-[110px]">
+              <th className="text-center w-[110px]">
                 Capacité
               </th>
-              <th className="text-center py-2 px-3 text-[9px] font-semibold uppercase tracking-[0.07em] w-[90px]">
+              <th className="text-center w-[90px]">
                 Assigné
               </th>
-              <th className="text-left py-2 px-3 text-[9px] font-semibold uppercase tracking-[0.07em]">
+              <th>
                 Charge
               </th>
             </tr>
@@ -170,9 +170,9 @@ export function CapacityPanel({
               const assigned = r?.assignedPoints ?? 0;
               const util = r?.utilizationPct ?? 0;
               return (
-                <tr key={u.id} className="border-b border-izi-gray-lt last:border-b-0">
-                  <td className="py-2 px-3 text-dark">{u.name}</td>
-                  <td className="py-2 px-3 text-center">
+                <tr key={u.id}>
+                  <td className="text-dark">{u.name}</td>
+                  <td className="text-center">
                     {canEdit ? (
                       <input
                         type="number"
@@ -189,8 +189,8 @@ export function CapacityPanel({
                       <span className="font-mono text-dark">{r?.capacityPoints ?? 0}</span>
                     )}
                   </td>
-                  <td className="py-2 px-3 text-center font-mono text-dark">{assigned}</td>
-                  <td className="py-2 px-3">
+                  <td className="text-center font-mono text-dark">{assigned}</td>
+                  <td>
                     <div className="flex items-center gap-2">
                       <div className="h-2 flex-1 rounded-full bg-izi-gray-lt overflow-hidden min-w-[60px]">
                         <div

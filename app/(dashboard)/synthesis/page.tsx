@@ -302,39 +302,36 @@ function SynthesisTable({
 
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-[11px]">
+        <table className="izi-table is-compact">
           <thead>
-            <tr className="border-b border-izi-gray-lt">
-              <th className="text-left py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray w-[180px]">
+            <tr>
+              <th className="w-[180px]">
                 Entit&eacute;
               </th>
-              <th className="text-center py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray">
+              <th className="text-center">
                 Obj. 1
               </th>
-              <th className="text-center py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray">
+              <th className="text-center">
                 Obj. 2
               </th>
-              <th className="text-center py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray">
+              <th className="text-center">
                 Obj. 3
               </th>
-              <th className="text-center py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray w-[80px]">
+              <th className="text-center w-[80px]">
                 Score
               </th>
-              <th className="text-center py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray w-[80px]">
+              <th className="text-center w-[80px]">
                 Statut
               </th>
-              <th className="text-center py-2 px-2 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray w-[80px]">
+              <th className="text-center w-[80px]">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr
-                key={row.code}
-                className="border-b border-izi-gray-lt last:border-b-0 hover:bg-izi-gray-lt/50 transition-colors"
-              >
-                <td className="py-2.5 px-2">
+              <tr key={row.code}>
+                <td>
                   <Link
                     href={row.href}
                     className="flex items-center gap-2 no-underline text-dark hover:text-teal"
@@ -351,7 +348,7 @@ function SynthesisTable({
                 {[0, 1, 2].map((i) => {
                   const obj = row.objectives[i];
                   return (
-                    <td key={i} className="py-2.5 px-2 text-center">
+                    <td key={i} className="text-center">
                       {obj ? (
                         <Link
                           href={`${row.href}#obj-${obj.id}`}
@@ -373,7 +370,7 @@ function SynthesisTable({
                     </td>
                   );
                 })}
-                <td className="py-2.5 px-2 text-center">
+                <td className="text-center">
                   <span
                     className="font-mono text-xs font-semibold"
                     style={{ color: getScoreColor(row.overallScore) }}
@@ -381,10 +378,10 @@ function SynthesisTable({
                     {row.overallScore}%
                   </span>
                 </td>
-                <td className="py-2.5 px-2 text-center">
+                <td className="text-center">
                   <StatusBadge status={getStatusFromScore(row.overallScore)} />
                 </td>
-                <td className="py-2.5 px-2 text-center">
+                <td className="text-center">
                   {row.actionsTotal > 0 ? (
                     <Link
                       href={`${row.href}#actions`}

@@ -139,23 +139,24 @@ export default async function PushAdoptionPage() {
         <div className="px-4 py-3 border-b border-border-soft text-[11px] font-semibold uppercase tracking-[0.06em] text-izi-gray">
           Par rôle
         </div>
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="izi-table">
           <thead>
-            <tr className="text-izi-gray text-left">
-              <th className="font-medium px-4 py-2">Rôle</th>
-              <th className="font-medium px-4 py-2 text-right">Activés</th>
-              <th className="font-medium px-4 py-2 text-right">Total</th>
-              <th className="font-medium px-4 py-2 text-right">Taux</th>
+            <tr>
+              <th>Rôle</th>
+              <th className="is-num">Activés</th>
+              <th className="is-num">Total</th>
+              <th className="is-num">Taux</th>
             </tr>
           </thead>
           <tbody>
             {byRole.map((r) => (
-              <tr key={r.role} className="border-t border-border-soft">
-                <td className="px-4 py-2 text-dark">{ROLE_LABELS[r.role]}</td>
-                <td className="px-4 py-2 text-right font-mono tabular-nums text-dark">{r.withPush}</td>
-                <td className="px-4 py-2 text-right font-mono tabular-nums text-izi-gray">{r.total}</td>
+              <tr key={r.role}>
+                <td className="text-dark">{ROLE_LABELS[r.role]}</td>
+                <td className="is-num font-mono tabular-nums text-dark">{r.withPush}</td>
+                <td className="is-num font-mono tabular-nums text-izi-gray">{r.total}</td>
                 <td
-                  className="px-4 py-2 text-right font-mono tabular-nums font-semibold"
+                  className="is-num font-mono tabular-nums font-semibold"
                   style={{ color: rateColor(r.pct) }}
                 >
                   {r.pct}%
@@ -164,6 +165,7 @@ export default async function PushAdoptionPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Who hasn't enabled */}
