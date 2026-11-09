@@ -46,3 +46,12 @@ export async function validateTeamAndAssignee(
   }
   return null;
 }
+
+/** Ids of the (org) departments this user leads — grants task creation to a CONTRIBUTOR. */
+export async function loadLedDepartmentIds(orgId: string, userId: string): Promise<string[]> {
+  const rows = await prisma.departmentMember.findMany({
+    where: { userId, role: "LEAD", department: { orgId, isActive: true } },
+    select: { departmentId: true },
+  });
+  return rows.map((r) => r.departmentId);
+}

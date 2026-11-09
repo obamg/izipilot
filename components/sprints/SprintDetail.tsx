@@ -81,6 +81,8 @@ interface SprintDetailProps {
   /** Flux de colonnes de l'org + affectation des équipes (pilotent le tableau). */
   workflows: BoardWorkflowDef[];
   teamWorkflows: TeamWorkflowMap;
+  /** Departments the viewer leads — lets a CONTRIBUTOR create tasks there. */
+  ledDepartmentIds: string[];
 }
 
 export function SprintDetail({
@@ -106,6 +108,7 @@ export function SprintDetail({
   recurringTemplates,
   workflows,
   teamWorkflows,
+  ledDepartmentIds,
 }: SprintDetailProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("board");
@@ -121,6 +124,9 @@ export function SprintDetail({
   const canManageTasks = isManagement || currentUserRole === "PO";
   const canEdit = canManageTasks; // who may open the full edit modal
   const isContributor = currentUserRole === "CONTRIBUTOR";
+  // A CONTRIBUTOR who leads a department may create tasks, for it only.
+  const isLead = isContributor && ledDepartmentIds.length > 0;
+  const canCreate = canManageTasks || isLead;
 
   // Management/PO open the full modal on any card; a CONTRIBUTOR opens a
   // report-link-only modal on cards assigned to them.
@@ -296,7 +302,7 @@ export function SprintDetail({
               currentUserId={currentUserId}
               currentUserRole={currentUserRole}
             />
-            {canManageTasks && (
+            {canCreate && (
               <button
                 type="button"
                 onClick={() => setCreating(true)}
@@ -346,7 +352,7 @@ export function SprintDetail({
             targetSprintName={sprint.name}
             currentUserRole={currentUserRole}
             onEdit={canEdit ? (t) => setEditing(t) : undefined}
-            onCreate={canManageTasks ? () => setCreating(true) : undefined}
+            onCreate={canCreate ? () => setCreating(true) : undefined}
           />
         </div>
       )}
@@ -422,9 +428,9 @@ export function SprintDetail({
         <SprintTaskModal
           defaultSprintId={tab === "backlog" ? null : sprint.id}
           users={users}
-          products={products}
-          departments={departments}
-          krs={krs}
+          products={isLead ? [] : products}
+          departments={isLead ? departments.filter((d) => ledDepartmentIds.includes(d.id)) : departments}
+          krs={isLead ? krs.filter((k) => ledDepartmentIds.some((id) => k.entityKey === `D:${id}`)) : krs}
           currentUserId={currentUserId}
           currentUserRole={currentUserRole}
           onClose={() => setCreating(false)}

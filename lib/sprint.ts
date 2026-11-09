@@ -492,3 +492,15 @@ export function daysRemaining(endDate: Date, now: Date = new Date()): number {
   const ms = startOfDay(endDate).getTime() - startOfDay(now).getTime();
   return Math.max(0, Math.round(ms / 86_400_000));
 }
+
+/**
+ * A CONTRIBUTOR may create a task only for a department they LEAD
+ * (DepartmentMember.role = "LEAD") — never on a product, never teamless.
+ * CEO / MANAGEMENT / PO are gated by role elsewhere.
+ */
+export function contributorMayCreateTask(
+  ledDepartmentIds: string[],
+  d: { departmentId?: string | null; productId?: string | null }
+): boolean {
+  return !d.productId && !!d.departmentId && ledDepartmentIds.includes(d.departmentId);
+}

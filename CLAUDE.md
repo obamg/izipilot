@@ -205,7 +205,8 @@ CONTRIBUTOR  → Membre d'équipe département
               → Lecture de tous les OKRs (sauf D7)
               → Saisie hebdo des KRs de son département (via DepartmentMember)
               → Changement de statut + déplacement Kanban des tâches qui lui sont assignées
-              → Pas de création/suppression de tâches, OKRs, KRs ni de décisions
+              → Si LEAD d'un département (DepartmentMember.role) : création de tâches pour ce département uniquement
+              → Pas de suppression de tâches, ni de création d'OKRs, KRs ou décisions
 VIEWER       → Lecture seule de tout
 ```
 
