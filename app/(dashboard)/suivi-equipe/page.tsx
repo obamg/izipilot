@@ -132,33 +132,34 @@ function Section({
         </div>
         {note && <p className="text-[11px] text-izi-gray mt-1">{note}</p>}
       </div>
-      <table className="w-full text-[13px]">
+      <div className="overflow-x-auto">
+      <table className="izi-table is-compact">
         <thead>
-          <tr className="text-izi-gray text-left">
-            <th className="font-medium px-4 py-2">Membre</th>
-            <th className="font-medium px-4 py-2 text-right">En cours</th>
-            <th className="font-medium px-4 py-2 text-right">Assignées</th>
-            <th className="font-medium px-4 py-2 text-center">Rapport</th>
-            <th className="font-medium px-4 py-2">Manquements</th>
+          <tr>
+            <th>Membre</th>
+            <th className="is-num">En cours</th>
+            <th className="is-num">Assignées</th>
+            <th className="text-center">Rapport</th>
+            <th>Manquements</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.userId} className="border-t border-border-soft">
-              <td className="px-4 py-2 text-dark">
+            <tr key={r.userId}>
+              <td className="text-dark">
                 {r.userName}
                 <span className="ml-1.5 text-[10px] text-izi-gray">
                   {ROLE_LABELS[r.role] ?? r.role}
                 </span>
               </td>
-              <td className="px-4 py-2 text-right font-mono tabular-nums text-dark">
+              <td className="is-num font-mono tabular-nums text-dark">
                 {r.inProgressCount}
               </td>
-              <td className="px-4 py-2 text-right font-mono tabular-nums text-izi-gray">
+              <td className="is-num font-mono tabular-nums text-izi-gray">
                 {r.assignedCount}
               </td>
-              <td className="px-4 py-2 text-center">{r.hasStandupToday ? "✓" : "—"}</td>
-              <td className="px-4 py-2 text-[11px] text-izi-gray">
+              <td className="text-center">{r.hasStandupToday ? "✓" : "—"}</td>
+              <td className="text-izi-gray">
                 {r.issues.length === 0
                   ? "—"
                   : r.issues
@@ -169,6 +170,7 @@ function Section({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

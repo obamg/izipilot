@@ -97,21 +97,22 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
       {asset.levels.length === 0 ? (
         <p className="text-[11px] text-izi-gray">Aucun niveau défini.</p>
       ) : (
-        <table className="w-full text-[11px]">
+        <div className="overflow-x-auto">
+        <table className="izi-table">
           <thead>
-            <tr className="text-izi-gray text-left">
-              <th className="py-1 font-medium">Niveau</th>
-              <th className="py-1 font-medium">Priorité</th>
-              <th className="py-1 font-medium">Admin</th>
-              <th className="py-1"></th>
+            <tr>
+              <th>Niveau</th>
+              <th>Priorité</th>
+              <th>Admin</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {asset.levels.map((l) => (
-              <tr key={l.id} className={l.archivedAt ? "opacity-50" : ""}>
-                <td className="py-1 text-dark">{l.name}</td>
-                <td className="py-1 font-mono">{l.priority ?? "—"}</td>
-                <td className="py-1">
+              <tr key={l.id} data-muted={l.archivedAt ? "" : undefined}>
+                <td className="text-dark">{l.name}</td>
+                <td className="font-mono">{l.priority ?? "—"}</td>
+                <td>
                   <button
                     type="button"
                     onClick={() => toggleAdmin(l)}
@@ -123,7 +124,7 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
                     {l.isAdmin === null ? "Non défini" : l.isAdmin ? "Oui" : "Non"}
                   </button>
                 </td>
-                <td className="py-1 text-right">
+                <td className="text-right">
                   {!l.archivedAt && (
                     <button
                       type="button"
@@ -138,6 +139,7 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <div className="flex items-end gap-2 border-t border-border-soft pt-3">

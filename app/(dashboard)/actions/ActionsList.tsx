@@ -328,28 +328,28 @@ export function ActionsList({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
+            <table className="izi-table">
               <thead>
-                <tr className="border-b border-izi-gray-lt bg-izi-gray-lt/30">
-                  <th className="text-left py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray">
+                <tr>
+                  <th>
                     Action
                   </th>
-                  <th className="text-left py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray hidden md:table-cell">
+                  <th className="hidden md:table-cell">
                     Key Result
                   </th>
-                  <th className="text-left py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray hidden lg:table-cell">
+                  <th className="hidden lg:table-cell">
                     Entit&eacute;
                   </th>
-                  <th className="text-center py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray">
+                  <th className="text-center">
                     Statut
                   </th>
-                  <th className="text-center py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray">
+                  <th className="text-center">
                     Priorit&eacute;
                   </th>
-                  <th className="text-left py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray hidden sm:table-cell">
+                  <th className="hidden sm:table-cell">
                     Responsable
                   </th>
-                  <th className="text-left py-2 px-3 text-[9px] font-semibold tracking-[0.07em] uppercase text-izi-gray hidden lg:table-cell">
+                  <th className="hidden lg:table-cell">
                     &Eacute;ch&eacute;ance
                   </th>
                 </tr>
@@ -378,11 +378,9 @@ export function ActionsList({
                               })
                           : undefined
                       }
-                      className={`border-b border-izi-gray-lt last:border-b-0 hover:bg-izi-gray-lt/30 transition-colors ${
-                        canEdit ? "cursor-pointer" : ""
-                      }`}
+                      className={canEdit ? "cursor-pointer" : undefined}
                     >
-                      <td className="py-2.5 px-3">
+                      <td>
                         <div className={`font-medium ${action.status === "DONE" ? "line-through text-izi-gray" : "text-dark"}`}>
                           {action.title}
                         </div>
@@ -390,24 +388,24 @@ export function ActionsList({
                           <span className="text-[9px] text-izi-gray">{action.commentCount} commentaire{action.commentCount > 1 ? "s" : ""}</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-izi-gray hidden md:table-cell max-w-[150px] truncate">
+                      <td className="text-izi-gray hidden md:table-cell max-w-[150px] truncate">
                         {action.krTitle}
                       </td>
-                      <td className="py-2.5 px-3 hidden lg:table-cell">
+                      <td className="hidden lg:table-cell">
                         <span className="font-mono text-[9px] font-semibold text-teal bg-teal-lt px-1.5 py-0.5 rounded">
                           {action.entityCode}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="text-center">
                         <ActionStatusBadge status={action.status} />
                       </td>
-                      <td className="py-2.5 px-3 text-center">
+                      <td className="text-center">
                         <ActionPriorityBadge priority={action.priority} />
                       </td>
-                      <td className="py-2.5 px-3 text-izi-gray hidden sm:table-cell">
+                      <td className="text-izi-gray hidden sm:table-cell">
                         {action.assigneeName}
                       </td>
-                      <td className={`py-2.5 px-3 font-mono hidden lg:table-cell ${isOverdue ? "text-[var(--red)] font-semibold" : "text-izi-gray"}`}>
+                      <td className={`font-mono hidden lg:table-cell ${isOverdue ? "text-[var(--red)] font-semibold" : "text-izi-gray"}`}>
                         {action.dueDate
                           ? new Date(action.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
                           : "\u2014"}

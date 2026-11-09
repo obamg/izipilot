@@ -54,28 +54,29 @@ export default async function MyRequestsPage() {
         {serializedRequests.length === 0 ? (
           <p className="text-[12px] text-izi-gray">Aucune demande pour l&apos;instant.</p>
         ) : (
-          <table className="w-full text-[11px]">
+          <div className="overflow-x-auto">
+          <table className="izi-table">
             <thead>
-              <tr className="text-izi-gray text-left">
-                <th className="py-1 font-medium">Actif</th>
-                <th className="py-1 font-medium">Niveau visé</th>
-                <th className="py-1 font-medium">Type</th>
-                <th className="py-1 font-medium">Statut</th>
-                <th className="py-1 font-medium">Actions</th>
+              <tr>
+                <th>Actif</th>
+                <th>Niveau visé</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {serializedRequests.map((r) => (
-                <tr key={r.versionId} className="border-t border-border-soft">
-                  <td className="py-1" title={r.justification}>
+                <tr key={r.versionId}>
+                  <td title={r.justification}>
                     {r.assetName}
                     {/* Visible en plus du title : le title seul est inutile
                        au doigt sur mobile, où les POs saisissent (CLAUDE.md). */}
                     <p className="text-[11px] text-izi-gray mt-0.5">{r.justification}</p>
                   </td>
-                  <td className="py-1">{r.targetLevelName ?? "—"}</td>
-                  <td className="py-1">{REQUEST_KIND_LABELS[r.kind] ?? r.kind}</td>
-                  <td className="py-1">
+                  <td>{r.targetLevelName ?? "—"}</td>
+                  <td>{REQUEST_KIND_LABELS[r.kind] ?? r.kind}</td>
+                  <td>
                     {requestStateLabel({
                       state: r.state,
                       periodStart: r.periodStart,
@@ -89,7 +90,7 @@ export default async function MyRequestsPage() {
                       </p>
                     )}
                   </td>
-                  <td className="py-1">
+                  <td>
                     <MyRequestActions
                       row={{
                         requestId: r.requestId,
@@ -108,6 +109,7 @@ export default async function MyRequestsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

@@ -364,27 +364,24 @@ export default async function CustomerMetricsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="izi-table is-compact">
               <thead>
-                <tr className="text-[9px] uppercase tracking-wide text-izi-gray font-semibold border-b border-border-soft">
-                  <th className="py-2 pr-3 w-8">#</th>
-                  <th className="py-2 pr-3">Agent</th>
-                  <th className="py-2 pr-3 text-right">Tickets 7j</th>
-                  <th className="py-2 pr-3 text-right">Jours actifs</th>
-                  <th className="py-2 pr-3 text-right">R&eacute;solution moy.</th>
-                  <th className="py-2 text-right">SLA d&eacute;pass&eacute;s</th>
+                <tr>
+                  <th className="w-8">#</th>
+                  <th>Agent</th>
+                  <th className="is-num">Tickets 7j</th>
+                  <th className="is-num">Jours actifs</th>
+                  <th className="is-num">R&eacute;solution moy.</th>
+                  <th className="is-num">SLA d&eacute;pass&eacute;s</th>
                 </tr>
               </thead>
               <tbody>
                 {weekTotals.agents.map((a, idx) => (
-                  <tr
-                    key={a.agentId}
-                    className="border-b border-border-soft last:border-0"
-                  >
-                    <td className="py-2.5 pr-3 font-mono text-[11px] text-izi-gray">
+                  <tr key={a.agentId}>
+                    <td className="font-mono text-izi-gray">
                       {idx + 1}
                     </td>
-                    <td className="py-2.5 pr-3">
+                    <td>
                       <div className="text-sm text-dark font-medium">
                         {a.agentName}
                       </div>
@@ -394,14 +391,14 @@ export default async function CustomerMetricsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-dark">
+                    <td className="is-num font-mono text-dark">
                       {a.ticketsHandled}
                     </td>
-                    <td className="py-2.5 pr-3 text-right font-mono text-[12px] text-izi-gray">
+                    <td className="is-num font-mono text-izi-gray">
                       {a.daysActive}/7
                     </td>
                     <td
-                      className="py-2.5 pr-3 text-right font-mono text-[12px]"
+                      className="is-num font-mono"
                       style={{
                         color:
                           a.avgResolutionHours !== null
@@ -414,7 +411,7 @@ export default async function CustomerMetricsPage() {
                         : "\u2014"}
                     </td>
                     <td
-                      className="py-2.5 text-right font-mono text-[12px] font-semibold"
+                      className="is-num font-mono font-semibold"
                       style={{ color: slaColor(a.slaBreached) }}
                     >
                       {a.slaBreached}

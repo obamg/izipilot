@@ -42,31 +42,31 @@ export function AccessAuditTable({ rows, page, pageSize, total }: AccessAuditTab
           Aucun événement enregistré pour l&apos;instant.
         </div>
       ) : (
-        <div className="rounded-[10px] border border-border-soft bg-white overflow-x-auto">
-          <table className="w-full text-[12px]">
+        <div className="izi-table-wrap">
+          <table className="izi-table">
             <thead>
-              <tr className="border-b border-border-soft text-izi-gray text-left">
-                <th className="px-4 py-2 font-medium">Date</th>
-                <th className="px-4 py-2 font-medium">Acteur</th>
-                <th className="px-4 py-2 font-medium">Événement</th>
-                <th className="px-4 py-2 font-medium">Objet</th>
-                <th className="px-4 py-2 font-medium">Bénéficiaire</th>
-                <th className="px-4 py-2 font-medium">Résultat</th>
+              <tr>
+                <th>Date</th>
+                <th>Acteur</th>
+                <th>Événement</th>
+                <th>Objet</th>
+                <th>Bénéficiaire</th>
+                <th>Résultat</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-border-soft last:border-0">
-                  <td className="px-4 py-2 font-mono text-izi-gray">
+                <tr key={r.id}>
+                  <td className="font-mono text-izi-gray">
                     {new Date(r.occurredAt).toLocaleString("fr-FR", { timeZone: "Africa/Porto-Novo" })}
                   </td>
-                  <td className="px-4 py-2 text-dark">{r.actorName ?? r.actorId}</td>
-                  <td className="px-4 py-2 text-dark">{r.eventType}</td>
-                  <td className="px-4 py-2 text-izi-gray">
+                  <td className="text-dark">{r.actorName ?? r.actorId}</td>
+                  <td className="text-dark">{r.eventType}</td>
+                  <td className="text-izi-gray">
                     {r.objectType}:{r.objectId}
                   </td>
-                  <td className="px-4 py-2 text-izi-gray">{r.beneficiaryName ?? r.beneficiaryId ?? "—"}</td>
-                  <td className="px-4 py-2 text-izi-gray">{r.outcome}</td>
+                  <td className="text-izi-gray">{r.beneficiaryName ?? r.beneficiaryId ?? "—"}</td>
+                  <td className="text-izi-gray">{r.outcome}</td>
                 </tr>
               ))}
             </tbody>

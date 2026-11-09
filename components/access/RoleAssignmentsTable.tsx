@@ -86,23 +86,24 @@ export function RoleAssignmentsTable({ assignments, users }: RoleAssignmentsTabl
           Aucun rôle attribué pour l&apos;instant.
         </div>
       ) : (
-        <table className="w-full text-[12px]">
+        <div className="overflow-x-auto">
+        <table className="izi-table">
           <thead>
-            <tr className="border-b border-border-soft text-izi-gray text-left">
-              <th className="px-4 py-2 font-medium">Rôle</th>
-              <th className="px-4 py-2 font-medium">Titulaire</th>
-              <th className="px-4 py-2 font-medium">Suppléant</th>
-              <th className="px-4 py-2 font-medium">Disponibilité</th>
-              <th className="px-4 py-2"></th>
+            <tr>
+              <th>Rôle</th>
+              <th>Titulaire</th>
+              <th>Suppléant</th>
+              <th>Disponibilité</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {visibleAssignments.map((a) => (
-              <tr key={a.id} className="border-b border-border-soft last:border-0">
-                <td className="px-4 py-2 font-medium text-dark">{ROLE_LABELS[a.role]}</td>
-                <td className="px-4 py-2 text-dark">{a.userName}</td>
-                <td className="px-4 py-2 text-izi-gray">{a.backupUserName ?? "—"}</td>
-                <td className="px-4 py-2">
+              <tr key={a.id}>
+                <td className="font-medium text-dark">{ROLE_LABELS[a.role]}</td>
+                <td className="text-dark">{a.userName}</td>
+                <td className="text-izi-gray">{a.backupUserName ?? "—"}</td>
+                <td>
                   <button
                     type="button"
                     onClick={() => toggleUnavailable(a.id, a.primaryUnavailable)}
@@ -115,7 +116,7 @@ export function RoleAssignmentsTable({ assignments, users }: RoleAssignmentsTabl
                     {a.primaryUnavailable ? "Indisponible" : "Disponible"}
                   </button>
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="text-right">
                   <button
                     type="button"
                     onClick={() => removeAssignment(a.id)}
@@ -128,6 +129,7 @@ export function RoleAssignmentsTable({ assignments, users }: RoleAssignmentsTabl
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <RoleAssignmentFormModal open={modalOpen} onClose={() => setModalOpen(false)} users={users} />
