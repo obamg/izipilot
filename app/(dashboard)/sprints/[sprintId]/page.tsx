@@ -26,6 +26,7 @@ import {
 import { canManageRecurring } from "@/lib/recurring-task";
 import { loadWorkflows, loadTeamWorkflowMap } from "@/lib/board-column-server";
 import { loadViewerTeams } from "@/lib/sprint-request-server";
+import { loadLedDepartmentIds } from "@/lib/sprint-refs";
 import { watDateOnly, toDateKey, planLookbackFloor } from "@/lib/standup";
 import { SprintDetail } from "@/components/sprints/SprintDetail";
 
@@ -193,9 +194,10 @@ export default async function SprintDetailPage({
 
   // Flux de colonnes : le tableau affiche celui de l'équipe filtrée, donc il
   // faut les charger tous plus la table d'affectation.
-  const [workflows, teamWorkflows] = await Promise.all([
+  const [workflows, teamWorkflows, ledDepartmentIds] = await Promise.all([
     loadWorkflows(orgId),
     loadTeamWorkflowMap(orgId),
+    role === "CONTRIBUTOR" ? loadLedDepartmentIds(orgId, session.user.id) : Promise.resolve([]),
   ]);
 
   const previousPlan =
@@ -245,6 +247,7 @@ export default async function SprintDetailPage({
       recurringTemplates={recurringTemplates}
       workflows={workflows}
       teamWorkflows={teamWorkflows}
+      ledDepartmentIds={ledDepartmentIds}
     />
   );
 }

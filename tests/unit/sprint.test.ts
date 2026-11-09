@@ -14,6 +14,7 @@ import {
   pickCarryTarget,
   pickChainTarget,
   describeClosePlan,
+  contributorMayCreateTask,
   UNFINISHED_STATUSES,
   type ClosePlan,
   type SprintTaskLike,
@@ -510,5 +511,18 @@ describe('computeVelocity with snapshots', () => {
       { name: 'S1', tasks: [task('DONE', 5), task('TODO', 3), task('CANCELLED', 8)] },
     ])
     expect(v[0]).toEqual({ name: 'S1', committedPoints: 8, completedPoints: 5 })
+  })
+})
+
+describe('contributorMayCreateTask', () => {
+  const led = ['d1']
+  it('allows a department the contributor leads', () => {
+    expect(contributorMayCreateTask(led, { departmentId: 'd1' })).toBe(true)
+  })
+  it('refuses another department, a product, or no team', () => {
+    expect(contributorMayCreateTask(led, { departmentId: 'd2' })).toBe(false)
+    expect(contributorMayCreateTask(led, { departmentId: 'd1', productId: 'p1' })).toBe(false)
+    expect(contributorMayCreateTask(led, {})).toBe(false)
+    expect(contributorMayCreateTask([], { departmentId: 'd1' })).toBe(false)
   })
 })

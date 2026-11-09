@@ -1,3 +1,4 @@
+import { MANAGEMENT_DEPT_CODE } from "@/lib/visibility";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -45,4 +46,18 @@ export async function validateTeamAndAssignee(
     }
   }
   return null;
+}
+
+/** Ids of the (org) departments this user leads — grants task creation to a CONTRIBUTOR. */
+export async function loadLedDepartmentIds(orgId: string, userId: string): Promise<string[]> {
+  const rows = await prisma.departmentMember.findMany({
+    // D7 (Management) excluded: a CONTRIBUTOR can't even see its tasks.
+    where: {
+      userId,
+      role: "LEAD",
+      department: { orgId, isActive: true, code: { not: MANAGEMENT_DEPT_CODE } },
+    },
+    select: { departmentId: true },
+  });
+  return rows.map((r) => r.departmentId);
 }

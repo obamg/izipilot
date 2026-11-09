@@ -74,7 +74,7 @@ export function BacklogPanel({
             </>
           )}
         </p>
-        {canManage && onCreate && (
+        {onCreate && (
           <button
             type="button"
             onClick={onCreate}

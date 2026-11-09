@@ -7,7 +7,8 @@ import {
   sprintTaskInclude,
   serializeSprintTask,
 } from "@/lib/sprint-serialize";
-import { validateTeamAndAssignee } from "@/lib/sprint-refs";
+import { validateTeamAndAssignee, loadLedDepartmentIds } from "@/lib/sprint-refs";
+import { contributorMayCreateTask } from "@/lib/sprint";
 import { resolveInitialColumn } from "@/lib/board-column-server";
 
 export async function GET(request: NextRequest) {
@@ -58,9 +59,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // VIEWER and CONTRIBUTOR cannot create tasks (CONTRIBUTOR may only move
-  // their own assigned tasks — see PATCH).
-  if (session.user.role === "VIEWER" || session.user.role === "CONTRIBUTOR") {
+  // VIEWER never creates tasks. A CONTRIBUTOR may only when they LEAD the
+  // target department (checked after parsing, below).
+  if (session.user.role === "VIEWER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -74,6 +75,17 @@ export async function POST(request: NextRequest) {
   }
   const d = parsed.data;
   const orgId = session.user.orgId;
+  const isContributor = session.user.role === "CONTRIBUTOR";
+
+  if (isContributor) {
+    const led = await loadLedDepartmentIds(orgId, session.user.id);
+    if (!contributorMayCreateTask(led, d)) {
+      return Response.json(
+        { error: "Forbidden: only a department lead can create tasks for it" },
+        { status: 403 }
+      );
+    }
+  }
 
   // Validate the (optional) sprint belongs to the org.
   if (d.sprintId) {
@@ -95,7 +107,12 @@ export async function POST(request: NextRequest) {
         orgId,
         isActive: true,
         deletedAt: null,
-        ...krVisibilityWhere(session.user.role),
+        // AND, not spread: krVisibilityWhere also sets `objective` (D7 hiding).
+        // A lead may only link a KR of the department they create for.
+        AND: [
+          krVisibilityWhere(session.user.role),
+          isContributor ? { objective: { departmentId: d.departmentId } } : {},
+        ],
       },
       select: { ownerId: true },
     });
