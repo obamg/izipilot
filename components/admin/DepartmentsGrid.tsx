@@ -109,6 +109,27 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
     }
   }
 
+  async function handleToggleLead(deptId: string, m: MemberData) {
+    setMemberLoading(true);
+    try {
+      const res = await fetch(`/api/admin/departments/${deptId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: m.id, role: m.role === "LEAD" ? "MEMBER" : "LEAD" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || "Erreur");
+        return;
+      }
+      startTransition(() => router.refresh());
+    } catch (err) {
+      console.error("Failed to change member role:", err);
+    } finally {
+      setMemberLoading(false);
+    }
+  }
+
   function getAvailableUsers(dept: DeptData) {
     const memberUserIds = new Set(dept.members.map((m) => m.userId));
     return users.filter((u) => !memberUserIds.has(u.id));
@@ -243,11 +264,26 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
                           {m.name}
                         </span>
                       </div>
-                      {m.role === "LEAD" && (
-                        <span className="text-[8px] font-semibold px-[5px] py-[1px] rounded bg-gold/20 text-gold">
-                          LEAD
-                        </span>
-                      )}
+                      {/* Toggle Membre ↔ Lead (un lead peut créer des tâches pour ce département). */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLead(d.id, m)}
+                        disabled={memberLoading}
+                        aria-pressed={m.role === "LEAD"}
+                        aria-label={
+                          m.role === "LEAD"
+                            ? `Retirer le rôle Lead de ${m.name}`
+                            : `Nommer ${m.name} Lead du département`
+                        }
+                        title={m.role === "LEAD" ? "Lead — cliquer pour repasser Membre" : "Membre — cliquer pour nommer Lead"}
+                        className={`text-[9px] font-semibold px-[6px] py-[1px] rounded border transition-colors disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-teal ${
+                          m.role === "LEAD"
+                            ? "bg-gold-lt border-gold/40 text-gold-dk hover:bg-gold/20"
+                            : "bg-white border-border-soft text-izi-gray hover:border-teal-md hover:text-teal"
+                        }`}
+                      >
+                        {m.role === "LEAD" ? "Lead" : "Membre"}
+                      </button>
                       <button
                         onClick={() => handleRemoveMember(d.id, m.id)}
                         className="opacity-0 group-hover:opacity-100 text-[9px] text-izi-red hover:text-izi-red/80 transition-all"

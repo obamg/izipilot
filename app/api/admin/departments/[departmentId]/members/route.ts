@@ -126,3 +126,38 @@ export async function DELETE(request: Request, { params }: Params) {
 
   return Response.json({ success: true });
 }
+
+const updateMemberSchema = z.object({
+  memberId: z.string(),
+  role: z.enum(["MEMBER", "LEAD"]),
+});
+
+// PATCH — promote a member to LEAD or back to MEMBER.
+export async function PATCH(request: Request, { params }: Params) {
+  const session = await requireCEO();
+  const orgId = session.user.orgId;
+  const { departmentId } = await params;
+
+  const parsed = updateMemberSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json(
+      { error: "Validation error", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  const member = await prisma.departmentMember.findFirst({
+    where: { id: parsed.data.memberId, departmentId, department: { orgId } },
+    select: { id: true },
+  });
+  if (!member) {
+    return Response.json({ error: "Membre introuvable" }, { status: 404 });
+  }
+
+  const updated = await prisma.departmentMember.update({
+    where: { id: member.id },
+    data: { role: parsed.data.role },
+    select: { id: true, role: true },
+  });
+  return Response.json({ data: updated });
+}
