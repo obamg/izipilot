@@ -76,7 +76,7 @@ export function MobileTabBar({
   return (
     <nav
       aria-label="Navigation principale"
-      className="fixed bottom-0 inset-x-0 z-[var(--z-fab)] lg:hidden bg-dark border-t border-white/[0.08] flex items-stretch px-1 pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 inset-x-0 z-[var(--z-fab)] md:hidden bg-dark border-t border-white/[0.08] flex items-stretch px-1 pb-[env(safe-area-inset-bottom)]"
     >
       {TABS.map((tab) => {
         const isActive = !menuOpen && pathname === tab.href;

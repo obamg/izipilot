@@ -77,7 +77,7 @@ export function DashboardShell({
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
-        <main className="flex-1 overflow-y-auto p-6 pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-6 pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-6">
           {children}
         </main>
       </div>

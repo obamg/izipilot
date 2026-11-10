@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 
@@ -13,20 +12,7 @@ interface NavProps {
   alertCount?: number;
 }
 
-const TABS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/weekly", label: "Ma revue" },
-  { href: "/synthesis", label: "Synthèse" },
-  { href: "/history", label: "Historique" },
-  { href: "/alerts", label: "Alertes" },
-  { href: "/actions", label: "Actions" },
-  { href: "/sprints", label: "Sprints" },
-  { href: "/evaluations", label: "Évaluations" },
-  { href: "/my-evaluations", label: "Mes évaluations" },
-] as const;
-
 export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0 }: NavProps) {
-  const pathname = usePathname();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -69,38 +55,6 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
           Izi<span className="font-serif font-normal">Pilot</span>
         </span>
       </Link>
-
-      {/* Tabs */}
-      <div className="hidden md:flex items-center gap-1 bg-white/[0.06] rounded-lg p-1">
-        {TABS.map((tab) => {
-          const isActive = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`px-3.5 py-[7px] text-sm font-medium rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
-                isActive
-                  ? "bg-teal text-white shadow-sm shadow-teal/25"
-                  : "text-white/65 hover:bg-white/[0.08] hover:text-white"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-        {userRole === "CEO" && (
-          <Link
-            href="/admin"
-            className={`px-3.5 py-[7px] text-sm font-medium rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
-              pathname.startsWith("/admin")
-                ? "bg-teal text-white shadow-sm shadow-teal/25"
-                : "text-white/65 hover:bg-white/[0.08] hover:text-white"
-            }`}
-          >
-            Admin
-          </Link>
-        )}
-      </div>
 
       {/* Right section */}
       <div className="flex items-center gap-3">
