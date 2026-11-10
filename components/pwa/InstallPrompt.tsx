@@ -92,7 +92,7 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-label="Installer IziPilot"
-      className="fixed left-4 right-4 lg:left-auto lg:right-6 lg:max-w-sm z-[var(--z-toast)] bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-6 bg-white border border-teal-md rounded-xl shadow-xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-200"
+      className="fixed left-4 right-4 lg:left-auto lg:right-6 lg:max-w-sm z-[var(--z-toast)] bottom-[calc(72px+env(safe-area-inset-bottom))] lg:bottom-6 bg-white border border-teal-md rounded-xl shadow-xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-200"
     >
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 bg-teal rounded-[10px] flex items-center justify-center shrink-0" aria-hidden="true">
