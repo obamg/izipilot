@@ -110,6 +110,35 @@ body {
   font-family: var(--font-sans);
 }
 
+/* ── Sidebar repliée (ordinateur) ─────────────────────────────────────
+   Les liens gardent leur texte dans le DOM (nom accessible, infobulle) mais
+   il est masqué par font-size: 0 ; les icônes ont une taille fixe. Les
+   badges (alertes, notifications, « Due ») deviennent une pastille.
+   Hors @layer pour passer devant les utilitaires Tailwind des liens. */
+@media (min-width: 1024px) {
+  .izi-sidebar[data-collapsed="true"] > div { padding-left: 8px; padding-right: 8px; }
+  .izi-sidebar[data-collapsed="true"] .izi-sidebar-heading { display: none; }
+  .izi-sidebar[data-collapsed="true"] a {
+    position: relative;
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+    font-size: 0;
+  }
+  .izi-sidebar[data-collapsed="true"] a > span {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border-radius: 9999px;
+    font-size: 0;
+    background: var(--gold);
+  }
+}
+
 /* ── Tables — standard IziPilot ─────────────────────────────────────────
    One look for every data table. Wrap in .izi-table-wrap (white card,
    horizontal scroll on small screens), then <table class="izi-table">.

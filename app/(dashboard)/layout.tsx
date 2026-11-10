@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PushNudgeBanner } from "@/components/push/PushNudgeBanner";
 import { SWRegister } from "@/components/pwa/SWRegister";
@@ -173,8 +174,13 @@ export default async function DashboardLayout({
   // (archivés compris) ou la portée ALL — calculé côté serveur, comme ci-dessus.
   const fulfilmentFlags = fulfilmentNavFlags(readScopes, fulfilmentAssetIds);
 
+  // Lu côté serveur pour que la sidebar s'affiche directement dans le bon
+  // état, sans flash au chargement (cf. Sidebar.tsx).
+  const sidebarCollapsed = (await cookies()).get("sidebar")?.value === "collapsed";
+
   return (
     <DashboardShell
+      sidebarCollapsed={sidebarCollapsed}
       userName={session.user.name}
       userRole={session.user.role}
       weekNumber={weekNumber}
