@@ -9,11 +9,7 @@ import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { getISOWeek } from "@/lib/date";
 import { evaluatePushGate } from "@/lib/push-gate-server";
 import { evaluateOneMember } from "@/lib/member-compliance-server";
-import {
-  alertVisibilityWhere,
-  departmentVisibilityWhere,
-  krVisibilityWhere,
-} from "@/lib/visibility";
+import { alertVisibilityWhere } from "@/lib/visibility";
 import { getEffectiveRoleHolders } from "@/lib/access/roles-server";
 import { getOwnedAssetIds } from "@/lib/access/register-server";
 import { resolveReadScopes } from "@/lib/access/scope";
@@ -68,50 +64,13 @@ export default async function DashboardLayout({
   }
   if (blocked) redirect("/mon-point-du-jour");
 
-  // Fetch sidebar data: products + departments with average scores
   const [
-    products,
-    departments,
     unresolvedAlertCount,
     myNotificationCount,
     accessRoles,
     ownedAssetIds,
     fulfilmentAssetIds,
   ] = await Promise.all([
-    prisma.product.findMany({
-      where: { orgId, isActive: true },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        objectives: {
-          where: { isActive: true },
-          include: {
-            keyResults: {
-              where: { isActive: true },
-              select: { score: true },
-            },
-          },
-        },
-      },
-    }),
-    prisma.department.findMany({
-      where: {
-        orgId,
-        isActive: true,
-        ...departmentVisibilityWhere(session.user.role),
-      },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        objectives: {
-          where: { isActive: true },
-          include: {
-            keyResults: {
-              where: { isActive: true, ...krVisibilityWhere(session.user.role) },
-              select: { score: true },
-            },
-          },
-        },
-      },
-    }),
     prisma.alert.count({
       where: { orgId, isResolved: false, ...alertVisibilityWhere(session.user.role) },
     }),
@@ -131,32 +90,6 @@ export default async function DashboardLayout({
     getOwnedAssetIds(orgId, userId),
     getFulfilmentAssetIds(prisma, orgId, userId),
   ]);
-
-  // Compute average score for each entity
-  function computeAvgScore(
-    objectives: { keyResults: { score: unknown }[] }[]
-  ): number {
-    const allScores = objectives.flatMap((o) =>
-      o.keyResults.map((kr) => Number(kr.score))
-    );
-    if (allScores.length === 0) return 0;
-    const avg = allScores.reduce((a, b) => a + b, 0) / allScores.length;
-    return Math.round(avg * 100);
-  }
-
-  const sidebarProducts = products.map((p) => ({
-    code: p.code,
-    name: p.name,
-    color: p.color,
-    scorePercent: computeAvgScore(p.objectives),
-  }));
-
-  const sidebarDepartments = departments.map((d) => ({
-    code: d.code,
-    name: d.name,
-    color: d.color,
-    scorePercent: computeAvgScore(d.objectives),
-  }));
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -187,8 +120,6 @@ export default async function DashboardLayout({
       year={year}
       alertCount={unresolvedAlertCount}
       notificationCount={myNotificationCount}
-      products={sidebarProducts}
-      departments={sidebarDepartments}
       canManageAccessRoles={canManageAccessRoles}
       canManageAccessAssets={canManageAccessAssets}
       canViewAccessAudit={canViewAccessAudit}
