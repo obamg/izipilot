@@ -29,6 +29,7 @@ interface DashboardShellProps {
   canViewDepartmentAccess: boolean;
   canViewOwnedAssetsAccess: boolean;
   canViewFulfilment: boolean;
+  sidebarCollapsed: boolean;
 }
 
 export function DashboardShell({
@@ -48,6 +49,7 @@ export function DashboardShell({
   canViewDepartmentAccess,
   canViewOwnedAssetsAccess,
   canViewFulfilment,
+  sidebarCollapsed,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -74,6 +76,7 @@ export function DashboardShell({
           canViewDepartmentAccess={canViewDepartmentAccess}
           canViewOwnedAssetsAccess={canViewOwnedAssetsAccess}
           canViewFulfilment={canViewFulfilment}
+          initialCollapsed={sidebarCollapsed}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />

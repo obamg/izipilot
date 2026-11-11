@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 interface SidebarEntity {
   code: string;
@@ -23,6 +24,7 @@ interface SidebarProps {
   canViewDepartmentAccess?: boolean;
   canViewOwnedAssetsAccess?: boolean;
   canViewFulfilment?: boolean;
+  initialCollapsed?: boolean;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -221,10 +223,30 @@ export function Sidebar({
   canViewDepartmentAccess,
   canViewOwnedAssetsAccess,
   canViewFulfilment,
+  initialCollapsed = false,
   isOpen = false,
   onClose,
 }: SidebarProps) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const asideRef = useRef<HTMLElement>(null);
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    document.cookie = `sidebar=${next ? "collapsed" : "expanded"}; path=/; max-age=31536000; samesite=lax`;
+  }
+
+  // Repliée, la sidebar ne montre que les icônes (libellés masqués en CSS,
+  // cf. .izi-sidebar dans globals.css). Une infobulle native redonne le
+  // libellé au survol — posée ici plutôt que sur chacun des ~30 liens.
+  useEffect(() => {
+    asideRef.current?.querySelectorAll("a").forEach((a) => {
+      if (collapsed) a.title = a.textContent?.trim() ?? "";
+      else a.removeAttribute("title");
+    });
+  }, [collapsed, pathname]);
+
   const searchParams = useSearchParams();
   // /actions and /actions?assignee=me share a pathname — disambiguate by
   // comparing the relevant query param so each nav item highlights only on
@@ -256,16 +278,37 @@ export function Sidebar({
       )}
 
       <aside
-        className={`bg-dark border-r border-white/[0.06] py-4 overflow-y-auto w-[250px] shrink-0
+        ref={asideRef}
+        data-collapsed={collapsed}
+        className={`izi-sidebar bg-dark border-r border-white/[0.06] py-4 overflow-y-auto w-[250px] ${collapsed ? "lg:w-[56px]" : ""} shrink-0
           pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-4
           fixed lg:static inset-y-0 left-0 z-[var(--z-drawer)] top-[56px]
           transition-transform duration-200
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
+        {/* Replier / déplier — ordinateur seulement : sur mobile, la sidebar
+            est un tiroir toujours déplié. */}
+        <div className="hidden lg:flex px-3 mb-2">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+            aria-expanded={!collapsed}
+            className="izi-sidebar-toggle flex items-center justify-center w-8 h-8 rounded-[7px] text-white/50 hover:bg-white/[0.06] hover:text-white cursor-pointer border-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16" />
+              <path d="M16 10l-2 2 2 2" />
+            </svg>
+          </button>
+        </div>
+
         {/* Navigation */}
         <div className="px-3 mb-5">
-          <div className="text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px]">
+          <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px]">
             Navigation
           </div>
           {NAV_ITEMS.map((item) => {
@@ -398,7 +441,7 @@ export function Sidebar({
               toute façon. */}
           {
             <>
-              <div className="text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px] mt-3">
+              <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px] mt-3">
                 Accès
               </div>
               <Link
@@ -530,7 +573,7 @@ export function Sidebar({
           <>
             <div className="h-px bg-white/[0.06] mx-3 mb-[14px]" />
             <div className="px-3 mb-5">
-              <div className="text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px]">
+              <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px]">
                 Administration
               </div>
               {ADMIN_ITEMS.map((item) => {
