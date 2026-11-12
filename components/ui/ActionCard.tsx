@@ -135,7 +135,7 @@ export function ActionCard({
         {due && (
           <div
             className={`flex shrink-0 items-center gap-1 text-[10px] ${
-              isOverdue ? "text-[var(--red)] font-semibold" : "text-izi-gray"
+              isOverdue ? "text-red-dk font-semibold" : "text-izi-gray"
             }`}
           >
             <svg

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { UserRole } from "@prisma/client";
 import { EXEMPT_REASONS, type ExemptReason } from "@/lib/push-gate";
+import { textTone } from "@/lib/text-tone";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +107,7 @@ export default async function PushAdoptionPage() {
         <div className="flex items-end gap-3">
           <span
             className="font-mono text-[40px] font-bold leading-none tabular-nums"
-            style={{ color: rateColor(eligiblePct) }}
+            style={{ color: textTone(rateColor(eligiblePct)) }}
           >
             {eligiblePct}%
           </span>
@@ -157,7 +158,7 @@ export default async function PushAdoptionPage() {
                 <td className="is-num font-mono tabular-nums text-izi-gray">{r.total}</td>
                 <td
                   className="is-num font-mono tabular-nums font-semibold"
-                  style={{ color: rateColor(r.pct) }}
+                  style={{ color: textTone(rateColor(r.pct)) }}
                 >
                   {r.pct}%
                 </td>

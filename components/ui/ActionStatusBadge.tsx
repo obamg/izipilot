@@ -1,4 +1,5 @@
 import type { ActionStatus } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 const ACTION_STATUS_CONFIG: Record<
   ActionStatus,
@@ -22,7 +23,7 @@ export function ActionStatusBadge({ status, className = "" }: ActionStatusBadgeP
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${className}`}
-      style={{ backgroundColor: config.bg, color: config.text }}
+      style={{ backgroundColor: config.bg, color: textTone(config.text) }}
     >
       <span
         className="h-[5px] w-[5px] rounded-full"

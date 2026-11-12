@@ -24,7 +24,7 @@ export function ActionKpiWidget({ todo, inProgress, blocked, done, total }: Acti
         <span style={{ color: "var(--gray)" }}>{todo} à faire</span>
         <span style={{ color: "var(--teal)" }}>{inProgress} en cours</span>
         {blocked > 0 && (
-          <span style={{ color: "var(--red)" }}>{blocked} bloquées</span>
+          <span style={{ color: "var(--red-dk)" }}>{blocked} bloquées</span>
         )}
       </div>
 

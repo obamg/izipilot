@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { getISOWeek } from "@/lib/date";
 import type { KrStatus } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 function getStatusFromScore(score: number): KrStatus {
   if (score === 0) return "NOT_STARTED";
@@ -227,7 +228,7 @@ export default async function SynthesisPage() {
                       <span className="text-[11px] font-medium text-dark flex-1">{obj.title}</span>
                       <span
                         className="font-mono text-sm font-semibold ml-2"
-                        style={{ color: getScoreColor(obj.avgScore) }}
+                        style={{ color: textTone(getScoreColor(obj.avgScore)) }}
                       >
                         {obj.avgScore}%
                       </span>
@@ -250,7 +251,7 @@ export default async function SynthesisPage() {
                               </span>
                               <span
                                 className="font-mono text-[9px] font-semibold"
-                                style={{ color: getScoreColor(child.avgScore) }}
+                                style={{ color: textTone(getScoreColor(child.avgScore)) }}
                               >
                                 {child.avgScore}%
                               </span>
@@ -356,7 +357,7 @@ function SynthesisTable({
                         >
                           <span
                             className="font-mono text-[11px] font-semibold"
-                            style={{ color: getScoreColor(obj.avgScore) }}
+                            style={{ color: textTone(getScoreColor(obj.avgScore)) }}
                           >
                             {obj.avgScore}%
                           </span>
@@ -373,7 +374,7 @@ function SynthesisTable({
                 <td className="text-center">
                   <span
                     className="font-mono text-xs font-semibold"
-                    style={{ color: getScoreColor(row.overallScore) }}
+                    style={{ color: textTone(getScoreColor(row.overallScore)) }}
                   >
                     {row.overallScore}%
                   </span>
@@ -387,7 +388,7 @@ function SynthesisTable({
                       href={`${row.href}#actions`}
                       className="font-mono text-[11px] no-underline inline-block rounded px-1 py-0.5 hover:bg-izi-gray-lt"
                     >
-                      <span className="font-semibold" style={{ color: "var(--green)" }}>{row.actionsDone}</span>
+                      <span className="font-semibold" style={{ color: "var(--green-dk)" }}>{row.actionsDone}</span>
                       <span className="text-izi-gray">/{row.actionsTotal}</span>
                     </Link>
                   ) : (
@@ -420,7 +421,7 @@ function SynthesisTable({
               </div>
               <span
                 className="font-mono text-xs font-semibold"
-                style={{ color: getScoreColor(row.overallScore) }}
+                style={{ color: textTone(getScoreColor(row.overallScore)) }}
               >
                 {row.overallScore}%
               </span>
@@ -435,7 +436,7 @@ function SynthesisTable({
                 >
                   <div
                     className="font-mono text-[11px] font-semibold leading-none"
-                    style={{ color: getScoreColor(obj.avgScore) }}
+                    style={{ color: textTone(getScoreColor(obj.avgScore)) }}
                   >
                     {obj.avgScore}%
                   </div>
@@ -451,7 +452,7 @@ function SynthesisTable({
                   Actions
                 </span>
                 <span className="font-mono text-[10px]">
-                  <span className="font-semibold" style={{ color: "var(--green)" }}>{row.actionsDone}</span>
+                  <span className="font-semibold" style={{ color: "var(--green-dk)" }}>{row.actionsDone}</span>
                   <span className="text-izi-gray">/{row.actionsTotal}</span>
                 </span>
               </div>

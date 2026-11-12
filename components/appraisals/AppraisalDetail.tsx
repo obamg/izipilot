@@ -15,6 +15,7 @@ import {
   saveManagerAssessment,
   acknowledgeAppraisal,
 } from "@/app/(dashboard)/appraisals/actions";
+import { textTone } from "@/lib/text-tone";
 
 function scoreColor(v: number): string {
   if (v >= 4) return "var(--green)";
@@ -95,14 +96,14 @@ export function AppraisalDetail({
           {appraisal.overall != null && (
             <span
               className="font-mono text-[20px] font-bold tabular-nums"
-              style={{ color: scoreColor(appraisal.overall) }}
+              style={{ color: textTone(scoreColor(appraisal.overall)) }}
             >
               {appraisal.overall.toFixed(1)}/5
             </span>
           )}
           <span
             className="text-[11px] font-semibold px-2 py-1 rounded-full"
-            style={{ color: meta.color, backgroundColor: meta.bg }}
+            style={{ color: textTone(meta.color), backgroundColor: meta.bg }}
           >
             {meta.label}
           </span>
@@ -227,7 +228,7 @@ export function AppraisalDetail({
               <span className="text-[12px] text-izi-gray">Note globale (aperçu)</span>
               <span
                 className="font-mono text-[16px] font-bold tabular-nums"
-                style={{ color: previewOverall != null ? scoreColor(previewOverall) : "var(--gray)" }}
+                style={{ color: textTone(previewOverall != null ? scoreColor(previewOverall) : "var(--gray)") }}
               >
                 {previewOverall != null ? `${previewOverall.toFixed(1)}/5` : "—"}
               </span>
@@ -385,7 +386,7 @@ function Stat({ label, value, big }: { label: string; value: number | null; big?
     <div>
       <div
         className={`font-mono font-bold tabular-nums ${big ? "text-[22px]" : "text-[18px]"}`}
-        style={{ color: value != null ? scoreColor(value) : "var(--gray)" }}
+        style={{ color: textTone(value != null ? scoreColor(value) : "var(--gray)") }}
       >
         {value != null ? value.toFixed(1) : "—"}
       </div>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/gleap";
 import { PRODUCT_GLEAP_PROJECT } from "@/constants/gleap";
 import { getWeekAgentTotals, getYesterdaySnapshots } from "@/lib/crm-snapshot";
+import { textTone } from "@/lib/text-tone";
 
 function DeltaPill({
   delta,
@@ -30,7 +31,7 @@ function DeltaPill({
   return (
     <span
       className="text-[10px] font-mono ml-1.5"
-      style={{ color }}
+      style={{ color: textTone(color) }}
       title="vs hier"
     >
       {arrow}
@@ -200,7 +201,7 @@ export default async function CustomerMetricsPage() {
           </div>
           <div
             className="font-serif text-2xl leading-none flex items-baseline"
-            style={{ color: ticketColor(totalOpenTickets) }}
+            style={{ color: textTone(ticketColor(totalOpenTickets)) }}
           >
             {totalOpenTickets}
             <DeltaPill delta={totalTicketsDelta} />
@@ -215,7 +216,7 @@ export default async function CustomerMetricsPage() {
           </div>
           <div
             className="font-serif text-2xl leading-none"
-            style={{ color: responseColor(avgResolutionHours) }}
+            style={{ color: textTone(responseColor(avgResolutionHours)) }}
           >
             {avgResolutionHours !== null
               ? `${avgResolutionHours.toFixed(1)}h`
@@ -319,7 +320,7 @@ export default async function CustomerMetricsPage() {
                       </div>
                       <div
                         className="font-serif text-[28px] leading-none mt-1 flex items-baseline"
-                        style={{ color: ticketColor(openTickets) }}
+                        style={{ color: textTone(ticketColor(openTickets)) }}
                       >
                         {openTickets !== null ? openTickets : "\u2014"}
                         <DeltaPill delta={productDelta} />
@@ -412,7 +413,7 @@ export default async function CustomerMetricsPage() {
                     </td>
                     <td
                       className="is-num font-mono font-semibold"
-                      style={{ color: slaColor(a.slaBreached) }}
+                      style={{ color: textTone(slaColor(a.slaBreached)) }}
                     >
                       {a.slaBreached}
                     </td>

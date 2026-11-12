@@ -582,7 +582,7 @@ function RecurringForm({
         </div>
         <div>
           <label className={labelCls}>
-            Équipe <span className="text-[var(--red)]" aria-hidden>*</span>
+            Équipe <span className="text-red-dk" aria-hidden>*</span>
           </label>
           <SearchableSelect
             value={team || "NONE"}

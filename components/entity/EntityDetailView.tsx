@@ -3,6 +3,7 @@ import { KrProgressBar } from "@/components/ui/KrProgressBar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EntityActionsList, type EntityAction } from "@/components/entity/EntityActionsList";
 import type { KrStatus, UserRole } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 type ActionItem = EntityAction;
 
@@ -73,7 +74,7 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
         <div className="flex items-center gap-3">
           <span
             className="font-mono text-sm font-semibold px-2.5 py-1 rounded"
-            style={{ backgroundColor: entity.color + "20", color: entity.color }}
+            style={{ backgroundColor: entity.color + "20", color: textTone(entity.color) }}
           >
             {entity.code}
           </span>
@@ -84,7 +85,7 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
             </div>
             <div
               className="font-mono text-2xl font-bold"
-              style={{ color: scoreColor }}
+              style={{ color: textTone(scoreColor) }}
             >
               {entity.avgScore}%
             </div>
@@ -113,10 +114,10 @@ export function EntityDetailView({ entity, users, currentUserRole }: EntityDetai
                 style={{
                   color:
                     obj.avgScore >= 70
-                      ? "var(--green)"
+                      ? "var(--green-dk)"
                       : obj.avgScore >= 40
-                      ? "var(--gold)"
-                      : "var(--red)",
+                      ? "var(--gold-dk)"
+                      : "var(--red-dk)",
                 }}
               >
                 {obj.avgScore}%

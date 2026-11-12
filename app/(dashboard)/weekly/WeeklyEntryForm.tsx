@@ -9,6 +9,7 @@ import { ActionStatusBadge } from "@/components/ui/ActionStatusBadge";
 import { ActionPriorityBadge } from "@/components/ui/ActionPriorityBadge";
 import { ActionForm } from "@/components/ui/ActionForm";
 import { ActionEditModal, type EditableAction } from "@/components/ui/ActionEditModal";
+import { textTone } from "@/lib/text-tone";
 
 interface ActionData {
   id: string;
@@ -435,13 +436,13 @@ export function WeeklyEntryForm({
                       <div className="text-right shrink-0">
                         <div
                           className="font-mono text-base font-semibold leading-none"
-                          style={{ color: scoreColor }}
+                          style={{ color: textTone(scoreColor) }}
                         >
                           {item.newScore}%
                         </div>
                         <div
                           className="font-mono text-[10px] mt-1"
-                          style={{ color: deltaColor }}
+                          style={{ color: textTone(deltaColor) }}
                         >
                           {delta > 0 ? "+" : ""}
                           {delta}% vs précédent
@@ -622,7 +623,7 @@ export function WeeklyEntryForm({
                             />
                             <span
                               className="font-mono text-sm font-semibold min-w-[34px] text-right"
-                              style={{ color: scoreColor }}
+                              style={{ color: textTone(scoreColor) }}
                             >
                               {displayScore}%
                             </span>
@@ -849,7 +850,7 @@ export function WeeklyEntryForm({
                                   {action.dueDate && (
                                     <span className={`text-[9px] font-mono ${
                                       !isDone && new Date(action.dueDate) < new Date()
-                                        ? "text-[var(--red)] font-semibold"
+                                        ? "text-red-dk font-semibold"
                                         : "text-izi-gray"
                                     }`}>
                                       {new Date(action.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}

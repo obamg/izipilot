@@ -7,6 +7,7 @@ import { KrHistoryChart } from "@/components/kr/KrHistoryChart";
 import { KrActionsList } from "@/components/kr/KrActionsList";
 import { RaiseAlertButton } from "@/components/alerts/RaiseAlertButton";
 import { krVisibilityWhere } from "@/lib/visibility";
+import { textTone } from "@/lib/text-tone";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", {
@@ -134,7 +135,7 @@ export default async function KrDetailPage({
             </div>
             <div
               className="font-mono text-2xl font-bold"
-              style={{ color: scoreColor }}
+              style={{ color: textTone(scoreColor) }}
             >
               {scorePercent}%
             </div>

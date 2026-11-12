@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { evaluateAllMembers } from "@/lib/member-compliance-server";
 import { ISSUE_LABELS, STANDUP_CUTOFF_HOUR } from "@/lib/member-compliance";
+import { textTone } from "@/lib/text-tone";
 
 export const dynamic = "force-dynamic";
 
@@ -194,7 +195,7 @@ function Stat({
           : "var(--gray)";
   return (
     <div className="bg-white rounded-[10px] border border-border-soft p-4">
-      <div className="font-mono text-[24px] font-bold tabular-nums" style={{ color }}>
+      <div className="font-mono text-[24px] font-bold tabular-nums" style={{ color: textTone(color) }}>
         {value}
       </div>
       <div className="text-[11px] text-izi-gray mt-0.5">{label}</div>

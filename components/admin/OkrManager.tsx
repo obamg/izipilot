@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ObjectiveFormModal } from "./ObjectiveFormModal";
 import { KeyResultFormModal } from "./KeyResultFormModal";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { textTone } from "@/lib/text-tone";
 
 interface KrData {
   id: string;
@@ -231,7 +232,7 @@ export function OkrManager({
                     </span>
                     <span
                       className="font-mono text-[9px] font-semibold px-[5px] py-[1px] rounded"
-                      style={{ color: st.color, backgroundColor: `${st.color}15` }}
+                      style={{ color: textTone(st.color), backgroundColor: `${st.color}15` }}
                     >
                       {scoreNum}%
                     </span>
