@@ -131,7 +131,21 @@ body {
    Hors @layer pour passer devant les utilitaires Tailwind des liens. */
 @media (min-width: 1024px) {
   .izi-sidebar[data-collapsed="true"] > div { padding-left: 8px; padding-right: 8px; }
-  .izi-sidebar[data-collapsed="true"] .izi-sidebar-heading { display: none; }
+  /* Repliée, chaque titre de section devient un trait : les groupes
+     Navigation / Accès / Administration restent distincts. Le séparateur
+     autonome devant Administration ferait doublon avec ce trait. */
+  .izi-sidebar[data-collapsed="true"] .izi-sidebar-heading {
+    height: 1px;
+    margin: 10px 6px;
+    padding: 0;
+    font-size: 0;
+    background: rgba(255, 255, 255, 0.14);
+  }
+  .izi-sidebar[data-collapsed="true"] > .h-px { display: none; }
+  /* 56px de large : une barre de défilement visible mangerait la moitié de
+     la colonne. On la masque ; molette et pavé tactile font toujours défiler. */
+  .izi-sidebar[data-collapsed="true"] { scrollbar-width: none; }
+  .izi-sidebar[data-collapsed="true"]::-webkit-scrollbar { display: none; }
   .izi-sidebar[data-collapsed="true"] a {
     position: relative;
     justify-content: center;
