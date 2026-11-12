@@ -238,7 +238,7 @@ export function ActionsKanban({
       {errorMsg && (
         <div
           role="alert"
-          className="mb-2 rounded-[7px] border border-[#e23c4a] bg-[#fceaea] px-3 py-2 text-[11px] text-[#e23c4a]"
+          className="mb-2 rounded-[7px] border border-[#e23c4a] bg-[#fceaea] px-3 py-2 text-[11px] text-red-dk"
         >
           {errorMsg}
         </div>
@@ -351,7 +351,7 @@ function KanbanColumn({ column, cards, canDrag, onCardClick, hint }: KanbanColum
         <span
           className={`shrink-0 font-mono text-[10px] ${
             wip === "OVER"
-              ? "font-semibold text-[var(--red)]"
+              ? "font-semibold text-red-dk"
               : wip === "AT"
               ? "font-semibold text-gold-dk"
               : "text-izi-gray"
@@ -464,7 +464,7 @@ function CardSurface({ action, dragging = false }: CardSurfaceProps) {
           )}
           <span
             className={`font-mono ${
-              isOverdue ? "text-[var(--red)] font-semibold" : ""
+              isOverdue ? "text-red-dk font-semibold" : ""
             }`}
           >
             {action.dueDate

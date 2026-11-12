@@ -389,7 +389,7 @@ export function SprintTaskModal({
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-izi-gray mb-1">
-              Équipe <span className="text-[var(--red)]" aria-hidden>*</span>
+              Équipe <span className="text-red-dk" aria-hidden>*</span>
             </label>
             <SearchableSelect
               value={team || "NONE"}

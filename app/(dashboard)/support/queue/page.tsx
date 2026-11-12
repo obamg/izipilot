@@ -264,7 +264,7 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: "red
       </div>
       <div
         className="font-mono text-[24px] font-bold tabular-nums"
-        style={{ color: tone === "red" ? "var(--red)" : "var(--dark)" }}
+        style={{ color: tone === "red" ? "var(--red-dk)" : "var(--dark)" }}
       >
         {value}
       </div>

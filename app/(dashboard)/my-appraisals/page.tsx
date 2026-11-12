@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { APPRAISAL_STATUS_META } from "@/lib/appraisal-serialize";
+import { textTone } from "@/lib/text-tone";
 
 export const dynamic = "force-dynamic";
 
@@ -70,14 +71,14 @@ export default async function MyAppraisalsPage() {
                   {overall != null && a.status === "ACKNOWLEDGED" && (
                     <span
                       className="font-mono text-[15px] font-bold tabular-nums"
-                      style={{ color: scoreColor(overall) }}
+                      style={{ color: textTone(scoreColor(overall)) }}
                     >
                       {overall.toFixed(1)}
                     </span>
                   )}
                   <span
                     className="text-[10px] font-semibold px-2 py-1 rounded-full"
-                    style={{ color: meta.color, backgroundColor: meta.bg }}
+                    style={{ color: textTone(meta.color), backgroundColor: meta.bg }}
                   >
                     {meta.label}
                   </span>

@@ -405,7 +405,7 @@ export function ActionsList({
                       <td className="text-izi-gray hidden sm:table-cell">
                         {action.assigneeName}
                       </td>
-                      <td className={`font-mono hidden lg:table-cell ${isOverdue ? "text-[var(--red)] font-semibold" : "text-izi-gray"}`}>
+                      <td className={`font-mono hidden lg:table-cell ${isOverdue ? "text-red-dk font-semibold" : "text-izi-gray"}`}>
                         {action.dueDate
                           ? new Date(action.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
                           : "\u2014"}

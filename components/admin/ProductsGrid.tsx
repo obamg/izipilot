@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ProductFormModal } from "./ProductFormModal";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { textTone } from "@/lib/text-tone";
 
 interface ProductData {
   id: string;
@@ -88,7 +89,7 @@ export function ProductsGrid({ products, users }: ProductsGridProps) {
                 </span>
                 <span
                   className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
-                  style={{ color: statusInfo.color }}
+                  style={{ color: textTone(statusInfo.color) }}
                 >
                   {statusInfo.label}
                 </span>

@@ -234,7 +234,7 @@ export function SprintBoard({
       {errorMsg && (
         <div
           role="alert"
-          className="mb-2 rounded-[7px] border border-[#e23c4a] bg-[#fceaea] px-3 py-2 text-[11px] text-[#e23c4a]"
+          className="mb-2 rounded-[7px] border border-[#e23c4a] bg-[#fceaea] px-3 py-2 text-[11px] text-red-dk"
         >
           {errorMsg}
         </div>
@@ -361,7 +361,7 @@ function BoardColumn({
         <span
           className={`shrink-0 font-mono text-[10px] ${
             wip === "OVER"
-              ? "font-semibold text-[var(--red)]"
+              ? "font-semibold text-red-dk"
               : wip === "AT"
               ? "font-semibold text-gold-dk"
               : "text-izi-gray"
@@ -523,7 +523,7 @@ function CardSurface({ task, dragging = false }: { task: SprintTaskItem; draggin
             </span>
           )}
           {task.dueDate && (
-            <span className={`font-mono ${isOverdue ? "text-[var(--red)] font-semibold" : ""}`}>
+            <span className={`font-mono ${isOverdue ? "text-red-dk font-semibold" : ""}`}>
               {new Date(task.dueDate).toLocaleDateString("fr-FR", {
                 day: "numeric",
                 month: "short",

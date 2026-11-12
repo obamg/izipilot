@@ -203,7 +203,7 @@ export function CapacityPanel({
                       </div>
                       <span
                         className="font-mono text-[10px] w-[42px] text-right"
-                        style={{ color: util > 100 ? "#e23c4a" : "#5f6e7a" }}
+                        style={{ color: util > 100 ? "var(--red-dk)" : "#5f6e7a" }}
                       >
                         {util}%
                       </span>

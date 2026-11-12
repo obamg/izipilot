@@ -6,6 +6,7 @@ import { CreateAppraisalForm } from "@/components/appraisals/CreateAppraisalForm
 import { APPRAISAL_STATUS_META } from "@/lib/appraisal-serialize";
 import { evaluableSubjectIds } from "@/lib/appraisal-server";
 import { quarterOfMonth } from "@/lib/appraisal";
+import { textTone } from "@/lib/text-tone";
 
 export const dynamic = "force-dynamic";
 
@@ -101,14 +102,14 @@ export default async function AppraisalsPage() {
                   {overall != null && (
                     <span
                       className="font-mono text-[15px] font-bold tabular-nums"
-                      style={{ color: scoreColor(overall) }}
+                      style={{ color: textTone(scoreColor(overall)) }}
                     >
                       {overall.toFixed(1)}
                     </span>
                   )}
                   <span
                     className="text-[10px] font-semibold px-2 py-1 rounded-full"
-                    style={{ color: meta.color, backgroundColor: meta.bg }}
+                    style={{ color: textTone(meta.color), backgroundColor: meta.bg }}
                   >
                     {meta.label}
                   </span>

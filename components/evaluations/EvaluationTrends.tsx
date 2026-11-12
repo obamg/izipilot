@@ -1,6 +1,7 @@
 "use client";
 
 import type { UserRole } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 interface MonthRef {
   month: number;
@@ -60,7 +61,7 @@ function AvgBadge({ value }: { value: number | null }) {
   return (
     <div className="w-[52px] text-right font-mono">
       {value != null ? (
-        <span className="text-[15px] font-semibold" style={{ color: scoreColor(value) }}>
+        <span className="text-[15px] font-semibold" style={{ color: textTone(scoreColor(value)) }}>
           {value.toFixed(1)}
         </span>
       ) : (
@@ -174,7 +175,7 @@ export function EvaluationTrends({ trend }: { trend: TrendData }) {
                 <div key={d.code} className="flex items-center gap-3">
                   <span
                     className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                    style={{ color: d.color, backgroundColor: `${d.color}1a` }}
+                    style={{ color: textTone(d.color), backgroundColor: `${d.color}1a` }}
                   >
                     {d.code}
                   </span>

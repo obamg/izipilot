@@ -119,7 +119,7 @@ export function WorkflowsManager({
       {error && (
         <div
           role="alert"
-          className="rounded-[8px] border border-[#e23c4a] bg-[#fceaea] px-3 py-2 text-[12px] text-[#e23c4a]"
+          className="rounded-[8px] border border-[#e23c4a] bg-[#fceaea] px-3 py-2 text-[12px] text-red-dk"
         >
           {error}
         </div>
@@ -363,7 +363,7 @@ function WorkflowCard({
             {workflow.canDelete && (
               <button
                 type="button"
-                className={`${BTN} text-[var(--red)]`}
+                className={`${BTN} text-red-dk`}
                 disabled={pending}
                 onClick={() => run(() => deleteWorkflow(workflow.id))}
               >
@@ -536,7 +536,7 @@ function ColumnRow({
             </button>
             <button
               type="button"
-              className={`${BTN} text-[var(--red)]`}
+              className={`${BTN} text-red-dk`}
               disabled={total <= 1}
               onClick={() => setConfirming((v) => !v)}
             >

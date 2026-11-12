@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { AlertSeverity, AlertSource, AlertType, KrStatus } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 interface AlertData {
   id: string;
@@ -206,7 +207,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
                     </span>
                     <span
                       className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
-                      style={{ backgroundColor: sevConfig.bg, color: sevConfig.text }}
+                      style={{ backgroundColor: sevConfig.bg, color: textTone(sevConfig.text) }}
                     >
                       {sevConfig.label}
                     </span>

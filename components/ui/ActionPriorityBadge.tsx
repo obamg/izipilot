@@ -1,4 +1,5 @@
 import type { ActionPriority } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 const PRIORITY_CONFIG: Record<
   ActionPriority,
@@ -21,7 +22,7 @@ export function ActionPriorityBadge({ priority, className = "" }: ActionPriority
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${className}`}
-      style={{ backgroundColor: config.bg, color: config.text }}
+      style={{ backgroundColor: config.bg, color: textTone(config.text) }}
     >
       {config.label}
     </span>

@@ -540,7 +540,7 @@ export default async function DashboardPage({
                             ? "var(--red-lt)"
                             : "var(--teal-lt)",
                         color:
-                          entity.avgScore < 40 ? "var(--red)" : "var(--teal)",
+                          entity.avgScore < 40 ? "var(--red-dk)" : "var(--teal)",
                       }}
                     >
                       {entity.code}
@@ -553,10 +553,10 @@ export default async function DashboardPage({
                       style={{
                         color:
                           entity.avgScore >= 70
-                            ? "var(--green)"
+                            ? "var(--green-dk)"
                             : entity.avgScore >= 40
-                            ? "var(--gold)"
-                            : "var(--red)",
+                            ? "var(--gold-dk)"
+                            : "var(--red-dk)",
                       }}
                     >
                       {entity.avgScore}%
@@ -608,7 +608,7 @@ export default async function DashboardPage({
                             ? "var(--red-lt)"
                             : "var(--teal-lt)",
                         color:
-                          entity.avgScore < 40 ? "var(--red)" : "var(--teal)",
+                          entity.avgScore < 40 ? "var(--red-dk)" : "var(--teal)",
                       }}
                     >
                       {entity.code}
@@ -621,10 +621,10 @@ export default async function DashboardPage({
                       style={{
                         color:
                           entity.avgScore >= 70
-                            ? "var(--green)"
+                            ? "var(--green-dk)"
                             : entity.avgScore >= 40
-                            ? "var(--gold)"
-                            : "var(--red)",
+                            ? "var(--gold-dk)"
+                            : "var(--red-dk)",
                       }}
                     >
                       {entity.avgScore}%

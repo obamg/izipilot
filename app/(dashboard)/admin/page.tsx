@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
+import { textTone } from "@/lib/text-tone";
 
 export default async function AdminOverviewPage() {
   const session = await auth();
@@ -83,7 +84,7 @@ export default async function AdminOverviewPage() {
             </div>
             <div
               className="font-serif text-[26px] leading-none mb-1"
-              style={{ color: card.color }}
+              style={{ color: textTone(card.color) }}
             >
               {card.value}
             </div>

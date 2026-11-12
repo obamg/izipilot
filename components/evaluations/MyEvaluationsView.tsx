@@ -1,4 +1,5 @@
 "use client";
+import { textTone } from "@/lib/text-tone";
 
 interface Snapshot {
   deliveredPoints: number;
@@ -42,7 +43,7 @@ function Metric({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-[8px] bg-izi-gray-lt/50 px-2.5 py-1.5">
       <div className="text-[10px] text-izi-gray">{label}</div>
-      <div className="font-mono text-[15px] font-semibold" style={{ color: value != null ? scoreColor(value) : undefined }}>
+      <div className="font-mono text-[15px] font-semibold" style={{ color: textTone(value != null ? scoreColor(value) : undefined) }}>
         {value != null ? value.toFixed(1) : "—"}
         <span className="text-[10px] text-izi-gray">/5</span>
       </div>
@@ -80,7 +81,7 @@ export function MyEvaluationsView({ months, trend }: Props) {
             </div>
             <div
               className="font-mono text-[34px] font-semibold leading-none mt-1"
-              style={{ color: latest.overall != null ? scoreColor(latest.overall) : undefined }}
+              style={{ color: textTone(latest.overall != null ? scoreColor(latest.overall) : undefined) }}
             >
               {latest.overall != null ? latest.overall.toFixed(1) : "—"}
               <span className="text-[16px] text-izi-gray">/5</span>
@@ -116,7 +117,7 @@ export function MyEvaluationsView({ months, trend }: Props) {
             <h3 className="font-serif text-[16px] text-dark">{m.label}</h3>
             <div
               className="font-mono text-[20px] font-semibold"
-              style={{ color: m.overall != null ? scoreColor(m.overall) : undefined }}
+              style={{ color: textTone(m.overall != null ? scoreColor(m.overall) : undefined) }}
             >
               {m.overall != null ? m.overall.toFixed(1) : "—"}
               <span className="text-[12px] text-izi-gray">/5</span>

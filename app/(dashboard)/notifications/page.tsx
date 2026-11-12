@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { alertVisibilityWhere } from "@/lib/visibility";
 import type { AlertSeverity, AlertSource, AlertType, KrStatus } from "@prisma/client";
+import { textTone } from "@/lib/text-tone";
 
 const SEVERITY_COLORS: Record<
   AlertSeverity,
@@ -226,7 +227,7 @@ function NotificationCard({
             </span>
             <span
               className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
-              style={{ backgroundColor: sev.bg, color: sev.text }}
+              style={{ backgroundColor: sev.bg, color: textTone(sev.text) }}
             >
               {sev.label}
             </span>
