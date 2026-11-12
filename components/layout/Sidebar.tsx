@@ -4,16 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-interface SidebarEntity {
-  code: string;
-  name: string;
-  color: string;
-  scorePercent: number;
-}
-
 interface SidebarProps {
-  products: SidebarEntity[];
-  departments: SidebarEntity[];
   alertCount?: number;
   notificationCount?: number;
   userRole?: string;
@@ -211,8 +202,6 @@ const ADMIN_ITEMS = [
 
 
 export function Sidebar({
-  products,
-  departments,
   alertCount = 0,
   notificationCount = 0,
   userRole,

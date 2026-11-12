@@ -5,13 +5,6 @@ import { Nav } from "./Nav";
 import { Sidebar } from "./Sidebar";
 import { MobileTabBar } from "./MobileTabBar";
 
-interface SidebarEntity {
-  code: string;
-  name: string;
-  color: string;
-  scorePercent: number;
-}
-
 interface DashboardShellProps {
   children: React.ReactNode;
   userName: string;
@@ -20,8 +13,6 @@ interface DashboardShellProps {
   year: number;
   alertCount: number;
   notificationCount: number;
-  products: SidebarEntity[];
-  departments: SidebarEntity[];
   canManageAccessRoles: boolean;
   canManageAccessAssets: boolean;
   canViewAccessAudit: boolean;
@@ -40,8 +31,6 @@ export function DashboardShell({
   year,
   alertCount,
   notificationCount,
-  products,
-  departments,
   canManageAccessRoles,
   canManageAccessAssets,
   canViewAccessAudit,
@@ -64,8 +53,6 @@ export function DashboardShell({
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
-          products={products}
-          departments={departments}
           alertCount={alertCount}
           notificationCount={notificationCount}
           userRole={userRole}
