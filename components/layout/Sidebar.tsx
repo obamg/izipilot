@@ -285,7 +285,7 @@ export function Sidebar({
             aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
             title={collapsed ? "Déplier le menu" : "Replier le menu"}
             aria-expanded={!collapsed}
-            className="izi-sidebar-toggle flex items-center justify-center w-8 h-8 rounded-[7px] text-white/50 hover:bg-white/[0.06] hover:text-white cursor-pointer border-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+            className="izi-sidebar-toggle flex items-center justify-center w-8 h-8 rounded-[7px] text-nav-muted hover:bg-white/[0.06] hover:text-white cursor-pointer border-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
               <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -297,7 +297,7 @@ export function Sidebar({
 
         {/* Navigation */}
         <div className="px-3 mb-5">
-          <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px]">
+          <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-nav-muted px-2 mb-[5px]">
             Navigation
           </div>
           {NAV_ITEMS.map((item) => {
@@ -309,8 +309,8 @@ export function Sidebar({
                 onClick={onClose}
                 className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                   isActive
-                    ? "bg-teal/[0.18] text-[#7dd8d8]"
-                    : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                    ? "bg-teal/[0.18] text-nav-active"
+                    : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
                 {item.icon}
@@ -320,18 +320,18 @@ export function Sidebar({
                   // Submission day = Sunday; deadline is Sunday 23:59.
                   const isBeforeDeadline = now.getDay() === 0;
                   return isBeforeDeadline ? (
-                    <span className="ml-auto bg-[rgba(244,169,0,0.22)] text-[#f4a900] text-sm font-semibold px-[5px] py-px rounded-md">
+                    <span className="ml-auto bg-gold/[0.12] text-gold text-sm font-semibold px-[5px] py-px rounded-md">
                       Due
                     </span>
                   ) : null;
                 })()}
                 {item.href === "/notifications" && notificationCount > 0 && (
-                  <span className="ml-auto bg-[rgba(244,169,0,0.22)] text-[#f4a900] text-sm font-semibold px-[5px] py-px rounded-md">
+                  <span className="ml-auto bg-gold/[0.12] text-gold text-sm font-semibold px-[5px] py-px rounded-md">
                     {notificationCount}
                   </span>
                 )}
                 {item.href === "/alerts" && alertCount > 0 && (
-                  <span className="ml-auto bg-[rgba(244,169,0,0.22)] text-[#f4a900] text-sm font-semibold px-[5px] py-px rounded-md">
+                  <span className="ml-auto bg-gold/[0.12] text-gold text-sm font-semibold px-[5px] py-px rounded-md">
                     {alertCount}
                   </span>
                 )}
@@ -349,8 +349,8 @@ export function Sidebar({
               onClick={onClose}
               className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                 isNavActive("/requests/approvals")
-                  ? "bg-teal/[0.18] text-[#7dd8d8]"
-                  : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  ? "bg-teal/[0.18] text-nav-active"
+                  : "text-nav-text hover:bg-white/[0.06] hover:text-white"
               }`}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -368,8 +368,8 @@ export function Sidebar({
               onClick={onClose}
               className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                 isNavActive("/workflows")
-                  ? "bg-teal/[0.18] text-[#7dd8d8]"
-                  : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                  ? "bg-teal/[0.18] text-nav-active"
+                  : "text-nav-text hover:bg-white/[0.06] hover:text-white"
               }`}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -388,8 +388,8 @@ export function Sidebar({
               onClick={onClose}
               className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                 isNavActive("/push-adoption")
-                  ? "bg-red/[0.20] text-[#ff8585]"
-                  : "text-[#ff6b6b] hover:bg-red/[0.12] hover:text-[#ff8585]"
+                  ? "bg-teal/[0.18] text-nav-active"
+                  : "text-nav-text hover:bg-white/[0.06] hover:text-white"
               }`}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -407,8 +407,8 @@ export function Sidebar({
               onClick={onClose}
               className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                 isNavActive("/suivi-equipe")
-                  ? "bg-white/[0.14] text-white"
-                  : "text-[#9fb3bf] hover:bg-white/[0.08] hover:text-white"
+                  ? "bg-teal/[0.18] text-nav-active"
+                  : "text-nav-text hover:bg-white/[0.06] hover:text-white"
               }`}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -430,7 +430,7 @@ export function Sidebar({
               toute façon. */}
           {
             <>
-              <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px] mt-3">
+              <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-nav-muted px-2 mb-[5px] mt-3">
                 Accès
               </div>
               <Link
@@ -438,8 +438,8 @@ export function Sidebar({
                 onClick={onClose}
                 className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                   pathname === "/access/me"
-                    ? "bg-teal/[0.18] text-[#7dd8d8]"
-                    : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                    ? "bg-teal/[0.18] text-nav-active"
+                    : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -453,8 +453,8 @@ export function Sidebar({
                   onClick={onClose}
                   className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                     pathname === "/access/department"
-                      ? "bg-teal/[0.18] text-[#7dd8d8]"
-                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-teal/[0.18] text-nav-active"
+                      : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -471,8 +471,8 @@ export function Sidebar({
                   onClick={onClose}
                   className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                     pathname === "/access/owned-assets"
-                      ? "bg-teal/[0.18] text-[#7dd8d8]"
-                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-teal/[0.18] text-nav-active"
+                      : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -488,8 +488,8 @@ export function Sidebar({
                   onClick={onClose}
                   className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                     pathname === "/access/fulfilment"
-                      ? "bg-teal/[0.18] text-[#7dd8d8]"
-                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-teal/[0.18] text-nav-active"
+                      : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -505,8 +505,8 @@ export function Sidebar({
                   onClick={onClose}
                   className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                     pathname === "/access/roles"
-                      ? "bg-teal/[0.18] text-[#7dd8d8]"
-                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-teal/[0.18] text-nav-active"
+                      : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -522,8 +522,8 @@ export function Sidebar({
                   onClick={onClose}
                   className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                     pathname === "/access/assets"
-                      ? "bg-teal/[0.18] text-[#7dd8d8]"
-                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-teal/[0.18] text-nav-active"
+                      : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -540,8 +540,8 @@ export function Sidebar({
                   onClick={onClose}
                   className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                     pathname === "/access/audit"
-                      ? "bg-teal/[0.18] text-[#7dd8d8]"
-                      : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-teal/[0.18] text-nav-active"
+                      : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
@@ -562,7 +562,7 @@ export function Sidebar({
           <>
             <div className="h-px bg-white/[0.06] mx-3 mb-[14px]" />
             <div className="px-3 mb-5">
-              <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-white/[0.40] px-2 mb-[5px]">
+              <div className="izi-sidebar-heading text-sm font-semibold tracking-[0.1em] uppercase text-nav-muted px-2 mb-[5px]">
                 Administration
               </div>
               {ADMIN_ITEMS.map((item) => {
@@ -574,8 +574,8 @@ export function Sidebar({
                     onClick={onClose}
                     className={`flex items-center gap-2 py-[7px] px-[9px] rounded-[7px] cursor-pointer text-sm mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-dark transition-all no-underline ${
                       isActive
-                        ? "bg-teal/[0.18] text-[#7dd8d8]"
-                        : "text-white/[0.75] hover:bg-white/[0.06] hover:text-white"
+                        ? "bg-teal/[0.18] text-nav-active"
+                        : "text-nav-text hover:bg-white/[0.06] hover:text-white"
                     }`}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="w-4 h-4 shrink-0">

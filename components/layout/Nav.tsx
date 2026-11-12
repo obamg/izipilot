@@ -58,7 +58,7 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
 
       {/* Right section */}
       <div className="flex items-center gap-3">
-        <span className="font-mono text-xs text-white/50 bg-white/[0.07] px-3 py-1.5 rounded-full hidden sm:inline border border-white/[0.06]">
+        <span className="font-mono text-xs text-nav-muted bg-white/[0.07] px-3 py-1.5 rounded-full hidden sm:inline border border-white/[0.06]">
           S{String(weekNumber).padStart(2, "0")} &middot; {year}
         </span>
 

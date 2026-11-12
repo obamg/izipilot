@@ -21,6 +21,13 @@
   --gold-dk: #7a5500;
   --blue: #185fa5;
   --blue-lt: #e8f0fb;
+  /* Navigation sur fond --dark (barre du haut, sidebar, onglets mobile).
+     Contrastes sur --dark : nav-text 7,5:1 · nav-muted 5,4:1 · nav-active
+     6,1:1 sur l'état actif (teal 18 %). Pas d'autre couleur de texte dans
+     la navigation : le rouge reste réservé aux KR bloqués. */
+  --nav-text: #c6ced2;
+  --nav-muted: #a4b0b7;
+  --nav-active: #7dd8d8;
 
   /* Z-index scale — keep these in lockstep across the app.
      Modals must always be above the sticky nav; the overlay (90) sits
@@ -62,6 +69,9 @@
   --color-gold-dk: var(--gold-dk);
   --color-blue: var(--blue);
   --color-blue-lt: var(--blue-lt);
+  --color-nav-text: var(--nav-text);
+  --color-nav-muted: var(--nav-muted);
+  --color-nav-active: var(--nav-active);
 
   /* Bare aliases for the three palette colours that also carry an `izi-`
      name. Components use BOTH conventions across the codebase (e.g.

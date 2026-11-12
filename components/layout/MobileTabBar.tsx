@@ -70,7 +70,7 @@ export function MobileTabBar({
 
   const tabClass = (active: boolean) =>
     `flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[52px] no-underline cursor-pointer border-none bg-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-inset ${
-      active ? "text-[#7dd8d8]" : "text-white/[0.55] active:text-white"
+      active ? "text-nav-active" : "text-nav-muted active:text-white"
     }`;
 
   return (
