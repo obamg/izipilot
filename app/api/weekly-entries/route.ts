@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { scoreToPercent } from "@/lib/score";
 import { krVisibilityWhere } from "@/lib/visibility";
-import { verifyMcpBearer } from "@/lib/mcp-token";
+import { requestUser } from "@/lib/request-user";
 import {
   upsertWeeklyEntry,
   fireWeeklyEntrySideEffects,
@@ -80,10 +80,7 @@ export async function POST(request: NextRequest) {
   // A Bearer header means MCP ONLY: the middleware lets Bearer requests skip
   // its session gates (incl. mustChangePassword), so the cookie must never be
   // honoured on that path.
-  const authz = request.headers.get("authorization");
-  const user = authz?.toLowerCase().startsWith("bearer ")
-    ? await verifyMcpBearer(authz)
-    : (await auth())?.user;
+  const user = await requestUser(request);
   if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

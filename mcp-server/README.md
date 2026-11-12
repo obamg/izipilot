@@ -39,8 +39,11 @@ cookie because the MCP server has no access to the NextAuth JWE.
 | `get_okr_history`     | all                      | read            |
 | `submit_weekly_entry` | PO (owner) / MANAGEMENT / CEO | write       |
 | `submit_daily_report` | all except VIEWER (own report, today WAT) | write |
+| `list_sprint_tasks`   | all                      | read (via app)  |
+| `create_sprint_task`  | CEO / MANAGEMENT / PO; CONTRIBUTOR only for a department they lead | write (via app) |
+| `update_task_status`  | CEO / MANAGEMENT / PO; CONTRIBUTOR only on own tasks | write (via app) |
 
-All reads are scoped by `orgId` from the JWT. Writes additionally verify
+All reads are scoped by `orgId` from the JWT. "Via app" tools call the app's own API route with the caller's token (`MCP_APP_URL`), so permissions and board rules are not duplicated here; the app only accepts a Bearer on the routes listed in `MCP_BEARER_ROUTES` (middleware.ts). Writes additionally verify
 ownership for PO accounts.
 
 ## Run locally

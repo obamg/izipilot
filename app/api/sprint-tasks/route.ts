@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requestUser } from "@/lib/request-user";
 import { createSprintTaskSchema } from "@/lib/validations/sprints";
 import { sprintTaskVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 import {
@@ -12,8 +12,8 @@ import { contributorMayCreateTask } from "@/lib/sprint";
 import { resolveInitialColumn } from "@/lib/board-column-server";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = await requestUser(request);
+  if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -28,14 +28,14 @@ export async function GET(request: NextRequest) {
 
   const tasks = await prisma.sprintTask.findMany({
     where: {
-      orgId: session.user.orgId,
+      orgId: user.orgId,
       ...(sprintId === "backlog"
         ? { sprintId: null }
         : sprintId
         ? { sprintId }
         : {}),
       ...(assignee === "me"
-        ? { assigneeId: session.user.id }
+        ? { assigneeId: user.id }
         : assignee
         ? { assigneeId: assignee }
         : {}),
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       ...(productId && { productId }),
       ...(departmentId && { departmentId }),
       ...(krId && { krId }),
-      ...sprintTaskVisibilityWhere(session.user.role),
+      ...sprintTaskVisibilityWhere(user.role),
     },
     include: sprintTaskInclude,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -54,14 +54,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = await requestUser(request);
+  if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // VIEWER never creates tasks. A CONTRIBUTOR may only when they LEAD the
   // target department (checked after parsing, below).
-  if (session.user.role === "VIEWER") {
+  if (user.role === "VIEWER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
     );
   }
   const d = parsed.data;
-  const orgId = session.user.orgId;
-  const isContributor = session.user.role === "CONTRIBUTOR";
+  const orgId = user.orgId;
+  const isContributor = user.role === "CONTRIBUTOR";
 
   if (isContributor) {
-    const led = await loadLedDepartmentIds(orgId, session.user.id);
+    const led = await loadLedDepartmentIds(orgId, user.id);
     if (!contributorMayCreateTask(led, d)) {
       return Response.json(
         { error: "Forbidden: only a department lead can create tasks for it" },
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         // AND, not spread: krVisibilityWhere also sets `objective` (D7 hiding).
         // A lead may only link a KR of the department they create for.
         AND: [
-          krVisibilityWhere(session.user.role),
+          krVisibilityWhere(user.role),
           isContributor ? { objective: { departmentId: d.departmentId } } : {},
         ],
       },
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     if (!kr) {
       return Response.json({ error: "Key Result not found" }, { status: 404 });
     }
-    if (session.user.role === "PO" && kr.ownerId !== session.user.id) {
+    if (user.role === "PO" && kr.ownerId !== user.id) {
       return Response.json(
         { error: "Forbidden: not the owner of this KR" },
         { status: 403 }
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       priority: d.priority ?? "MEDIUM",
       storyPoints: d.storyPoints ?? null,
       assigneeId: d.assigneeId ?? null,
-      createdById: session.user.id,
+      createdById: user.id,
       sortOrder: count,
       dueDate: d.dueDate ? new Date(d.dueDate) : null,
     },

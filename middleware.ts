@@ -36,6 +36,14 @@ const publicPaths = [
 // X-Real-IP: nginx overwrites it with $remote_addr, which its real_ip module
 // resolves to the visitor behind Cloudflare. X-Forwarded-For is NOT used —
 // its first entry is whatever the client sent, so it can be spoofed.
+// Routes the MCP server calls with a Bearer token (see the bypass below).
+const MCP_BEARER_ROUTES: [string, RegExp][] = [
+  ["POST", /^\/api\/weekly-entries$/],
+  ["GET", /^\/api\/sprint-tasks$/],
+  ["POST", /^\/api\/sprint-tasks$/],
+  ["PATCH", /^\/api\/sprint-tasks\/[^/]+$/],
+];
+
 const AUTH_RATE_LIMIT = 10; // attempts
 const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000; // per 5 minutes
 
@@ -92,11 +100,10 @@ export default auth((req) => {
     }
   }
 
-  // MCP server forwarding a weekly entry: no cookie, the route verifies the
-  // Bearer MCP token itself (lib/mcp-token verifyMcpBearer).
+  // MCP server forwarding to the app: no cookie, the route verifies the
+  // Bearer MCP token itself (lib/request-user). Only these exact routes.
   if (
-    req.method === "POST" &&
-    pathname === "/api/weekly-entries" &&
+    MCP_BEARER_ROUTES.some(([m, re]) => req.method === m && re.test(pathname)) &&
     req.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
   ) {
     return withSecurityHeaders(NextResponse.next());
