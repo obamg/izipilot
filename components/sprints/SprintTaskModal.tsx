@@ -269,7 +269,7 @@ export function SprintTaskModal({
           </div>
 
           {error && (
-            <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
+            <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red-dk">
               {error}
             </div>
           )}
@@ -467,7 +467,7 @@ export function SprintTaskModal({
         </div>
 
         {error && (
-          <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
+          <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red-dk">
             {error}
           </div>
         )}
@@ -502,7 +502,7 @@ export function SprintTaskModal({
               type="button"
               onClick={handleDelete}
               disabled={isDeleting || isSaving}
-              className="text-[12px] font-medium text-red hover:underline disabled:opacity-50"
+              className="text-[12px] font-medium text-red-dk hover:underline disabled:opacity-50"
             >
               {isDeleting ? "Suppression…" : "Supprimer"}
             </button>

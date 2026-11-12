@@ -124,7 +124,7 @@ export function PendingApprovalsList({ items }: { items: PendingItem[] }) {
 
   return (
     <div className="space-y-3">
-      {error && <p className="text-[12px] text-red">{error}</p>}
+      {error && <p className="text-[12px] text-red-dk">{error}</p>}
       {selectedIds.length > 0 && (
         <div className="rounded-[8px] bg-teal-lt p-3 flex items-center justify-between">
           <span className="text-[12px] text-teal-dk">{selectedIds.length} sélectionnée(s)</span>

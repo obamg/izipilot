@@ -78,7 +78,7 @@ export function AssetsTable({ assets, users }: AssetsTableProps) {
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       asset.readyForRequests
-                        ? "bg-izi-green-lt text-izi-green"
+                        ? "bg-izi-green-lt text-green-dk"
                         : "bg-izi-gray-lt text-izi-gray"
                     }`}
                   >

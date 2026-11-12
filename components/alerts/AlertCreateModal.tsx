@@ -134,7 +134,7 @@ export function AlertCreateModal({ krId, krTitle, onClose }: Props) {
           </div>
 
           {error && (
-            <div className="text-[11px] text-red bg-red-lt rounded-md px-2 py-1.5">
+            <div className="text-[11px] text-red-dk bg-red-lt rounded-md px-2 py-1.5">
               {error}
             </div>
           )}

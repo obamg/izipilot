@@ -286,7 +286,7 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
                       </button>
                       <button
                         onClick={() => handleRemoveMember(d.id, m.id)}
-                        className="opacity-0 group-hover:opacity-100 text-[9px] text-izi-red hover:text-izi-red/80 transition-all"
+                        className="opacity-0 group-hover:opacity-100 text-[9px] text-red-dk hover:text-red-dk/80 transition-all"
                         title="Retirer"
                       >
                         &times;
@@ -309,7 +309,7 @@ export function DepartmentsGrid({ departments, users }: DepartmentsGridProps) {
               {d.isActive && (
                 <button
                   onClick={() => setDeleteDept(d)}
-                  className="px-2 py-1 rounded text-[9px] font-medium text-izi-red border border-izi-red-lt hover:bg-izi-red-lt transition-colors"
+                  className="px-2 py-1 rounded text-[9px] font-medium text-red-dk border border-izi-red-lt hover:bg-izi-red-lt transition-colors"
                 >
                   Supprimer
                 </button>

@@ -210,7 +210,7 @@ export function CreateSupportRequestForm({
         </p>
       </div>
 
-      {error && <p className="text-[12px] text-red">{error}</p>}
+      {error && <p className="text-[12px] text-red-dk">{error}</p>}
 
       <button
         type="button"

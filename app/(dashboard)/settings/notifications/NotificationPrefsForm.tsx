@@ -89,12 +89,12 @@ export function NotificationPrefsForm({ initial }: Props) {
           {pending ? "Enregistrement…" : "Enregistrer"}
         </button>
         {savedAt && !pending && (
-          <span className="text-[11px] text-izi-green">
+          <span className="text-[11px] text-green-dk">
             Préférences enregistrées
           </span>
         )}
         {error && (
-          <span className="text-[11px] text-izi-red">{error}</span>
+          <span className="text-[11px] text-red-dk">{error}</span>
         )}
       </div>
     </form>

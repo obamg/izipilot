@@ -92,7 +92,7 @@ export function ImportSeedPanel() {
         aria-label="Charger le CSV du catalogue"
       />
       {uploading && <p className="mt-2 text-[12px] text-teal-dk">Analyse en cours…</p>}
-      {error && <p className="mt-2 text-[12px] text-red">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-red-dk">{error}</p>}
 
       {batch && (
         <div className="mt-4">
@@ -122,7 +122,7 @@ export function ImportSeedPanel() {
             </table>
           </div>
           {batch.committedAt ? (
-            <p className="mt-2 text-[12px] text-izi-green">
+            <p className="mt-2 text-[12px] text-green-dk">
               Importé le {new Date(batch.committedAt).toLocaleString("fr-FR")}.
             </p>
           ) : (

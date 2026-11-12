@@ -71,7 +71,7 @@ export default async function SupportPage() {
           >
             File du support
             {assignedToMe > 0 && (
-              <span className="ml-1.5 rounded-full bg-gold-lt px-1.5 py-0.5 text-[11px] font-bold text-gold">
+              <span className="ml-1.5 rounded-full bg-gold-lt px-1.5 py-0.5 text-[11px] font-bold text-gold-dk">
                 {assignedToMe}
               </span>
             )}

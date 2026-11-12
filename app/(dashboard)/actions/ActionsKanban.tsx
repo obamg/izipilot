@@ -353,7 +353,7 @@ function KanbanColumn({ column, cards, canDrag, onCardClick, hint }: KanbanColum
             wip === "OVER"
               ? "font-semibold text-[var(--red)]"
               : wip === "AT"
-              ? "font-semibold text-gold"
+              ? "font-semibold text-gold-dk"
               : "text-izi-gray"
           }`}
           title={

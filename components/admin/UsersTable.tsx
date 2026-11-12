@@ -505,7 +505,7 @@ function RowActions({
           type="button"
           onClick={() => onDeactivate(user)}
           aria-label={`Désactiver ${user.name}`}
-          className={`${base} text-izi-red hover:bg-izi-red-lt`}
+          className={`${base} text-red-dk hover:bg-izi-red-lt`}
         >
           Désactiver
         </button>

@@ -302,7 +302,7 @@ export default async function CustomerMetricsPage() {
                       {p.name}
                     </span>
                     {connected ? (
-                      <span className="text-[9px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-izi-green-lt text-izi-green">
+                      <span className="text-[9px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-izi-green-lt text-green-dk">
                         Live
                       </span>
                     ) : (

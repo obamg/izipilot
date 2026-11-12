@@ -141,7 +141,7 @@ export function CapacityPanel({
       </div>
 
       {error && (
-        <div className="mb-2 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red">
+        <div className="mb-2 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red-dk">
           {error}
         </div>
       )}

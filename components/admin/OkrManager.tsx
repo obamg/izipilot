@@ -189,7 +189,7 @@ export function OkrManager({
               {o.isActive && o.keyResults.length === 0 && (
                 <button
                   onClick={() => setDeleteObj(o)}
-                  className="px-2 py-1 rounded text-[9px] font-medium text-izi-red border border-izi-red-lt hover:bg-izi-red-lt transition-colors"
+                  className="px-2 py-1 rounded text-[9px] font-medium text-red-dk border border-izi-red-lt hover:bg-izi-red-lt transition-colors"
                 >
                   Supprimer
                 </button>
@@ -246,7 +246,7 @@ export function OkrManager({
                     </button>
                     <button
                       onClick={() => setDeleteKr(kr)}
-                      className="text-[9px] text-izi-red hover:underline"
+                      className="text-[9px] text-red-dk hover:underline"
                     >
                       Supprimer
                     </button>

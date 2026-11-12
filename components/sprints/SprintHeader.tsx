@@ -193,7 +193,7 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
               type="button"
               onClick={remove}
               disabled={busy}
-              className="rounded-[7px] border border-red/30 bg-white px-3 py-1.5 text-[12px] font-medium text-red hover:bg-red-lt transition-colors disabled:opacity-50"
+              className="rounded-[7px] border border-red/30 bg-white px-3 py-1.5 text-[12px] font-medium text-red-dk hover:bg-red-lt transition-colors disabled:opacity-50"
             >
               Supprimer
             </button>
@@ -202,7 +202,7 @@ export function SprintHeader({ sprint, canManage, daysRemaining }: SprintHeaderP
       </div>
 
       {error && (
-        <div className="mt-3 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red">
+        <div className="mt-3 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red-dk">
           {error}
         </div>
       )}

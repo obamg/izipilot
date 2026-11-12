@@ -153,13 +153,13 @@ export function OrgSettingsForm({ org }: OrgSettingsFormProps) {
           </div>
 
           {error && (
-            <p className="text-[11px] text-izi-red bg-izi-red-lt px-3 py-2 rounded-md">
+            <p className="text-[11px] text-red-dk bg-izi-red-lt px-3 py-2 rounded-md">
               {error}
             </p>
           )}
 
           {success && (
-            <p className="text-[11px] text-izi-green bg-izi-green-lt px-3 py-2 rounded-md">
+            <p className="text-[11px] text-green-dk bg-izi-green-lt px-3 py-2 rounded-md">
               Enregistr&eacute; avec succ&egrave;s
             </p>
           )}

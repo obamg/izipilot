@@ -222,7 +222,7 @@ export function FulfilmentTaskCard({ task, readOnly, selectable, selected, onTog
           </details>
 
           {error && (
-            <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-red">
+            <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-red-dk">
               <span>{error}</span>
               {conflict && (
                 <button type="button" onClick={() => router.refresh()} className={secondaryButton}>

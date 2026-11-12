@@ -19,6 +19,8 @@
   --border-soft: #deeaea; /* Standard 1px card/divider border */
   /* Text-safe darks for badges (WCAG AA on their -lt fond / on white). */
   --gold-dk: #7a5500;
+  --green-dk: #167658;  /* 5,6:1 sur blanc · 4,9:1 sur --green-lt */
+  --red-dk: #c0333f;    /* 5,6:1 sur blanc · 4,8:1 sur --red-lt */
   --blue: #185fa5;
   --blue-lt: #e8f0fb;
   /* Navigation sur fond --dark (barre du haut, sidebar, onglets mobile).
@@ -67,6 +69,8 @@
   --color-izi-gray-lt: var(--gray-lt);
   --color-border-soft: var(--border-soft);
   --color-gold-dk: var(--gold-dk);
+  --color-green-dk: var(--green-dk);
+  --color-red-dk: var(--red-dk);
   --color-blue: var(--blue);
   --color-blue-lt: var(--blue-lt);
   --color-nav-text: var(--nav-text);

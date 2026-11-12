@@ -198,7 +198,7 @@ function LoginForm() {
           </div>
 
           {error && (
-            <p id="login-error" role="alert" className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-izi-red">
+            <p id="login-error" role="alert" className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-red-dk">
               {error}
             </p>
           )}
@@ -254,7 +254,7 @@ function LoginForm() {
           </div>
 
           {error && (
-            <p id="otp-error" role="alert" className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-izi-red">
+            <p id="otp-error" role="alert" className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-red-dk">
               {error}
             </p>
           )}

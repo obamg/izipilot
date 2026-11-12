@@ -64,7 +64,7 @@ export function DepartmentReductionPanel({ departmentId }: { departmentId: strin
   return (
     <div className="rounded-[10px] border border-border-soft bg-white p-4 mb-6">
       <h2 className="font-serif text-[16px] text-dark mb-3">Initier une révocation (département)</h2>
-      {error && <p className="text-[11px] text-red mb-2">{error}</p>}
+      {error && <p className="text-[11px] text-red-dk mb-2">{error}</p>}
       <div className="overflow-x-auto">
       <table className="izi-table">
         <thead>

@@ -65,7 +65,7 @@ function IdleMarker({ free }: { free: boolean }) {
   return (
     <span
       className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
-        free ? "bg-green-lt text-green" : "bg-izi-gray-lt text-izi-gray"
+        free ? "bg-green-lt text-green-dk" : "bg-izi-gray-lt text-izi-gray"
       }`}
     >
       {free ? "libre" : "occupé ailleurs"}

@@ -121,7 +121,7 @@ export function TaskStepsSection({
           {progress.total > 0 && (
             <span
               className={`ml-1.5 font-mono text-[10px] ${
-                allDone ? "text-green" : "text-izi-gray"
+                allDone ? "text-green-dk" : "text-izi-gray"
               }`}
             >
               {progress.done}/{progress.total}
@@ -147,7 +147,7 @@ export function TaskStepsSection({
       )}
 
       {error && (
-        <div className="mb-2 rounded-[6px] border border-red/30 bg-red-lt px-2.5 py-1.5 text-[11px] text-red">
+        <div className="mb-2 rounded-[6px] border border-red/30 bg-red-lt px-2.5 py-1.5 text-[11px] text-red-dk">
           {error}
         </div>
       )}
@@ -231,7 +231,7 @@ export function TaskStepsSection({
                     onClick={() => deleteStep(s.id)}
                     disabled={busy}
                     aria-label={`Supprimer l'étape ${s.title}`}
-                    className="shrink-0 text-[13px] leading-none text-izi-gray opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-red disabled:opacity-50"
+                    className="shrink-0 text-[13px] leading-none text-izi-gray opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-red-dk disabled:opacity-50"
                   >
                     ×
                   </button>

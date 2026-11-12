@@ -117,10 +117,10 @@ export default function ChangePasswordPage() {
             className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
           />
           <ul id="newPassword-rules" className="mt-2 space-y-1 text-xs text-izi-gray">
-            <li className={`flex items-center gap-1.5 ${rules.minLength ? "text-izi-green" : ""}`}>
+            <li className={`flex items-center gap-1.5 ${rules.minLength ? "text-green-dk" : ""}`}>
               <Check ok={rules.minLength} /> Au moins 8 caractères
             </li>
-            <li className={`flex items-center gap-1.5 ${rules.different ? "text-izi-green" : ""}`}>
+            <li className={`flex items-center gap-1.5 ${rules.different ? "text-green-dk" : ""}`}>
               <Check ok={rules.different} /> Différent du mot de passe actuel
             </li>
           </ul>
@@ -143,14 +143,14 @@ export default function ChangePasswordPage() {
             className="izi-form-input mt-1 block w-full rounded-lg border border-teal-md px-3 py-2 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal"
           />
           <ul id="confirmPassword-rules" className="mt-2 space-y-1 text-xs text-izi-gray">
-            <li className={`flex items-center gap-1.5 ${rules.matches ? "text-izi-green" : ""}`}>
+            <li className={`flex items-center gap-1.5 ${rules.matches ? "text-green-dk" : ""}`}>
               <Check ok={rules.matches} /> La confirmation correspond
             </li>
           </ul>
         </div>
 
         {error && (
-          <p className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-izi-red">
+          <p className="rounded-md bg-izi-red-lt px-3 py-2 text-sm text-red-dk">
             {error}
           </p>
         )}

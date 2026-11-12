@@ -762,7 +762,7 @@ export function WeeklyEntryForm({
 
                       {/* Warning: blocked KR without actions */}
                       {entry.status === "BLOCKED" && kr.actions.length === 0 && (
-                        <div className="bg-izi-red-lt border border-[#f0b0b0] rounded-[7px] px-2.5 py-2 mb-2 text-[10px] text-izi-red flex items-center gap-1.5">
+                        <div className="bg-izi-red-lt border border-[#f0b0b0] rounded-[7px] px-2.5 py-2 mb-2 text-[10px] text-red-dk flex items-center gap-1.5">
                           <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0">
                             <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0V5zm.75 6.25a.75.75 0 100-1.5.75.75 0 000 1.5z" />
                           </svg>
@@ -902,12 +902,12 @@ export function WeeklyEntryForm({
            bar is hidden so the bar sits on the viewport edge again. */
         <div className="sticky bottom-[calc(52px+env(safe-area-inset-bottom))] lg:bottom-0 bg-white/90 backdrop-blur-sm border-t border-border-soft px-4 pt-3 pb-3 lg:pb-[max(env(safe-area-inset-bottom),0.75rem)] flex flex-wrap justify-end gap-2 -mx-5 mt-4">
           {submitError && (
-            <span className="text-xs text-izi-red self-center mr-auto">
+            <span className="text-xs text-red-dk self-center mr-auto">
               {submitError}
             </span>
           )}
           {submitSuccess && (
-            <span className="text-xs text-izi-green self-center mr-auto">
+            <span className="text-xs text-green-dk self-center mr-auto">
               Revue soumise avec succ&egrave;s !
             </span>
           )}

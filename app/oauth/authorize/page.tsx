@@ -150,7 +150,7 @@ function ErrorBox({ title, body }: { title: string; body: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-izi-gray-lt px-4">
       <div className="bg-white rounded-[12px] border border-izi-red/20 shadow-sm w-full max-w-[420px] p-6">
-        <div className="font-serif text-[16px] text-izi-red mb-2">{title}</div>
+        <div className="font-serif text-[16px] text-red-dk mb-2">{title}</div>
         <div className="text-[13px] text-dark-md">{body}</div>
       </div>
     </div>

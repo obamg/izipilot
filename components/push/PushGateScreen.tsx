@@ -294,7 +294,7 @@ export function PushGateScreen({ vapidPublicKey, userName }: Props) {
         )}
 
         {error && (
-          <p className="mt-3 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red">
+          <p className="mt-3 rounded-[7px] border border-red/30 bg-red-lt px-3 py-2 text-[11px] text-red-dk">
             {error}
           </p>
         )}

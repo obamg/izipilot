@@ -363,7 +363,7 @@ function BoardColumn({
             wip === "OVER"
               ? "font-semibold text-[var(--red)]"
               : wip === "AT"
-              ? "font-semibold text-gold"
+              ? "font-semibold text-gold-dk"
               : "text-izi-gray"
           }`}
           title={
@@ -491,7 +491,7 @@ function CardSurface({ task, dragging = false }: { task: SprintTaskItem; draggin
             <span
               className={`inline-flex items-center gap-0.5 font-mono ${
                 task.stepProgress.done === task.stepProgress.total
-                  ? "text-green font-semibold"
+                  ? "text-green-dk font-semibold"
                   : ""
               }`}
               title={`Sous-tâches : ${task.stepProgress.done}/${task.stepProgress.total}`}

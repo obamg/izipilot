@@ -69,7 +69,7 @@ export function DepartmentHeadBackupPanel({
         Le chef de département reste toujours <code>Department.ownerId</code> — ce panneau ne
         configure que son suppléant et sa disponibilité pour le routage des approbations.
       </p>
-      {error && <p className="text-[11px] text-red mb-2">{error}</p>}
+      {error && <p className="text-[11px] text-red-dk mb-2">{error}</p>}
       <div className="overflow-x-auto">
       <table className="izi-table">
         <thead>
@@ -94,7 +94,7 @@ export function DepartmentHeadBackupPanel({
                       type="button"
                       onClick={() => setBackup(c.departmentId, null)}
                       disabled={saving === c.departmentId}
-                      className="text-red text-[10px] underline ml-1"
+                      className="text-red-dk text-[10px] underline ml-1"
                     >
                       retirer
                     </button>
@@ -132,7 +132,7 @@ export function DepartmentHeadBackupPanel({
                     type="button"
                     onClick={() => toggleUnavailable(c.assignmentId as string, c.primaryUnavailable)}
                     className={`rounded-[6px] px-2 py-1 text-[11px] font-medium ${
-                      c.primaryUnavailable ? "bg-red-lt text-red" : "bg-green-lt text-green"
+                      c.primaryUnavailable ? "bg-red-lt text-red-dk" : "bg-green-lt text-green-dk"
                     }`}
                   >
                     {c.primaryUnavailable ? "Indisponible" : "Disponible"}
