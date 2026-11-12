@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { requestUser } from "@/lib/request-user";
 import { updateSprintTaskSchema } from "@/lib/validations/sprints";
 import { sprintTaskVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 import { sprintTaskInclude, serializeSprintTask } from "@/lib/sprint-serialize";
@@ -15,11 +16,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = await requestUser(request);
+  if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role === "VIEWER") {
+  if (user.role === "VIEWER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -36,8 +37,8 @@ export async function PATCH(
   const existing = await prisma.sprintTask.findFirst({
     where: {
       id: taskId,
-      orgId: session.user.orgId,
-      ...sprintTaskVisibilityWhere(session.user.role),
+      orgId: user.orgId,
+      ...sprintTaskVisibilityWhere(user.role),
     },
     select: {
       id: true,
@@ -55,11 +56,11 @@ export async function PATCH(
 
   // CONTRIBUTOR may only edit the allowed keys (move + report link) on their
   // own assigned task.
-  if (session.user.role === "CONTRIBUTOR") {
+  if (user.role === "CONTRIBUTOR") {
     const allowed = Object.keys(parsed.data).every((k) =>
       CONTRIBUTOR_KEYS.has(k)
     );
-    if (!allowed || existing.assigneeId !== session.user.id) {
+    if (!allowed || existing.assigneeId !== user.id) {
       return Response.json(
         { error: "Forbidden: you can only update tasks assigned to you" },
         { status: 403 }
@@ -72,7 +73,7 @@ export async function PATCH(
   // Validate references that are being (re)set.
   if (p.sprintId) {
     const sprint = await prisma.sprint.findFirst({
-      where: { id: p.sprintId, orgId: session.user.orgId },
+      where: { id: p.sprintId, orgId: user.orgId },
       select: { id: true },
     });
     if (!sprint) {
@@ -83,24 +84,24 @@ export async function PATCH(
     const kr = await prisma.keyResult.findFirst({
       where: {
         id: p.krId,
-        orgId: session.user.orgId,
+        orgId: user.orgId,
         isActive: true,
         deletedAt: null,
-        ...krVisibilityWhere(session.user.role),
+        ...krVisibilityWhere(user.role),
       },
       select: { ownerId: true },
     });
     if (!kr) {
       return Response.json({ error: "Key Result not found" }, { status: 404 });
     }
-    if (session.user.role === "PO" && kr.ownerId !== session.user.id) {
+    if (user.role === "PO" && kr.ownerId !== user.id) {
       return Response.json(
         { error: "Forbidden: not the owner of this KR" },
         { status: 403 }
       );
     }
   }
-  const refError = await validateTeamAndAssignee(session.user.orgId, p);
+  const refError = await validateTeamAndAssignee(user.orgId, p);
   if (refError) return refError;
 
   // Build the update payload from provided fields only.
@@ -135,7 +136,7 @@ export async function PATCH(
 
   if (p.columnId) {
     const column = await prisma.boardColumn.findFirst({
-      where: { id: p.columnId, orgId: session.user.orgId },
+      where: { id: p.columnId, orgId: user.orgId },
       select: { id: true, category: true },
     });
     if (!column) {
@@ -148,7 +149,7 @@ export async function PATCH(
     // Statut sans colonne : on replace la carte dans la colonne équivalente du
     // flux de son équipe (null si ce flux n'a pas cette catégorie — la tâche
     // atterrit alors dans « Hors flux » plutôt que dans la mauvaise colonne).
-    data.columnId = await resolveColumnFor(session.user.orgId, team, p.status);
+    data.columnId = await resolveColumnFor(user.orgId, team, p.status);
   } else if (p.columnId === null) {
     data.columnId = null;
   } else if (teamChanged) {
@@ -156,7 +157,7 @@ export async function PATCH(
     // l'ancienne. On bascule vers l'équivalente du nouveau flux, à catégorie
     // constante, pour ne pas faire reculer la tâche dans son avancement.
     data.columnId = await resolveColumnFor(
-      session.user.orgId,
+      user.orgId,
       team,
       existing.status
     );

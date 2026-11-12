@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getCaller } from "../context.js";
-import { errorResult, jsonResult } from "./index.js";
+import { callApp, errorResult, jsonResult } from "./index.js";
 
 const input = {
   krId: z.string().min(1),
@@ -15,10 +14,6 @@ const input = {
   comment: z.string().max(4000).optional(),
 };
 
-// Prod: http://izipilot-app-1:3000 — explicit container name, because the
-// "app" alias on the shared web network also matches the staging app.
-const APP_URL = process.env.MCP_APP_URL?.replace(/\/$/, "");
-
 export function registerSubmitWeeklyEntry(server: McpServer) {
   server.registerTool(
     "submit_weekly_entry",
@@ -30,31 +25,19 @@ export function registerSubmitWeeklyEntry(server: McpServer) {
     },
     async (args) => {
       try {
-        if (!APP_URL) throw new Error("MCP_APP_URL is not configured on the MCP server");
-        const caller = getCaller();
         // Forward to the app so the write runs lib/weekly-entry.ts — no
         // duplicated score / deadline / alert logic in this package.
-        const res = await fetch(`${APP_URL}/api/weekly-entries`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${caller.token}`,
-          },
-          body: JSON.stringify(args),
-        });
-        const body = (await res.json().catch(() => ({}))) as {
-          data?: { id: string; scoreAtEntry: number; status: string; delta: number };
-          error?: string;
-        };
-        if (!res.ok || !body.data) {
-          throw new Error(body.error ?? `App returned HTTP ${res.status}`);
-        }
+        const data = await callApp<{ id: string; scoreAtEntry: number; status: string; delta: number }>(
+          "POST",
+          "/api/weekly-entries",
+          args,
+        );
         return jsonResult({
           ok: true,
-          entryId: body.data.id,
-          scorePercent: body.data.scoreAtEntry,
-          status: body.data.status,
-          deltaPercent: Math.round(body.data.delta * 100),
+          entryId: data.id,
+          scorePercent: data.scoreAtEntry,
+          status: data.status,
+          deltaPercent: Math.round(data.delta * 100),
         });
       } catch (err) {
         return errorResult(err);
