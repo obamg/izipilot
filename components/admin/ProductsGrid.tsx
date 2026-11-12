@@ -114,7 +114,7 @@ export function ProductsGrid({ products, users }: ProductsGridProps) {
                 {p.isActive && (
                   <button
                     onClick={() => setDeleteProduct(p)}
-                    className="px-2 py-1 rounded text-[9px] font-medium text-izi-red border border-izi-red-lt hover:bg-izi-red-lt transition-colors"
+                    className="px-2 py-1 rounded text-[9px] font-medium text-red-dk border border-izi-red-lt hover:bg-izi-red-lt transition-colors"
                   >
                     Supprimer
                   </button>

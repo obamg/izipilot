@@ -113,7 +113,7 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
     <div className="mb-4 rounded-[10px] border border-red/40 bg-red-lt px-4 py-3">
       <div className="flex items-start gap-3">
         <div
-          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-red"
+          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-red-dk"
           aria-hidden="true"
         >
           <svg
@@ -137,7 +137,7 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
             Recevez vos rappels de rapport quotidien et les alertes KR
             directement — même quand l&apos;onglet est fermé. Aucun email.
           </p>
-          {error && <p className="mt-1.5 text-[11px] text-izi-red">{error}</p>}
+          {error && <p className="mt-1.5 text-[11px] text-red-dk">{error}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <button

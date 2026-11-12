@@ -125,7 +125,7 @@ export function Nav({ userName = "U", userRole, weekNumber, year, alertCount = 0
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="w-full text-left px-4 py-2.5 text-sm text-izi-red hover:bg-izi-red-lt focus-visible:outline-none focus-visible:bg-izi-red-lt transition-colors cursor-pointer border-none bg-transparent"
+                className="w-full text-left px-4 py-2.5 text-sm text-red-dk hover:bg-izi-red-lt focus-visible:outline-none focus-visible:bg-izi-red-lt transition-colors cursor-pointer border-none bg-transparent"
               >
                 Se d&eacute;connecter
               </button>

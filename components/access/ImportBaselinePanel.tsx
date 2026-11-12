@@ -103,7 +103,7 @@ export function ImportBaselinePanel() {
         aria-label="Charger le CSV de baseline"
       />
       {uploading && <p className="mt-2 text-[12px] text-teal-dk">Analyse en cours…</p>}
-      {error && <p className="mt-2 text-[12px] text-red">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-red-dk">{error}</p>}
 
       {batch && (
         <div className="mt-4">
@@ -128,7 +128,7 @@ export function ImportBaselinePanel() {
                     <td>{r.rowIndex + 2}</td>
                     <td
                       className={`${
-                        r.outcome === "UNRESOLVED" || r.outcome === "CONFLICT" ? "text-red font-medium" : ""
+                        r.outcome === "UNRESOLVED" || r.outcome === "CONFLICT" ? "text-red-dk font-medium" : ""
                       }`}
                     >
                       {OUTCOME_LABELS[r.outcome] ?? r.outcome}
@@ -140,11 +140,11 @@ export function ImportBaselinePanel() {
             </table>
           </div>
           {batch.committedAt ? (
-            <p className="mt-2 text-[12px] text-izi-green">
+            <p className="mt-2 text-[12px] text-green-dk">
               Importé le {new Date(batch.committedAt).toLocaleString("fr-FR")}.
             </p>
           ) : hasBlocking ? (
-            <p className="mt-3 text-[12px] text-red font-medium">
+            <p className="mt-3 text-[12px] text-red-dk font-medium">
               Ce lot contient des lignes bloquantes — corrigez le fichier source et rechargez-le.
               Aucun commit partiel n&apos;est possible.
             </p>

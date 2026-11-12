@@ -46,7 +46,7 @@ export function KrProgressBar({
       {delta !== undefined && delta !== 0 && (
         <span
           className={`font-mono text-[11px] font-medium shrink-0 ${
-            delta > 0 ? "text-izi-green" : "text-izi-red"
+            delta > 0 ? "text-green-dk" : "text-red-dk"
           }`}
           aria-label={`Variation ${delta > 0 ? "positive" : "négative"} de ${Math.abs(Math.round(delta))} points`}
         >

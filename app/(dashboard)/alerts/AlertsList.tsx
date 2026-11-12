@@ -228,7 +228,7 @@ export function AlertsList({ alerts, canResolve }: AlertsListProps) {
                       {alert.source === "MANUAL" ? "Manuelle" : "Auto"}
                     </span>
                     {alert.isResolved && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-izi-green-lt text-izi-green font-medium">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-izi-green-lt text-green-dk font-medium">
                         R&eacute;solu
                       </span>
                     )}

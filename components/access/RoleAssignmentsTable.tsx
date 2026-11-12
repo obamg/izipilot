@@ -79,7 +79,7 @@ export function RoleAssignmentsTable({ assignments, users }: RoleAssignmentsTabl
         </button>
       </div>
 
-      {error && <p className="px-4 py-2 text-[11px] text-izi-red bg-izi-red-lt">{error}</p>}
+      {error && <p className="px-4 py-2 text-[11px] text-red-dk bg-izi-red-lt">{error}</p>}
 
       {visibleAssignments.length === 0 ? (
         <div className="p-10 text-center text-[13px] text-izi-gray">
@@ -109,8 +109,8 @@ export function RoleAssignmentsTable({ assignments, users }: RoleAssignmentsTabl
                     onClick={() => toggleUnavailable(a.id, a.primaryUnavailable)}
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
                       a.primaryUnavailable
-                        ? "bg-izi-red-lt text-izi-red"
-                        : "bg-izi-green-lt text-izi-green"
+                        ? "bg-izi-red-lt text-red-dk"
+                        : "bg-izi-green-lt text-green-dk"
                     }`}
                   >
                     {a.primaryUnavailable ? "Indisponible" : "Disponible"}
@@ -120,7 +120,7 @@ export function RoleAssignmentsTable({ assignments, users }: RoleAssignmentsTabl
                   <button
                     type="button"
                     onClick={() => removeAssignment(a.id)}
-                    className="text-[11px] text-izi-gray hover:text-izi-red"
+                    className="text-[11px] text-izi-gray hover:text-red-dk"
                   >
                     Retirer
                   </button>

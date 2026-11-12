@@ -67,7 +67,7 @@ export function AttachmentUploader({
         Images, PDF, Word, Excel, CSV ou texte · {formatBytes(MAX_ATTACHMENT_BYTES)} max
       </p>
       {uploading && <p className="mt-1 text-[12px] text-teal-dk">Envoi en cours…</p>}
-      {error && <p className="mt-1 text-[12px] text-red">{error}</p>}
+      {error && <p className="mt-1 text-[12px] text-red-dk">{error}</p>}
     </div>
   );
 }

@@ -15,8 +15,8 @@ const KIND_OPTIONS: { value: RequestKind; label: string }[] = [
 
 const STATUS_STYLE: Record<RequestStatus, { label: string; cls: string }> = {
   OPEN: { label: "En attente", cls: "bg-gold-lt text-[#946200]" },
-  RESOLVED: { label: "Résolue", cls: "bg-green-lt text-green" },
-  DECLINED: { label: "Refusée", cls: "bg-red-lt text-red" },
+  RESOLVED: { label: "Résolue", cls: "bg-green-lt text-green-dk" },
+  DECLINED: { label: "Refusée", cls: "bg-red-lt text-red-dk" },
   CANCELLED: { label: "Annulée", cls: "bg-izi-gray-lt text-izi-gray" },
 };
 
@@ -229,7 +229,7 @@ export function TaskRequestSection({
       )}
 
       {error && (
-        <div className="mb-2 rounded-[6px] border border-red/30 bg-red-lt px-2.5 py-1.5 text-[11px] text-red">
+        <div className="mb-2 rounded-[6px] border border-red/30 bg-red-lt px-2.5 py-1.5 text-[11px] text-red-dk">
           {error}
         </div>
       )}
@@ -269,7 +269,7 @@ export function TaskRequestSection({
                           type="button"
                           onClick={() => act(r.id, "RESOLVED")}
                           disabled={busy}
-                          className="text-[11px] font-medium text-green hover:underline disabled:opacity-50"
+                          className="text-[11px] font-medium text-green-dk hover:underline disabled:opacity-50"
                         >
                           Résoudre
                         </button>
@@ -277,7 +277,7 @@ export function TaskRequestSection({
                           type="button"
                           onClick={() => act(r.id, "DECLINED")}
                           disabled={busy}
-                          className="text-[11px] font-medium text-red hover:underline disabled:opacity-50"
+                          className="text-[11px] font-medium text-red-dk hover:underline disabled:opacity-50"
                         >
                           Refuser
                         </button>

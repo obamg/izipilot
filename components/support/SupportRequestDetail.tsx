@@ -189,7 +189,7 @@ export function SupportRequestDetail({
       </div>
 
       {error && (
-        <p className="rounded-[8px] bg-red-lt px-3 py-2 text-[13px] text-red">{error}</p>
+        <p className="rounded-[8px] bg-red-lt px-3 py-2 text-[13px] text-red-dk">{error}</p>
       )}
 
       {/* ── Actions ─────────────────────────────────────────────── */}
@@ -420,7 +420,7 @@ export function SupportRequestDetail({
                       disabled={pending}
                       aria-label={`Supprimer ${a.filename}`}
                       onClick={() => run(() => deleteSupportAttachment({ attachmentId: a.id }))}
-                      className="shrink-0 text-[12px] text-red hover:underline disabled:opacity-50"
+                      className="shrink-0 text-[12px] text-red-dk hover:underline disabled:opacity-50"
                     >
                       Supprimer
                     </button>
@@ -454,7 +454,7 @@ export function SupportRequestDetail({
                   <span className="text-[12px] font-semibold text-dark">{c.author.name}</span>
                   <span className="text-[11px] text-izi-gray">
                     {c.isInternal && (
-                      <span className="mr-1 font-semibold text-gold">Note interne</span>
+                      <span className="mr-1 font-semibold text-gold-dk">Note interne</span>
                     )}
                     {dateFmt.format(new Date(c.createdAt))}
                   </span>
@@ -524,7 +524,7 @@ function Row({ term, desc, alert }: { term: string; desc: string; alert?: boolea
   return (
     <div className="flex gap-2">
       <dt className="shrink-0 text-izi-gray">{term}</dt>
-      <dd className={`m-0 font-medium ${alert ? "text-red" : "text-dark"}`}>{desc}</dd>
+      <dd className={`m-0 font-medium ${alert ? "text-red-dk" : "text-dark"}`}>{desc}</dd>
     </div>
   );
 }

@@ -458,7 +458,7 @@ export default async function DashboardPage({
             En bonne voie
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-serif text-2xl text-izi-green leading-none">
+            <span className="font-serif text-2xl text-green-dk leading-none">
               {statusCounts.ON_TRACK}
             </span>
             <span className="text-xs text-izi-gray">KRs</span>
@@ -469,7 +469,7 @@ export default async function DashboardPage({
             Attention
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-serif text-2xl text-gold leading-none">
+            <span className="font-serif text-2xl text-gold-dk leading-none">
               {statusCounts.AT_RISK}
             </span>
             <span className="text-xs text-izi-gray">KRs</span>
@@ -480,7 +480,7 @@ export default async function DashboardPage({
             Bloqu&eacute;s
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-serif text-2xl text-izi-red leading-none">
+            <span className="font-serif text-2xl text-red-dk leading-none">
               {statusCounts.BLOCKED}
             </span>
             <span className="text-xs text-izi-gray">KRs</span>

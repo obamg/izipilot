@@ -201,7 +201,7 @@ function ManagerModal({
         </div>
 
         {error && (
-          <div className="mb-3 rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
+          <div className="mb-3 rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red-dk">
             {error}
           </div>
         )}
@@ -280,7 +280,7 @@ function ManagerModal({
                             onClick={() => remove(t)}
                             disabled={busyId === t.id}
                             aria-label={`Supprimer ${t.title}`}
-                            className="text-[13px] leading-none text-izi-gray hover:text-red disabled:opacity-50"
+                            className="text-[13px] leading-none text-izi-gray hover:text-red-dk disabled:opacity-50"
                           >
                             ×
                           </button>
@@ -635,7 +635,7 @@ function RecurringForm({
       </div>
 
       {error && (
-        <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
+        <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red-dk">
           {error}
         </div>
       )}

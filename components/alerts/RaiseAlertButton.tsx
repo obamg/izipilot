@@ -15,7 +15,7 @@ export function RaiseAlertButton({ krId, krTitle }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-[11px] font-semibold text-red border border-red/40 bg-white hover:bg-red-lt px-3 py-1.5 rounded-md transition-colors"
+        className="text-[11px] font-semibold text-red-dk border border-red/40 bg-white hover:bg-red-lt px-3 py-1.5 rounded-md transition-colors"
       >
         Soulever une alerte
       </button>

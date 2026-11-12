@@ -398,7 +398,7 @@ function SubjectCard({
           </div>
 
           {error && (
-            <p className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[11px] text-red">
+            <p className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[11px] text-red-dk">
               {error}
             </p>
           )}

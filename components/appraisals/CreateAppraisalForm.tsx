@@ -84,7 +84,7 @@ export function CreateAppraisalForm({
           {pending ? "…" : "Ouvrir"}
         </button>
       </div>
-      {error && <p className="mt-2 text-[12px] text-red">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-red-dk">{error}</p>}
     </div>
   );
 }

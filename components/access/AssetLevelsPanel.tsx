@@ -118,7 +118,7 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
                     onClick={() => toggleAdmin(l)}
                     disabled={!!l.archivedAt}
                     className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${
-                      l.isAdmin ? "bg-izi-red-lt text-izi-red" : "bg-izi-gray-lt text-izi-gray"
+                      l.isAdmin ? "bg-izi-red-lt text-red-dk" : "bg-izi-gray-lt text-izi-gray"
                     }`}
                   >
                     {l.isAdmin === null ? "Non défini" : l.isAdmin ? "Oui" : "Non"}
@@ -129,7 +129,7 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
                     <button
                       type="button"
                       onClick={() => archiveLevel(l)}
-                      className="text-izi-gray hover:text-izi-red"
+                      className="text-izi-gray hover:text-red-dk"
                     >
                       Archiver
                     </button>
@@ -185,7 +185,7 @@ export function AssetLevelsPanel({ asset, onChanged }: AssetLevelsPanelProps) {
         </button>
       </div>
 
-      {error && <p className="text-[11px] text-izi-red bg-izi-red-lt px-3 py-2 rounded-md">{error}</p>}
+      {error && <p className="text-[11px] text-red-dk bg-izi-red-lt px-3 py-2 rounded-md">{error}</p>}
     </div>
   );
 }

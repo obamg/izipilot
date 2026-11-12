@@ -112,7 +112,7 @@ export function MyRequestActions({ row, assets }: { row: RequestRow; assets: Ass
 
   return (
     <div className="flex flex-col gap-1">
-      {error && <p className="text-[10px] text-red">{error}</p>}
+      {error && <p className="text-[10px] text-red-dk">{error}</p>}
       {row.state === "CLARIFICATION_REQUIRED" && row.stageIdIfClarification && (
         <div className="flex items-center gap-1">
           <input
@@ -169,7 +169,7 @@ export function MyRequestActions({ row, assets }: { row: RequestRow; assets: Ass
           type="button"
           disabled={busy}
           onClick={cancel}
-          className="text-[10px] text-red underline text-left"
+          className="text-[10px] text-red-dk underline text-left"
         >
           {cancelAction === "CANCEL" ? "Annuler la demande" : "Demander l'annulation"}
         </button>

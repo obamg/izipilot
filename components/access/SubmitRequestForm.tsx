@@ -109,8 +109,8 @@ export function SubmitRequestForm({
           className="w-full rounded-[6px] border border-teal-md px-2 py-1.5 text-[13px] text-dark bg-white"
         />
       </div>
-      {error && <p className="text-[11px] text-red">{error}</p>}
-      {success && <p className="text-[11px] text-izi-green">{success}</p>}
+      {error && <p className="text-[11px] text-red-dk">{error}</p>}
+      {success && <p className="text-[11px] text-green-dk">{success}</p>}
       <button
         type="submit"
         disabled={submitting}

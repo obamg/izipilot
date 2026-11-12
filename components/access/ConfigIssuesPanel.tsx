@@ -82,7 +82,7 @@ export function ConfigIssuesPanel({ issues, departments }: ConfigIssuesPanelProp
           </li>
         ))}
       </ul>
-      {error && <p className="mt-2 text-[11px] text-izi-red">{error}</p>}
+      {error && <p className="mt-2 text-[11px] text-red-dk">{error}</p>}
     </div>
   );
 }

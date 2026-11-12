@@ -128,14 +128,14 @@ export function PushToggle({ vapidPublicKey }: Props) {
             </p>
           )}
           {status === "denied" && (
-            <p className="text-[11px] text-izi-red mt-2">
+            <p className="text-[11px] text-red-dk mt-2">
               Permission refusée. Réactivez-la dans les réglages du
               navigateur (icône de cadenas à gauche de l&apos;URL) pour
               recevoir les notifications.
             </p>
           )}
           {error && (
-            <p className="text-[11px] text-izi-red mt-2">{error}</p>
+            <p className="text-[11px] text-red-dk mt-2">{error}</p>
           )}
         </div>
         <div className="shrink-0">

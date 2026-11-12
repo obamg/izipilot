@@ -129,7 +129,7 @@ export function FulfilmentTaskList({ rows, readOnly, selectable, emptyMessage }:
           </p>
           <ul className="mt-1 space-y-0.5">
             {results.map((r) => (
-              <li key={r.taskId} className={`text-[13px] ${r.ok ? "text-dark-md" : "text-red"}`}>
+              <li key={r.taskId} className={`text-[13px] ${r.ok ? "text-dark-md" : "text-red-dk"}`}>
                 {referenceOf(r.taskId)} — {r.ok ? "fait" : r.error}
               </li>
             ))}
@@ -138,7 +138,7 @@ export function FulfilmentTaskList({ rows, readOnly, selectable, emptyMessage }:
       )}
 
       {error && (
-        <p role="alert" className="mb-2 text-[13px] text-red">
+        <p role="alert" className="mb-2 text-[13px] text-red-dk">
           {error}
         </p>
       )}

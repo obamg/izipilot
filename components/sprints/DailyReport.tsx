@@ -172,7 +172,7 @@ export function DailyReport({
       {/* Blockers highlight */}
       {report.blockers.length > 0 && (
         <div className="rounded-[10px] border border-red/30 bg-red-lt px-3.5 py-3">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-red mb-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-red-dk mb-2">
             🚧 Blocages ({report.blockers.length})
           </h3>
           <ul className="space-y-1.5">
@@ -242,7 +242,7 @@ function StandupCol({
     <div>
       <div
         className={`text-[9px] font-semibold uppercase tracking-[0.06em] mb-0.5 ${
-          accent ? "text-red" : "text-izi-gray"
+          accent ? "text-red-dk" : "text-izi-gray"
         }`}
       >
         {label}
@@ -361,7 +361,7 @@ function MyStandupForm({
           placeholder="Ce qui me bloque (optionnel)…"
         />
       </div>
-      {error && <p className="mt-2 text-[11px] text-red">{error}</p>}
+      {error && <p className="mt-2 text-[11px] text-red-dk">{error}</p>}
       <div className="mt-2 flex justify-end">
         <button
           type="submit"

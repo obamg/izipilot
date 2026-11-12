@@ -110,7 +110,7 @@ export function AppraisalDetail({
       </div>
 
       {error && (
-        <p className="rounded-[8px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">{error}</p>
+        <p className="rounded-[8px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red-dk">{error}</p>
       )}
 
       {/* Monthly rollup — objective context */}
@@ -542,7 +542,7 @@ function GoalsSection({
               <button
                 type="button"
                 onClick={() => setGoals(goals.filter((x) => x.id !== g.id))}
-                className="text-[11px] text-red hover:underline"
+                className="text-[11px] text-red-dk hover:underline"
               >
                 Retirer
               </button>

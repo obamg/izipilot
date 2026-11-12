@@ -145,7 +145,7 @@ export function SprintFormModal({ sprint, onClose, onSaved }: SprintFormModalPro
         </div>
 
         {error && (
-          <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red">
+          <div className="rounded-[7px] bg-red-lt border border-red/30 px-3 py-2 text-[12px] text-red-dk">
             {error}
           </div>
         )}

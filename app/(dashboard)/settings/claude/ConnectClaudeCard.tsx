@@ -93,7 +93,7 @@ export function ConnectClaudeCard({ mcpUrl }: Props) {
       </div>
 
       {state.kind === "error" && (
-        <div className="text-xs text-izi-red bg-izi-red-lt rounded-lg p-3">
+        <div className="text-xs text-red-dk bg-izi-red-lt rounded-lg p-3">
           {state.message}
         </div>
       )}
