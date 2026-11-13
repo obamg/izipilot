@@ -414,7 +414,7 @@ docs/
 - NextAuth.js v5 avec email magic link (par défaut)
 - MFA obligatoire pour CEO et MANAGEMENT (TOTP via authenticator app)
 - MFA optionnel pour PO
-- Session timeout : 4h max, refresh automatique
+- Session timeout : 24h d'inactivité max, refresh automatique
 - Rate limiting sur les endpoints d'auth (10 req/min par IP)
 
 ### Autorisation (object-level)
