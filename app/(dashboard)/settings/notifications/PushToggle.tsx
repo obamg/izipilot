@@ -26,6 +26,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
 export function PushToggle({ vapidPublicKey }: Props) {
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +90,28 @@ export function PushToggle({ vapidPublicKey }: Props) {
     }
   }
 
+  async function sendTest() {
+    setError(null);
+    setTestResult("Envoi…");
+    try {
+      const res = await fetch("/api/account/push-test", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Erreur d'envoi");
+      const { sent, removed, failed } = body.data as { sent: number; removed: number; failed: number };
+      const parts = [
+        sent > 0
+          ? `Envoyée à ${sent} appareil${sent > 1 ? "s" : ""}. Rien reçu d'ici une minute ? Le navigateur la bloque.`
+          : "Aucun appareil joignable : réactivez les notifications.",
+      ];
+      if (removed > 0) parts.push(`${removed} ancien${removed > 1 ? "s" : ""} abonnement${removed > 1 ? "s" : ""} expiré${removed > 1 ? "s" : ""} supprimé${removed > 1 ? "s" : ""}.`);
+      if (failed > 0) parts.push(`${failed} envoi${failed > 1 ? "s" : ""} en échec.`);
+      setTestResult(parts.join(" "));
+    } catch (e) {
+      setTestResult(null);
+      setError(e instanceof Error ? e.message : "Erreur");
+    }
+  }
+
   async function disable() {
     setError(null);
     setStatus("loading");
@@ -137,8 +160,20 @@ export function PushToggle({ vapidPublicKey }: Props) {
           {error && (
             <p className="text-[11px] text-red-dk mt-2">{error}</p>
           )}
+          {testResult && (
+            <p className="text-[11px] text-dark mt-2" role="status">{testResult}</p>
+          )}
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-col items-end gap-1.5">
+          {status === "subscribed" && (
+            <button
+              type="button"
+              onClick={sendTest}
+              className="text-[12px] font-medium px-3 py-1.5 rounded-[7px] border border-teal text-teal-dk hover:bg-teal-lt"
+            >
+              Envoyer un test
+            </button>
+          )}
           {status === "subscribed" ? (
             <button
               type="button"
