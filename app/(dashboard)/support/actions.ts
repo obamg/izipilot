@@ -28,6 +28,7 @@ import { notifySupportRequest } from "@/lib/support-notify";
 import { deleteAttachment } from "@/lib/storage";
 import { resolveInitialColumn } from "@/lib/board-column-server";
 import { log } from "@/lib/log";
+import { notifyTaskAssigned } from "@/lib/task-notify";
 
 const logger = log.child("support/actions");
 
@@ -375,8 +376,9 @@ export async function convertSupportRequestToTask(input: unknown) {
       createdById: viewer.id,
       dueDate: request.dueAt,
     },
-    select: { id: true },
+    select: { id: true, title: true, sprintId: true, dueDate: true, assigneeId: true },
   });
+  await notifyTaskAssigned({ ...task, taskId: task.id, actorId: viewer.id });
 
   await prisma.supportRequest.update({
     where: { id },

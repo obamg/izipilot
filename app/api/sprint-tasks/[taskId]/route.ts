@@ -7,6 +7,7 @@ import { sprintTaskVisibilityWhere, krVisibilityWhere } from "@/lib/visibility";
 import { sprintTaskInclude, serializeSprintTask } from "@/lib/sprint-serialize";
 import { validateTeamAndAssignee } from "@/lib/sprint-refs";
 import { resolveColumnFor } from "@/lib/board-column-server";
+import { notifyTaskAssigned } from "@/lib/task-notify";
 
 // Keys a CONTRIBUTOR may edit on their OWN assigned task: board move
 // (column/status/sortOrder) plus the report link.
@@ -175,6 +176,17 @@ export async function PATCH(
     data,
     include: sprintTaskInclude,
   });
+
+  if (updated.assigneeId !== existing.assigneeId) {
+    await notifyTaskAssigned({
+      taskId: updated.id,
+      title: updated.title,
+      sprintId: updated.sprintId,
+      dueDate: updated.dueDate,
+      assigneeId: updated.assigneeId,
+      actorId: user.id,
+    });
+  }
 
   return Response.json({ data: serializeSprintTask(updated) });
 }

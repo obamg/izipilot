@@ -10,6 +10,7 @@ import {
 import { validateTeamAndAssignee, loadLedDepartmentIds } from "@/lib/sprint-refs";
 import { contributorMayCreateTask } from "@/lib/sprint";
 import { resolveInitialColumn } from "@/lib/board-column-server";
+import { notifyTaskAssigned } from "@/lib/task-notify";
 
 export async function GET(request: NextRequest) {
   const user = await requestUser(request);
@@ -160,6 +161,15 @@ export async function POST(request: NextRequest) {
       dueDate: d.dueDate ? new Date(d.dueDate) : null,
     },
     include: sprintTaskInclude,
+  });
+
+  await notifyTaskAssigned({
+    taskId: task.id,
+    title: task.title,
+    sprintId: task.sprintId,
+    dueDate: task.dueDate,
+    assigneeId: task.assigneeId,
+    actorId: user.id,
   });
 
   return Response.json({ data: serializeSprintTask(task) }, { status: 201 });
