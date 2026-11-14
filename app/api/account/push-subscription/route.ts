@@ -1,9 +1,10 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { isPushServiceEndpoint } from "@/lib/push";
 
 const subscribeSchema = z.object({
-  endpoint: z.string().url().max(2048),
+  endpoint: z.string().url().max(2048).refine(isPushServiceEndpoint, "Service de notification inconnu"),
   keys: z.object({
     p256dh: z.string().min(1).max(512),
     auth: z.string().min(1).max(512),

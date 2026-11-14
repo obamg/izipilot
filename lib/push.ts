@@ -28,6 +28,24 @@ export function pushIsConfigured(): boolean {
   );
 }
 
+// Browser push services. A subscription endpoint is a URL the server POSTs
+// to, so it must never point anywhere else (SSRF via a forged endpoint).
+const PUSH_HOSTS = [
+  /^fcm\.googleapis\.com$/,
+  /^([a-z0-9-]+\.)*push\.services\.mozilla\.com$/,
+  /^([a-z0-9-]+\.)*notify\.windows\.com$/,
+  /^([a-z0-9-]+\.)*push\.apple\.com$/,
+];
+
+export function isPushServiceEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" && !url.port && PUSH_HOSTS.some((re) => re.test(url.hostname));
+  } catch {
+    return false;
+  }
+}
+
 export interface PushPayload {
   title: string;
   body: string;
@@ -66,6 +84,10 @@ export async function sendPushToUser(
   let failed = 0;
 
   for (const sub of subs) {
+    if (!isPushServiceEndpoint(sub.endpoint)) {
+      failed++;
+      continue;
+    }
     try {
       await webpush.sendNotification(
         {
