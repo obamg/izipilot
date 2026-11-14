@@ -1,13 +1,16 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { isPushServiceEndpoint } from "@/lib/push";
 
 const subscribeSchema = z.object({
-  endpoint: z.string().url().max(2048),
+  endpoint: z.string().url().max(2048).refine(isPushServiceEndpoint, "Service de notification inconnu"),
   keys: z.object({
     p256dh: z.string().min(1).max(512),
     auth: z.string().min(1).max(512),
   }),
+  // Sent by the service worker when the browser replaced the subscription.
+  oldEndpoint: z.string().url().max(2048).optional(),
 });
 
 const unsubscribeSchema = z.object({
@@ -34,7 +37,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const { endpoint, keys } = parsed.data;
+  const { endpoint, keys, oldEndpoint } = parsed.data;
+  if (oldEndpoint && oldEndpoint !== endpoint) {
+    await prisma.pushSubscription.deleteMany({
+      where: { endpoint: oldEndpoint, userId: session.user.id },
+    });
+  }
   const userAgent = request.headers.get("user-agent") ?? null;
 
   const sub = await prisma.pushSubscription.upsert({

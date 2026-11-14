@@ -54,6 +54,15 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
         // If we can't read the subscription state, don't nag.
         return;
       }
+      // Permission already granted but the browser lost its subscription
+      // (cleared site data, a browser that drops it — seen with Yandex):
+      // resubscribe silently instead of asking again for something already
+      // granted. Only fall back to the banner if that fails.
+      if (Notification.permission === "granted") {
+        if (await enable({ silent: true })) return;
+        if (!cancelled) setVisible(true);
+        return;
+      }
       const dismissedAt = Number(window.localStorage.getItem(DISMISS_KEY) ?? 0);
       if (dismissedAt && Date.now() - dismissedAt < DISMISS_TTL_MS) return;
       if (!cancelled) setVisible(true);
@@ -71,14 +80,14 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
     setVisible(false);
   }
 
-  async function enable() {
-    setBusy(true);
+  async function enable({ silent = false } = {}): Promise<boolean> {
+    if (!silent) setBusy(true);
     setError(null);
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
         dismiss(); // denied/undecided → back off for a week
-        return;
+        return false;
       }
       await navigator.serviceWorker.register("/sw.js");
       const reg = await navigator.serviceWorker.ready;
@@ -100,10 +109,12 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
         throw new Error(data?.error ?? "Erreur d'abonnement");
       }
       setVisible(false); // subscribed — no need to remember a dismissal
+      return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur");
+      if (!silent) setError(e instanceof Error ? e.message : "Erreur");
+      return false;
     } finally {
-      setBusy(false);
+      if (!silent) setBusy(false);
     }
   }
 
@@ -150,7 +161,7 @@ export function PushNudgeBanner({ vapidPublicKey }: Props) {
           </button>
           <button
             type="button"
-            onClick={enable}
+            onClick={() => enable()}
             disabled={busy}
             className="rounded-[7px] bg-red px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#c0392b] transition-colors disabled:opacity-50"
           >

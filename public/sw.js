@@ -124,3 +124,34 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+// The browser may replace (or expire) a subscription on its own. Without this
+// handler the server keeps the dead endpoint and the user silently stops
+// receiving anything. Resubscribe with the same VAPID key and tell the server,
+// which swaps the old row for the new one. Uses the session cookie; if the
+// session has expired the next visit's silent resubscribe covers it.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      const old = event.oldSubscription;
+      const sub =
+        event.newSubscription ||
+        (old &&
+          (await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: old.options.applicationServerKey,
+          })));
+      if (!sub) return;
+      const json = sub.toJSON();
+      await fetch("/api/account/push-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          keys: json.keys,
+          oldEndpoint: old ? old.endpoint : undefined,
+        }),
+      });
+    })(),
+  );
+});
