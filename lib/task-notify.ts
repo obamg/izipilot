@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
 import { shouldNotify } from "@/lib/notification-prefs";
 import { log } from "@/lib/log";
+import { sprintTaskVisibilityWhere } from "@/lib/visibility";
 
 const logger = log.child("task-notify");
 
@@ -24,6 +25,14 @@ export async function notifyTaskAssigned(input: {
   if (!assigneeId || assigneeId === actorId) return;
   try {
     if (!(await shouldNotify(assigneeId, "taskAssigned"))) return;
+    // Même règle que le tableau : pas de titre d'une tâche que la personne ne
+    // peut pas voir (tâches D7 assignées hors direction).
+    const assignee = await prisma.user.findUnique({ where: { id: assigneeId }, select: { role: true } });
+    if (!assignee) return;
+    const visible = await prisma.sprintTask.count({
+      where: { id: input.taskId, ...sprintTaskVisibilityWhere(assignee.role) },
+    });
+    if (!visible) return;
     const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
     const due = input.dueDate ? ` (échéance le ${dayFmt.format(input.dueDate)})` : "";
     const body = `${actor?.name ?? "Quelqu'un"} vous a assigné « ${input.title} »${due}.`;
