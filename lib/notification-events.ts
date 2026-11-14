@@ -8,7 +8,9 @@ export type NotificationEvent =
   | "escalation48h"
   | "entryMissing"
   | "dailyReportReminder"
-  | "supportRequest";
+  | "supportRequest"
+  | "taskAssigned"
+  | "taskDue";
 
 export const NOTIFICATION_EVENTS: ReadonlyArray<{
   key: NotificationEvent;
@@ -63,6 +65,19 @@ export const NOTIFICATION_EVENTS: ReadonlyArray<{
     label: "Demandes internes",
     description:
       "Nouvelle demande adressée à votre guichet, réponse ou changement de statut sur vos demandes, et relance des demandes en retard.",
+    default: true,
+  },
+  {
+    key: "taskAssigned",
+    label: "Tâche assignée",
+    description: "Quand quelqu'un vous assigne une tâche de sprint.",
+    default: true,
+  },
+  {
+    key: "taskDue",
+    label: "Échéances et retards",
+    description:
+      "Chaque jour ouvré à 9h, un seul résumé : vos tâches en retard, à rendre aujourd'hui ou au prochain jour ouvré. Si vous êtes responsable d'une équipe, ses tâches en retard.",
     default: true,
   },
 ];

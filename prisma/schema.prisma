@@ -146,6 +146,9 @@ enum NotificationType {
   SUPPORT_REQUEST_NEW // Nouvelle demande interne adressée au support
   SUPPORT_REQUEST_UPDATE // Changement de statut / réponse sur une demande
   SUPPORT_REQUEST_OVERDUE // Relance — demande dont l'échéance est dépassée
+  TASK_ASSIGNED // Tâche de sprint assignée à quelqu'un d'autre que son auteur
+  TASK_DUE_REMINDER // Rappel 9h — tâches en retard / à rendre aujourd'hui ou au prochain jour ouvré
+  TASK_OVERDUE_TEAM // Rappel 9h — tâches en retard de l'équipe, au responsable
 }
 
 enum SessionStatus {
@@ -895,6 +898,8 @@ model NotificationPreference {
   entryMissing        Boolean @default(false) // Auto — currently never emails
   dailyReportReminder Boolean @default(true) // Working-day standup reminder
   supportRequest      Boolean @default(true) // Demandes internes : nouvelle demande, suivi, relance
+  taskAssigned        Boolean @default(true) // Tâche de sprint qui vous est assignée
+  taskDue             Boolean @default(true) // Rappel 9h : échéances, retards (et retards de l'équipe pour un responsable)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
