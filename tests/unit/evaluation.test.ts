@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   deliveryScoreFromRatio,
   overallScore,
+  expectedStandupDays,
+  standupRatio,
   manualAverage,
   computeDelivery,
   monthRange,
@@ -33,7 +35,7 @@ describe("deliveryScoreFromRatio", () => {
 describe("overallScore", () => {
   const manual = { quality: 4, collaboration: 4, initiative: 4 }; // avg 4
 
-  it("blends 60% delivery + 40% manual", () => {
+  it("sans standup : livraison + manuels renormalisés (≈ 59/41)", () => {
     // 0.6*5 + 0.4*4 = 3 + 1.6 = 4.6
     expect(overallScore(5, manual)).toBe(4.6);
     // 0.6*2.5 + 0.4*4 = 1.5 + 1.6 = 3.1
@@ -180,5 +182,46 @@ describe("matchesEvaluationFilters", () => {
     expect(
       matchesEvaluationFilters(base, { department: "d1", status: "RATED", role: "CONTRIBUTOR" })
     ).toBe(false);
+  });
+});
+
+describe("point du jour dans la note", () => {
+  const manual = { quality: 4, collaboration: 4, initiative: 4 }; // avg 4
+  const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
+
+  it("pondère 50 % livraison + 15 % standup + 35 % manuels", () => {
+    // 0.5*5 + 0.15*2 + 0.35*4 = 4.2
+    expect(overallScore(5, manual, 2)).toBe(4.2);
+  });
+
+  it("sans livraison : standup 30 / manuels 70", () => {
+    // (0.15*2 + 0.35*4) / 0.5 = 3.4
+    expect(overallScore(null, manual, 2)).toBe(3.4);
+  });
+
+  it("compte les jours ouvrés couverts par un sprint, jusqu'au dernier jour", () => {
+    // Novembre 2026 : le 1er est un dimanche. Sprint du lundi 2 au vendredi 13.
+    const days = expectedStandupDays([{ start: d("2026-11-02"), end: d("2026-11-13") }], 2026, 11, d("2026-11-30"));
+    expect(days.size).toBe(10);
+    expect(days.has("2026-11-07")).toBe(false); // samedi
+    // Arrêt au mercredi 4
+    expect(expectedStandupDays([{ start: d("2026-11-02"), end: d("2026-11-13") }], 2026, 11, d("2026-11-04")).size).toBe(3);
+    // Sprint à cheval sur deux mois : seuls les jours du mois comptent ; chevauchement compté une fois.
+    const overlap = expectedStandupDays(
+      [
+        { start: d("2026-10-26"), end: d("2026-11-06") },
+        { start: d("2026-11-05"), end: d("2026-11-10") },
+      ],
+      2026, 11, d("2026-11-30")
+    );
+    expect(overlap.size).toBe(7); // 2,3,4,5,6 + 9,10
+  });
+
+  it("retire les absences justifiées du dénominateur", () => {
+    expect(standupRatio(17, 20, 0)).toBe(0.85);
+    expect(standupRatio(17, 20, 3)).toBe(1);
+    expect(standupRatio(18, 20, 3)).toBe(1); // plafonné
+    expect(standupRatio(0, 20, 20)).toBeNull();
+    expect(standupRatio(0, 0, 0)).toBeNull();
   });
 });

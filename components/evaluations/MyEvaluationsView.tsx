@@ -15,6 +15,7 @@ interface MonthData {
   label: string;
   overall: number | null;
   deliveryScore: number | null;
+  standupScore: number | null;
   quality: number | null;
   collaboration: number | null;
   initiative: number | null;
@@ -124,8 +125,9 @@ export function MyEvaluationsView({ months, trend }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
             <Metric label="Livraison (auto)" value={m.deliveryScore} />
+            <Metric label="Point du jour (auto)" value={m.standupScore} />
             <Metric label="Qualité" value={m.quality} />
             <Metric label="Collaboration" value={m.collaboration} />
             <Metric label="Initiative" value={m.initiative} />

@@ -1,17 +1,19 @@
 /**
  * Évaluations mensuelles — logique de notation (pure, sans accès DB pour rester
- * testable). Score hybride /5 :
- *   global = DELIVERY_WEIGHT · livraison(auto) + (1-DELIVERY_WEIGHT) · moyenne(manuels)
+ * testable). Score hybride /5, moyenne pondérée de trois composantes :
+ *   50 % livraison (auto) + 15 % point du jour (auto) + 35 % moyenne(manuels)
+ * Quand une composante auto manque, les poids restants sont renormalisés.
  * La livraison est dérivée du ratio « points livrés ÷ points engagés » sur les
- * sprints du mois (voir computeDelivery), converti en note /5 par une échelle
- * ancrée sur la philosophie OKR (70 % ≈ réussite).
+ * sprints du mois (voir computeDelivery) ; le point du jour du ratio « jours
+ * remplis ÷ jours attendus » (voir standupRatio). Les deux passent par la même
+ * échelle /5, ancrée sur la philosophie OKR (70 % ≈ réussite).
  */
 
 import type { ActionStatus, UserRole } from "@prisma/client";
 import { taskPoints } from "./sprint";
 
-// Poids de la composante livraison dans la note globale (le reste = manuels).
-export const DELIVERY_WEIGHT = 0.6;
+// Poids des composantes dans la note globale.
+export const WEIGHTS = { delivery: 0.5, standup: 0.15, manual: 0.35 } as const;
 
 // Critères manuels notés 1–5 par l'évaluateur.
 export const MANUAL_CRITERIA = [
@@ -51,13 +53,65 @@ export function manualAverage(m: ManualScores): number {
 }
 
 /**
- * Note globale /5. Sans donnée de livraison (deliveryScore null), on retombe
- * sur la moyenne des critères manuels.
+ * Note globale /5 : moyenne pondérée des composantes disponibles. Une
+ * composante auto absente (null) est ignorée et les poids restants sont
+ * renormalisés — sans aucune des deux, on retombe sur les critères manuels.
  */
-export function overallScore(deliveryScore: number | null, manual: ManualScores): number {
-  const avg = manualAverage(manual);
-  if (deliveryScore == null) return round1(avg);
-  return round1(DELIVERY_WEIGHT * deliveryScore + (1 - DELIVERY_WEIGHT) * avg);
+export function overallScore(
+  deliveryScore: number | null,
+  manual: ManualScores,
+  standupScore: number | null = null
+): number {
+  let sum = WEIGHTS.manual * manualAverage(manual);
+  let weight = WEIGHTS.manual;
+  if (deliveryScore != null) {
+    sum += WEIGHTS.delivery * deliveryScore;
+    weight += WEIGHTS.delivery;
+  }
+  if (standupScore != null) {
+    sum += WEIGHTS.standup * standupScore;
+    weight += WEIGHTS.standup;
+  }
+  return round1(sum / weight);
+}
+
+// ---------------------------------------------------------------------------
+// Point du jour (standup) : jours remplis ÷ jours attendus.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Jours (clés yyyy-mm-dd) où un standup était attendu : jours ouvrés du mois
+ * couverts par au moins un des sprints fournis, jusqu'à `lastDay` inclus.
+ * `ranges` et `lastDay` sont des dates calendaires à minuit UTC.
+ */
+export function expectedStandupDays(
+  ranges: { start: Date; end: Date }[],
+  year: number,
+  month1to12: number,
+  lastDay: Date
+): Set<string> {
+  const { start, end } = monthRange(year, month1to12);
+  const days = new Set<string>();
+  for (let t = start.getTime(); t < end.getTime() && t <= lastDay.getTime(); t += DAY_MS) {
+    const dow = new Date(t).getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    if (ranges.some((r) => r.start.getTime() <= t && t <= r.end.getTime())) {
+      days.add(new Date(t).toISOString().slice(0, 10));
+    }
+  }
+  return days;
+}
+
+/**
+ * Taux de remplissage : jours remplis ÷ (jours attendus − absences justifiées),
+ * plafonné à 1. `null` s'il ne reste aucun jour attendu.
+ */
+export function standupRatio(filed: number, expected: number, excusedDays: number): number | null {
+  const due = expected - excusedDays;
+  if (due <= 0) return null;
+  return Math.min(1, filed / due);
 }
 
 // ---------------------------------------------------------------------------

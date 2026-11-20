@@ -58,6 +58,8 @@ export default async function MyEvaluationsPage() {
       label: `${MONTH_LABELS_FR[m - 1]} ${y}`,
       overall: avgDefined(rs.map((r) => Number(r.overall))),
       deliveryScore: deliveryRow ? Number(deliveryRow.deliveryScore) : null,
+      // Peut différer d'un évaluateur à l'autre (absences justifiées) → moyenne.
+      standupScore: avgDefined(rs.map((r) => (r.standupScore != null ? Number(r.standupScore) : null))),
       quality: avgDefined(rs.map((r) => r.scoreQuality)),
       collaboration: avgDefined(rs.map((r) => r.scoreCollaboration)),
       initiative: avgDefined(rs.map((r) => r.scoreInitiative)),

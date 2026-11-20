@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@prisma/client";
-import { overallScore, matchesEvaluationFilters, MONTH_LABELS_FR } from "@/lib/evaluation";
+import {
+  overallScore,
+  deliveryScoreFromRatio,
+  standupRatio,
+  matchesEvaluationFilters,
+  MONTH_LABELS_FR,
+} from "@/lib/evaluation";
 import { EvaluationTrends, type TrendData } from "./EvaluationTrends";
 
 interface DeliveryVM {
@@ -20,6 +26,7 @@ interface EvaluationVM {
   scoreCollaboration: number;
   scoreInitiative: number;
   overall: number;
+  excusedDays: number;
   comment: string | null;
 }
 
@@ -30,6 +37,7 @@ export interface SubjectVM {
   departmentIds: string[];
   delivery: DeliveryVM | null;
   deliveryScore: number | null;
+  standup: { filed: number; expected: number };
   evaluation: EvaluationVM | null;
 }
 
@@ -258,12 +266,17 @@ function SubjectCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [excusedDays, setExcusedDays] = useState(ev?.excusedDays ?? 0);
+
   const d = subject.delivery;
-  const livePreview = overallScore(subject.deliveryScore, {
-    quality,
-    collaboration,
-    initiative,
-  });
+  const su = subject.standup;
+  // Même barème que la livraison ; recalculé en direct avec les absences saisies.
+  const standupScore = deliveryScoreFromRatio(standupRatio(su.filed, su.expected, excusedDays));
+  const livePreview = overallScore(
+    subject.deliveryScore,
+    { quality, collaboration, initiative },
+    standupScore
+  );
 
   async function save() {
     setSaving(true);
@@ -279,6 +292,7 @@ function SubjectCard({
           scoreQuality: quality,
           scoreCollaboration: collaboration,
           scoreInitiative: initiative,
+          excusedDays,
           comment: comment.trim() || null,
         }),
       });
@@ -326,6 +340,18 @@ function SubjectCard({
               <span className="text-izi-gray"> · {pct(d.ratio)} de l&apos;engagé</span>
             )}
           </div>
+          <div className="mt-0.5 text-[11px]">
+            Point du jour auto :{" "}
+            <span className="font-mono font-semibold text-teal">
+              {standupScore != null ? `${standupScore.toFixed(1)}/5` : "n/a"}
+            </span>
+            {su.expected > 0 && (
+              <span className="text-izi-gray">
+                {" "}
+                · {su.filed}/{Math.max(su.expected - excusedDays, 0)} jours remplis
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="shrink-0 text-right">
@@ -353,6 +379,34 @@ function SubjectCard({
             onChange={setInitiative}
           />
 
+          {su.expected > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <label
+                htmlFor={`excused-${subject.id}`}
+                className="text-[12px] text-dark"
+              >
+                Jours d&apos;absence justifiée
+                <span className="block text-[10px] text-izi-gray">
+                  Congés, maladie, fériés — retirés des {su.expected} jours attendus
+                </span>
+              </label>
+              <input
+                id={`excused-${subject.id}`}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={su.expected}
+                value={excusedDays}
+                onChange={(e) =>
+                  setExcusedDays(
+                    Math.min(su.expected, Math.max(0, Math.floor(Number(e.target.value) || 0)))
+                  )
+                }
+                className="w-16 rounded-[7px] border border-border-soft bg-white px-2 py-1.5 text-right font-mono text-[13px] text-dark focus:outline-none focus:border-teal"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-[11px] font-semibold text-izi-gray mb-1">
               Commentaire (optionnel)
@@ -375,7 +429,7 @@ function SubjectCard({
               </span>
               /5
               <span className="ml-1 text-izi-gray">
-                (60 % livraison + 40 % critères)
+                (50 % livraison + 15 % point du jour + 35 % critères)
               </span>
             </div>
             <div className="flex items-center gap-2">
