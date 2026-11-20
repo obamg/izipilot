@@ -9,6 +9,8 @@ export const evaluationInputSchema = z.object({
   scoreQuality: scoreField,
   scoreCollaboration: scoreField,
   scoreInitiative: scoreField,
+  // Jours d'absence justifiée ; borné aux jours attendus côté serveur.
+  excusedDays: z.number().int().min(0).max(31).default(0),
   comment: z.string().max(2000).nullish(),
 });
 

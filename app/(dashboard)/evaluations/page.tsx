@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { evaluableSubjectIds, monthDeliveryByUser } from "@/lib/evaluation-server";
+import {
+  evaluableSubjectIds,
+  monthDeliveryByUser,
+  monthStandupByUser,
+} from "@/lib/evaluation-server";
 import { deliveryScoreFromRatio, recentMonths, avgDefined } from "@/lib/evaluation";
 import { EvaluationsView } from "@/components/evaluations/EvaluationsView";
 
@@ -44,8 +48,9 @@ export default async function EvaluationsPage({
     : [];
 
   const userIds = users.map((u) => u.id);
-  const [deliveryMap, existing, depts, deptMembers] = await Promise.all([
+  const [deliveryMap, standupMap, existing, depts, deptMembers] = await Promise.all([
     monthDeliveryByUser(orgId, year, month, userIds),
+    monthStandupByUser(orgId, year, month, userIds, now),
     userIds.length
       ? prisma.evaluation.findMany({
           where: {
@@ -98,12 +103,14 @@ export default async function EvaluationsPage({
           }
         : null,
       deliveryScore: deliveryScoreFromRatio(stats?.ratio ?? null),
+      standup: standupMap.get(u.id) ?? { filed: 0, expected: 0 },
       evaluation: ev
         ? {
             scoreQuality: ev.scoreQuality,
             scoreCollaboration: ev.scoreCollaboration,
             scoreInitiative: ev.scoreInitiative,
             overall: Number(ev.overall),
+            excusedDays: ev.excusedDays,
             comment: ev.comment,
           }
         : null,
@@ -171,7 +178,7 @@ export default async function EvaluationsPage({
     <div>
       <PageHeader
         title="Évaluations"
-        subtitle="Notation mensuelle de vos collègues — /5, basée sur leur livraison"
+        subtitle="Notation mensuelle de vos collègues — /5, basée sur leur livraison et leur point du jour"
       />
       {!canEvaluateAnyone ? (
         <div className="rounded-[12px] border border-dashed border-border-soft p-10 text-center">

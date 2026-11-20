@@ -6,11 +6,12 @@ import {
   evaluableSubjectIds,
   canEvaluate,
   monthDeliveryByUser,
+  monthStandupByUser,
 } from "@/lib/evaluation-server";
-import { deliveryScoreFromRatio, overallScore } from "@/lib/evaluation";
+import { deliveryScoreFromRatio, overallScore, standupRatio } from "@/lib/evaluation";
 
 // POST — create or update this evaluator's monthly evaluation of a colleague.
-// The delivery component is (re)computed server-side and frozen into the row,
+// The delivery and standup components are (re)computed server-side and frozen into the row,
 // so the score can't be forged by the client.
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -51,36 +52,47 @@ export async function POST(request: NextRequest) {
   }
 
   // (Re)compute the delivery component from the month's sprint work.
-  const deliveryMap = await monthDeliveryByUser(orgId, d.periodYear, d.periodMonth, [
-    d.subjectId,
+  const [deliveryMap, standupMap] = await Promise.all([
+    monthDeliveryByUser(orgId, d.periodYear, d.periodMonth, [d.subjectId]),
+    monthStandupByUser(orgId, d.periodYear, d.periodMonth, [d.subjectId]),
   ]);
   const stats = deliveryMap.get(d.subjectId) ?? null;
   const deliveryScore = deliveryScoreFromRatio(stats?.ratio ?? null);
+  const standup = standupMap.get(d.subjectId) ?? { filed: 0, expected: 0 };
+  const excusedDays = Math.min(d.excusedDays, standup.expected);
+  // Même barème que la livraison.
+  const standupScore = deliveryScoreFromRatio(
+    standupRatio(standup.filed, standup.expected, excusedDays)
+  );
   const manual = {
     quality: d.scoreQuality,
     collaboration: d.scoreCollaboration,
     initiative: d.scoreInitiative,
   };
-  const overall = overallScore(deliveryScore, manual);
+  const overall = overallScore(deliveryScore, manual, standupScore);
 
   const data = {
     scoreQuality: d.scoreQuality,
     scoreCollaboration: d.scoreCollaboration,
     scoreInitiative: d.scoreInitiative,
     deliveryScore,
+    standupScore,
+    excusedDays,
     overall,
     comment: d.comment?.trim() ? d.comment.trim() : null,
-    statsSnapshot: stats
-      ? {
-          deliveredPoints: stats.deliveredPoints,
-          committedPoints: stats.committedPoints,
-          assignedPoints: stats.assignedPoints,
-          ratio: stats.ratio,
-          tasksDone: stats.tasksDone,
-          tasksTotal: stats.tasksTotal,
-          onTimeRate: stats.onTimeRate,
-        }
-      : undefined,
+    statsSnapshot: {
+      ...(stats && {
+        deliveredPoints: stats.deliveredPoints,
+        committedPoints: stats.committedPoints,
+        assignedPoints: stats.assignedPoints,
+        ratio: stats.ratio,
+        tasksDone: stats.tasksDone,
+        tasksTotal: stats.tasksTotal,
+        onTimeRate: stats.onTimeRate,
+      }),
+      standupFiled: standup.filed,
+      standupExpected: standup.expected,
+    },
   };
 
   const saved = await prisma.evaluation.upsert({
@@ -113,6 +125,8 @@ export async function POST(request: NextRequest) {
       scoreCollaboration: saved.scoreCollaboration,
       scoreInitiative: saved.scoreInitiative,
       deliveryScore: saved.deliveryScore != null ? Number(saved.deliveryScore) : null,
+      standupScore: saved.standupScore != null ? Number(saved.standupScore) : null,
+      excusedDays: saved.excusedDays,
       overall: Number(saved.overall),
       comment: saved.comment,
       updatedAt: saved.updatedAt.toISOString(),

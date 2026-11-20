@@ -1446,10 +1446,14 @@ model Evaluation {
 
   // Livraison auto (0–5) figée au moment de l'évaluation, puis global pondéré.
   deliveryScore Decimal? @db.Decimal(3, 1)
+  // Point du jour auto (0–5), figé comme la livraison. excusedDays = jours
+  // d'absence justifiée saisis par l'évaluateur, retirés des jours attendus.
+  standupScore  Decimal? @db.Decimal(3, 1)
+  excusedDays   Int      @default(0)
   overall       Decimal  @db.Decimal(3, 1)
 
   comment       String?
-  statsSnapshot Json? // { deliveredPoints, committedPoints, ratio, tasksDone, onTimeRate }
+  statsSnapshot Json? // { deliveredPoints, committedPoints, ratio, tasksDone, onTimeRate, standupFiled, standupExpected }
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
